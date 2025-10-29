@@ -1,0 +1,81 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  font-family: "Inter", "Segoe UI", sans-serif;
+  background: radial-gradient(ellipse at top left, #101820, #050505);
+  color: white;
+  overflow: hidden;
+}
+
+.container {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 2rem;
+}
+
+.glow {
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(0, 128, 255, 0.4), transparent 70%);
+  filter: blur(160px);
+  z-index: 0;
+  animation: pulse 8s infinite alternate ease-in-out;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1) translate(0, 0); opacity: 0.8; }
+  100% { transform: scale(1.2) translate(30px, -30px); opacity: 0.6; }
+}
+
+.main-text {
+  position: relative;
+  font-size: 4rem;
+  font-weight: 800;
+  text-shadow: 0 0 25px rgba(0, 150, 255, 0.6);
+  animation: fadeIn 2s ease-out;
+  z-index: 2;
+}
+
+.particle-canvas {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  margin-top: 2rem;
+  z-index: 2;
+  pointer-events: none; /* 不遮挡鼠标 */
+}
+
+@media (max-width: 768px) {
+  .main-text { font-size: 2.8rem; }
+  .particle-canvas { height: 180px; }
+  .glow {
+    width: 300px;
+    height: 300px;
+    filter: blur(100px);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(255,255,255,0.03), transparent 70%);
+  pointer-events: none;
+  z-index: 1;
+}
