@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import students, projects, events, recommender
+from app.routers import students, projects, events, ai_router
 from app.core.config import settings
 
 app = FastAPI(title="aatist Backend API", version="0.1.0")
@@ -25,4 +25,4 @@ def root():
 app.include_router(students.router, prefix="/students", tags=["Students"])
 app.include_router(projects.router, prefix="/projects", tags=["Projects"])
 app.include_router(events.router, prefix="/events", tags=["Events"])
-app.include_router(recommender.router, prefix="/recommender", tags=["Recommender"])
+app.include_router(ai_router.router, prefix="/ai", tags=["AI"])
