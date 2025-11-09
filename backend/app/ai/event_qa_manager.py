@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-from backend.app.ai.tools.event_scraper import fetch_aalto_events
+from app.ai.tools.event_scraper import fetch_aalto_events
 from langchain_community.vectorstores import FAISS
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
@@ -15,14 +15,14 @@ def build_event_index():
 
     embeddings = OpenAIEmbeddings()
     vectorstore = FAISS.from_texts(texts, embeddings, metadatas=metadatas)
-    vectorstore.save_local("backend/app/ai/vectorstore/faiss_index")
+    vectorstore.save_local("app/ai/vectorstore/faiss_index")
     print("✅ 向量索引已保存。")
 
 
 def get_event_qa_chain():
     """使用 Runnable 组合问答链"""
     vectorstore = FAISS.load_local(
-        "backend/app/ai/vectorstore/faiss_index",
+        "app/ai/vectorstore/faiss_index",
         OpenAIEmbeddings(),
         allow_dangerous_deserialization=True  # ✅ 关键参数
     )

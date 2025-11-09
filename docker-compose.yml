@@ -18,14 +18,32 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: aatist_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   backend:
     build: ./backend
     container_name: aatist_backend
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     env_file:
       - ./backend/.env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - RECOMMENDER_URL=http://recommender:8001
     ports:
       - "8000:8000"
     volumes:
@@ -35,16 +53,23 @@ services:
   event_logger:
     build: ./backend/app/go_services/event_logger
     container_name: aatist_event_logger
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - REDIS_URL=redis://redis:6379/0
     ports:
       - "8081:8081"
     volumes:
       - ./backend/app/go_services/event_logger:/app
     command: ./event_logger
 
-
   recommender:
     build: ./recommender
     container_name: aatist_recommender
+    depends_on:
+      db:
+        condition: service_healthy
     env_file:
       - ./recommender/.env
     ports:
@@ -56,6 +81,8 @@ services:
   frontend:
     build: ./frontend
     container_name: aatist_frontend
+    depends_on:
+      - backend
     env_file:
       - ./frontend/.env
     ports:
@@ -67,3 +94,4 @@ services:
 
 volumes:
   pgdata:
+  redisdata:
