@@ -32,6 +32,16 @@ services:
       - ./backend:/app
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
+  event_logger:
+    build: ./backend/app/go_services/event_logger
+    container_name: aatist_event_logger
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./backend/app/go_services/event_logger:/app
+    command: ./event_logger
+
+
   recommender:
     build: ./recommender
     container_name: aatist_recommender
