@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import "./styles/global.css";
-import { useUser } from "./store/userStore";
+import { useUser } from "./store/userStore.jsx";
 import LoginModal from "./components/LoginModal";
 
 export default function App() {
@@ -8,6 +9,8 @@ export default function App() {
   const canvasRef = useRef(null);
   const { user, logout, isAuthenticated } = useUser();
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [modalMode, setModalMode] = useState("login");
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // 标题轻微浮动
   useEffect(() => {
@@ -22,6 +25,22 @@ export default function App() {
     };
     tick();
   }, []);
+
+  useEffect(() => {
+    const modalParam = searchParams.get("modal");
+    if (!modalParam) {
+      return;
+    }
+
+    if (modalParam === "login" || modalParam === "register") {
+      setModalMode(modalParam);
+      setShowLoginModal(true);
+    }
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("modal");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -174,7 +193,7 @@ export default function App() {
               fontSize: "1rem",
               textShadow: "0 0 10px rgba(0, 150, 255, 0.6)"
             }}>
-              欢迎, {user?.name}!
+              Welcome, {user?.name}!
             </div>
             <button
               onClick={logout}
@@ -195,15 +214,19 @@ export default function App() {
                 e.target.style.background = "rgba(255, 255, 255, 0.1)";
               }}
             >
-              退出
+              Sign out
             </button>
           </>
         ) : (
+          <>
           <button
-            onClick={() => setShowLoginModal(true)}
+              onClick={() => {
+                setModalMode("register");
+                setShowLoginModal(true);
+              }}
             style={{
               padding: "0.75rem 1.5rem",
-              background: "linear-gradient(135deg, #007bff 0%, #0056b3 100%)",
+                background: "linear-gradient(135deg, #007bff 0%, #7f5dff 100%)",
               border: "none",
               borderRadius: "8px",
               color: "white",
@@ -222,8 +245,9 @@ export default function App() {
               e.target.style.boxShadow = "0 4px 12px rgba(0, 128, 255, 0.4)";
             }}
           >
-            登录
+              Join Aatist
           </button>
+          </>
         )}
       </div>
       
@@ -231,7 +255,10 @@ export default function App() {
       <canvas ref={canvasRef} className="particle-canvas" />
       
       {showLoginModal && (
-        <LoginModal onClose={() => setShowLoginModal(false)} />
+        <LoginModal
+          mode={modalMode}
+          onClose={() => setShowLoginModal(false)}
+        />
       )}
     </div>
   );

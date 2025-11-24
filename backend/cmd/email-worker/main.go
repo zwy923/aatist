@@ -36,7 +36,7 @@ func NewEmailService(apiKey, fromEmail, frontendURL string, logger *zap.Logger) 
 
 // SendVerificationEmail sends an email verification email
 func (e *EmailService) SendVerificationEmail(email, name, token string) error {
-	verificationLink := fmt.Sprintf("%s/verify-email?token=%s", e.frontendURL, token)
+	verificationLink := fmt.Sprintf("%s/verify?token=%s", e.frontendURL, token)
 
 	subject := "Verify your Aatist account"
 	content := fmt.Sprintf(`

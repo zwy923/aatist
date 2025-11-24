@@ -30,6 +30,9 @@ type User struct {
 	PasswordHash    string     `db:"password_hash" json:"-"`
 	Name            string     `db:"name" json:"name"`
 	Role            Role       `db:"role" json:"role"`
+	StudentID       *string    `db:"student_id" json:"student_id,omitempty"`
+	School          *string    `db:"school" json:"school,omitempty"`
+	Faculty         *string    `db:"faculty" json:"faculty,omitempty"`
 	IsVerifiedEmail bool       `db:"is_verified_email" json:"is_verified_email"`
 	OAuthProvider   *string    `db:"oauth_provider" json:"oauth_provider,omitempty"`
 	LastLoginAt     *time.Time `db:"last_login_at" json:"last_login_at,omitempty"`
@@ -46,4 +49,3 @@ func (u *User) IsLocked() bool {
 	}
 	return u.LockedUntil.After(time.Now())
 }
-

@@ -1,10 +1,20 @@
 package handler
 
 // RegisterRequest represents registration request
+type RegisterProfile struct {
+	StudentID        string `json:"studentId"`
+	School           string `json:"school"`
+	Faculty          string `json:"faculty"`
+	OrganizationName string `json:"organizationName"`
+	ContactTitle     string `json:"contactTitle"`
+}
+
 type RegisterRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=8"`
-	Name     string `json:"name" binding:"required,min=1,max=100"`
+	Email    string           `json:"email" binding:"required,email"`
+	Password string           `json:"password" binding:"required,min=10"`
+	Name     string           `json:"name" binding:"required,min=1,max=100"`
+	Role     string           `json:"role"`
+	Profile  *RegisterProfile `json:"profile"`
 }
 
 // LoginRequest represents login request
@@ -24,6 +34,9 @@ type UserResponse struct {
 	Email           string  `json:"email"`
 	Name            string  `json:"name"`
 	Role            string  `json:"role"`
+	StudentID       *string `json:"student_id,omitempty"`
+	School          *string `json:"school,omitempty"`
+	Faculty         *string `json:"faculty,omitempty"`
 	IsVerifiedEmail bool    `json:"is_verified_email"`
 	OAuthProvider   *string `json:"oauth_provider,omitempty"`
 	LastLoginAt     *string `json:"last_login_at,omitempty"`

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -125,6 +126,11 @@ func main() {
 	router.Use(middleware.RecoveryMiddleware(logger))
 	router.Use(middleware.RequestIDMiddleware())
 	router.Use(middleware.TrustGatewayMiddleware()) // Trust headers from Gateway
+	corsOrigins := strings.Split(os.Getenv("CORS_ORIGINS"), ",")
+	if len(corsOrigins) == 0 || corsOrigins[0] == "" {
+		corsOrigins = []string{"*"}
+	}
+	router.Use(middleware.CORSMiddleware(corsOrigins))
 
 	// Health check endpoint
 	router.GET("/health", func(c *gin.Context) {
@@ -141,6 +147,7 @@ func main() {
 			auth.POST("/refresh", authHandler.RefreshTokenHandler)
 			auth.POST("/logout", authHandler.LogoutHandler)
 			auth.POST("/verify-email", authHandler.VerifyEmailHandler)
+			auth.GET("/verify", authHandler.VerifyEmailGetHandler)
 		}
 	}
 

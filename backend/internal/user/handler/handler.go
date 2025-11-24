@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/aalto-talent-network/backend/internal/platform/log"
@@ -50,7 +51,36 @@ func (h *AuthHandler) RegisterHandler(c *gin.Context) {
 
 	ip := h.getClientIP(c)
 	ctx := c.Request.Context()
-	user, tokens, err := h.authService.Register(ctx, req.Email, req.Password, req.Name, ip)
+	role := h.normalizeRole(req.Role)
+
+	var studentIDPtr, schoolPtr, facultyPtr *string
+	if req.Profile != nil {
+		if v := strings.TrimSpace(req.Profile.StudentID); v != "" {
+			value := v
+			studentIDPtr = &value
+		}
+		if v := strings.TrimSpace(req.Profile.School); v != "" {
+			value := v
+			schoolPtr = &value
+		}
+		if v := strings.TrimSpace(req.Profile.Faculty); v != "" {
+			value := v
+			facultyPtr = &value
+		}
+	}
+
+	input := service.RegisterInput{
+		Email:     req.Email,
+		Password:  req.Password,
+		Name:      req.Name,
+		IP:        ip,
+		Role:      role,
+		StudentID: studentIDPtr,
+		School:    schoolPtr,
+		Faculty:   facultyPtr,
+	}
+
+	user, tokens, err := h.authService.Register(ctx, input)
 	if err != nil {
 		h.handleServiceError(c, err)
 		return
@@ -134,7 +164,7 @@ func (h *AuthHandler) LogoutHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, response.Success(gin.H{"message": "logged out successfully"}))
 }
 
-// VerifyEmailHandler handles email verification
+// VerifyEmailHandler handles email verification via POST
 func (h *AuthHandler) VerifyEmailHandler(c *gin.Context) {
 	var req struct {
 		Token string `json:"token" binding:"required"`
@@ -144,7 +174,22 @@ func (h *AuthHandler) VerifyEmailHandler(c *gin.Context) {
 		return
 	}
 
-	if err := h.authService.VerifyEmail(c.Request.Context(), req.Token); err != nil {
+	h.processEmailVerification(c, req.Token)
+}
+
+// VerifyEmailGetHandler handles email verification via GET (token in query)
+func (h *AuthHandler) VerifyEmailGetHandler(c *gin.Context) {
+	token := c.Query("token")
+	if token == "" {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "token is required")
+		return
+	}
+
+	h.processEmailVerification(c, token)
+}
+
+func (h *AuthHandler) processEmailVerification(c *gin.Context, token string) {
+	if err := h.authService.VerifyEmail(c.Request.Context(), token); err != nil {
 		h.handleServiceError(c, err)
 		return
 	}
@@ -160,6 +205,9 @@ func (h *AuthHandler) respondSuccess(c *gin.Context, statusCode int, user *model
 		Email:           user.Email,
 		Name:            user.Name,
 		Role:            user.Role.String(),
+		StudentID:       user.StudentID,
+		School:          user.School,
+		Faculty:         user.Faculty,
 		IsVerifiedEmail: user.IsVerifiedEmail,
 		OAuthProvider:   user.OAuthProvider,
 		CreatedAt:       user.CreatedAt.Format(time.RFC3339),
@@ -208,6 +256,17 @@ func (h *AuthHandler) handleServiceError(c *gin.Context, err error) {
 
 	appErr := errs.NewAppError(err, statusCode, message).WithCode(code)
 	c.JSON(statusCode, response.Error(appErr))
+}
+
+func (h *AuthHandler) normalizeRole(role string) model.Role {
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "company", "organization":
+		return model.RoleCompany
+	case "admin":
+		return model.RoleAdmin
+	default:
+		return model.RoleStudent
+	}
 }
 
 func (h *AuthHandler) getClientIP(c *gin.Context) string {

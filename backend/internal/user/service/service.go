@@ -13,9 +13,21 @@ type Tokens struct {
 }
 
 // AuthService defines the interface for authentication operations
+type RegisterInput struct {
+	Email     string
+	Password  string
+	Name      string
+	IP        string
+	Role      model.Role
+	StudentID *string
+	School    *string
+	Faculty   *string
+}
+
+// AuthService defines the interface for authentication operations
 type AuthService interface {
 	// Register registers a new user
-	Register(ctx context.Context, email, password, name, ip string) (*model.User, *Tokens, error)
+	Register(ctx context.Context, input RegisterInput) (*model.User, *Tokens, error)
 
 	// Login authenticates a user
 	Login(ctx context.Context, email, password, ip string) (*model.User, *Tokens, error)
@@ -29,4 +41,3 @@ type AuthService interface {
 	// VerifyEmail verifies a user's email using a verification token
 	VerifyEmail(ctx context.Context, token string) error
 }
-

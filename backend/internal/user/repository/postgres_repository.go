@@ -24,7 +24,7 @@ func NewPostgresRepository(db *sqlx.DB) UserRepository {
 // FindByEmail finds a user by email
 func (r *postgresRepository) FindByEmail(ctx context.Context, email string) (*model.User, error) {
 	var user model.User
-	query := `SELECT id, email, password_hash, name, role, is_verified_email, 
+	query := `SELECT id, email, password_hash, name, role, student_id, school, faculty, is_verified_email, 
 		oauth_provider, last_login_at, failed_attempts, locked_until, 
 		created_at, updated_at 
 		FROM users WHERE email = $1`
@@ -43,7 +43,7 @@ func (r *postgresRepository) FindByEmail(ctx context.Context, email string) (*mo
 // FindByID finds a user by ID
 func (r *postgresRepository) FindByID(ctx context.Context, id int64) (*model.User, error) {
 	var user model.User
-	query := `SELECT id, email, password_hash, name, role, is_verified_email, 
+	query := `SELECT id, email, password_hash, name, role, student_id, school, faculty, is_verified_email, 
 		oauth_provider, last_login_at, failed_attempts, locked_until, 
 		created_at, updated_at 
 		FROM users WHERE id = $1`
@@ -61,9 +61,9 @@ func (r *postgresRepository) FindByID(ctx context.Context, id int64) (*model.Use
 
 // CreateUser creates a new user
 func (r *postgresRepository) CreateUser(ctx context.Context, user *model.User) error {
-	query := `INSERT INTO users (email, password_hash, name, role, is_verified_email, 
+	query := `INSERT INTO users (email, password_hash, name, role, student_id, school, faculty, is_verified_email, 
 		oauth_provider, failed_attempts, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		RETURNING id`
 
 	now := time.Now()
@@ -75,6 +75,9 @@ func (r *postgresRepository) CreateUser(ctx context.Context, user *model.User) e
 		user.PasswordHash,
 		user.Name,
 		user.Role,
+		user.StudentID,
+		user.School,
+		user.Faculty,
 		user.IsVerifiedEmail,
 		user.OAuthProvider,
 		user.FailedAttempts,
@@ -142,4 +145,3 @@ func (r *postgresRepository) LockAccount(ctx context.Context, userID int64, unti
 
 	return nil
 }
-

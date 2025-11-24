@@ -5,7 +5,12 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255) NOT NULL,
     name VARCHAR(100) NOT NULL,
     role VARCHAR(20) NOT NULL DEFAULT 'student' CHECK (role IN ('student', 'company', 'admin')),
+    student_id VARCHAR(64),
+    school VARCHAR(255),
+    faculty VARCHAR(255),
     is_verified_email BOOLEAN NOT NULL DEFAULT FALSE,
+    email_verification_token TEXT,
+    email_verification_expires TIMESTAMP WITH TIME ZONE,
     oauth_provider VARCHAR(50),
     last_login_at TIMESTAMP WITH TIME ZONE,
     failed_attempts INTEGER NOT NULL DEFAULT 0,
@@ -19,6 +24,9 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
 -- Create index on role for role-based queries
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+CREATE INDEX IF NOT EXISTS idx_users_school ON users(school) WHERE school IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_users_email_verification_token
+    ON users(email_verification_token) WHERE email_verification_token IS NOT NULL;
 
 -- Create index on created_at for time-based queries
 CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);

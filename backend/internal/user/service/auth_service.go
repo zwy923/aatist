@@ -32,6 +32,16 @@ const (
 
 	// Refresh token key prefix
 	refreshTokenKeyPrefix = "refresh_token:"
+
+	// Password policy
+	passwordMinLength = 10
+)
+
+var (
+	lowercaseRegex   = regexp.MustCompile(`[a-z]`)
+	uppercaseRegex   = regexp.MustCompile(`[A-Z]`)
+	numberRegex      = regexp.MustCompile(`[0-9]`)
+	specialCharRegex = regexp.MustCompile(`[!@#$%^&*()_\-+=\[\]{}|\\:;"'<>,.?/~]`)
 )
 
 // authService implements AuthService
@@ -64,27 +74,27 @@ func NewAuthService(
 }
 
 // Register registers a new user
-func (s *authService) Register(ctx context.Context, email, password, name, ip string) (*model.User, *Tokens, error) {
+func (s *authService) Register(ctx context.Context, input RegisterInput) (*model.User, *Tokens, error) {
 	// Input validation
-	if err := s.validateEmail(email); err != nil {
+	if err := s.validateEmail(input.Email); err != nil {
 		return nil, nil, errs.NewAppError(err, 400, "invalid email format")
 	}
-	if err := s.validatePassword(password); err != nil {
+	if err := s.validatePassword(input.Password); err != nil {
 		return nil, nil, errs.NewAppError(err, 400, "password does not meet requirements")
 	}
-	if len(name) < 1 || len(name) > 100 {
+	if len(input.Name) < 1 || len(input.Name) > 100 {
 		return nil, nil, errs.NewAppError(errs.ErrInvalidInput, 400, "name must be between 1 and 100 characters")
 	}
 
 	// Rate limiting (using IP as fingerprint for now)
 	// IP should be passed from handler via context
-	if err := s.checkRateLimit(ctx, fmt.Sprintf(registerRateLimitKey, "ip", ip), registerRateLimit); err != nil {
-		s.logger.Warn("Registration rate limit exceeded", zap.String("ip", ip))
+	if err := s.checkRateLimit(ctx, fmt.Sprintf(registerRateLimitKey, "ip", input.IP), registerRateLimit); err != nil {
+		s.logger.Warn("Registration rate limit exceeded", zap.String("ip", input.IP))
 		return nil, nil, err
 	}
 
 	// Check if email already exists
-	existingUser, err := s.userRepo.FindByEmail(ctx, email)
+	existingUser, err := s.userRepo.FindByEmail(ctx, input.Email)
 	if err != nil && err != errs.ErrUserNotFound {
 		s.logger.Error("Failed to check email existence", zap.Error(err))
 		return nil, nil, fmt.Errorf("failed to check email: %w", err)
@@ -94,24 +104,30 @@ func (s *authService) Register(ctx context.Context, email, password, name, ip st
 	}
 
 	// Hash password
-	passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), 12)
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte(input.Password), 12)
 	if err != nil {
 		s.logger.Error("Failed to hash password", zap.Error(err))
 		return nil, nil, fmt.Errorf("failed to hash password: %w", err)
 	}
 
 	// Determine role (default to student)
-	role := model.RoleStudent
+	role := input.Role
+	if !role.IsValid() {
+		role = model.RoleStudent
+	}
 
 	// Auto-verify @aalto.fi emails
-	isVerified := strings.HasSuffix(strings.ToLower(email), "@aalto.fi")
+	isVerified := strings.HasSuffix(strings.ToLower(input.Email), "@aalto.fi")
 
 	// Create user
 	user := &model.User{
-		Email:           email,
+		Email:           input.Email,
 		PasswordHash:    string(passwordHash),
-		Name:            name,
+		Name:            input.Name,
 		Role:            role,
+		StudentID:       input.StudentID,
+		School:          input.School,
+		Faculty:         input.Faculty,
 		IsVerifiedEmail: isVerified,
 		FailedAttempts:  0,
 	}
@@ -152,7 +168,7 @@ func (s *authService) Register(ctx context.Context, email, password, name, ip st
 	s.logger.Info("User registered successfully",
 		zap.Int64("user_id", user.ID),
 		zap.String("email", user.Email),
-		zap.String("ip", ip),
+		zap.String("ip", input.IP),
 	)
 	metrics.RegisterSuccessTotal.Inc()
 
@@ -356,14 +372,17 @@ func (s *authService) validateEmail(email string) error {
 }
 
 func (s *authService) validatePassword(password string) error {
-	if len(password) < 8 {
-		return fmt.Errorf("password must be at least 8 characters")
+	if len(password) < passwordMinLength {
+		return fmt.Errorf("password must be at least %d characters", passwordMinLength)
 	}
-	hasLetter := regexp.MustCompile(`[a-zA-Z]`).MatchString(password)
-	hasNumber := regexp.MustCompile(`[0-9]`).MatchString(password)
-	if !hasLetter || !hasNumber {
-		return fmt.Errorf("password must contain at least one letter and one number")
+
+	if !lowercaseRegex.MatchString(password) ||
+		!uppercaseRegex.MatchString(password) ||
+		!numberRegex.MatchString(password) ||
+		!specialCharRegex.MatchString(password) {
+		return fmt.Errorf("password must include uppercase, lowercase, number, and symbol characters")
 	}
+
 	return nil
 }
 

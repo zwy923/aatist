@@ -23,14 +23,14 @@ services:
       timeout: 3s
       retries: 5
 
-  mq:
+  backend-mq:
     image: rabbitmq:3-management
     ports:
       - "5672:5672"
       - "15672:15672"
     healthcheck:
-      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
-      interval: 10s
+      test: ["CMD", "rabbitmq-diagnostics", "status"]
+      interval: 5s
       timeout: 5s
       retries: 5
 
@@ -52,11 +52,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      backend-mq:
+        condition: service_healthy
     environment:
       - CONFIG_PATH=/app/configs/config.yaml
       - REDIS_ADDR=redis:6379
       - POSTGRES_DSN=postgres://aatn:aatn@postgres:5432/aatn?sslmode=disable
-      - MQ_BROKER=amqp://guest:guest@mq:5672/
+      - MQ_BROKER=amqp://guest:guest@backend-mq:5672/
       - JWT_SECRET=CHANGE_ME_IN_PRODUCTION_USE_STRONG_SECRET
       - HTTP_PORT=8081
       - APP_ENV=dev
@@ -72,11 +74,11 @@ services:
       context: .
       dockerfile: deploy/docker/Dockerfile.email-worker
     depends_on:
-      mq:
+      backend-mq:
         condition: service_healthy
     environment:
       - CONFIG_PATH=/app/configs/config.yaml
-      - MQ_BROKER=amqp://guest:guest@mq:5672/
+      - MQ_BROKER=amqp://guest:guest@backend-mq:5672/
       - SENDGRID_API_KEY=${SENDGRID_API_KEY}
       - SENDGRID_FROM_EMAIL=${SENDGRID_FROM_EMAIL}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
@@ -93,7 +95,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      mq:
+      backend-mq:
         condition: service_healthy
       minio:
         condition: service_started

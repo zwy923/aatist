@@ -48,6 +48,18 @@
   line-height: 1.6;
 }
 
+.verify-status {
+  color: #f5f7ff;
+  font-size: 1.4rem;
+  margin-bottom: 1rem;
+}
+
+.verify-hint {
+  color: rgba(255, 255, 255, 0.75);
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+}
+
 .verify-button {
   padding: 0.875rem 2rem;
   background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
@@ -65,5 +77,28 @@
   background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 128, 255, 0.4);
+}
+
+.verify-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.verify-spinner {
+  width: 96px;
+  height: 96px;
+  margin: 0 auto 1.5rem;
+  border-radius: 50%;
+  border: 6px solid rgba(93, 224, 255, 0.2);
+  border-top-color: #5de0ff;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 

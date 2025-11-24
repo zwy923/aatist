@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:8000",
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:8081",
 });
 
 // 请求拦截器：自动添加token
@@ -38,12 +38,8 @@ export const authAPI = {
     return response.data;
   },
   
-  register: async (name, email, password) => {
-    const response = await api.post("/api/v1/auth/register", {
-      name,
-      email,
-      password,
-    });
+  register: async (payload) => {
+    const response = await api.post("/api/v1/auth/register", payload);
     return response.data;
   },
   
