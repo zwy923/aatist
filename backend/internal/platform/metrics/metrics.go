@@ -35,5 +35,16 @@ var (
 		Name: "register_success_total",
 		Help: "Total number of successful registrations",
 	})
-)
 
+	// AvatarUploadSuccessTotal counts successful avatar uploads
+	AvatarUploadSuccessTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "avatar_upload_success_total",
+		Help: "Total number of successful avatar uploads",
+	})
+
+	// AvatarUploadFailureTotal counts failed avatar uploads
+	AvatarUploadFailureTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "avatar_upload_failure_total",
+		Help: "Total number of failed avatar uploads",
+	})
+)

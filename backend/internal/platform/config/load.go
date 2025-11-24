@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -46,6 +47,24 @@ func Load(configPath string) (*Config, error) {
 	}
 	if broker := os.Getenv("MQ_BROKER"); broker != "" {
 		cfg.MQ.Broker = broker
+	}
+	if endpoint := os.Getenv("S3_ENDPOINT"); endpoint != "" {
+		cfg.S3.Endpoint = endpoint
+	}
+	if bucket := os.Getenv("S3_BUCKET"); bucket != "" {
+		cfg.S3.Bucket = bucket
+	}
+	if accessKey := os.Getenv("S3_ACCESS_KEY"); accessKey != "" {
+		cfg.S3.AccessKey = accessKey
+	}
+	if secretKey := os.Getenv("S3_SECRET_KEY"); secretKey != "" {
+		cfg.S3.SecretKey = secretKey
+	}
+	if publicURL := os.Getenv("S3_PUBLIC_URL"); publicURL != "" {
+		cfg.S3.PublicURL = publicURL
+	}
+	if useSSL := os.Getenv("S3_USE_SSL"); useSSL != "" {
+		cfg.S3.UseSSL = strings.EqualFold(useSSL, "true") || useSSL == "1"
 	}
 	if apiKey := os.Getenv("SENDGRID_API_KEY"); apiKey != "" {
 		cfg.Email.SendGridAPIKey = apiKey

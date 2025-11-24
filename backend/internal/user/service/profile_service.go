@@ -1,0 +1,366 @@
+package service
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"path/filepath"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/aalto-talent-network/backend/internal/platform/cache"
+	"github.com/aalto-talent-network/backend/internal/platform/log"
+	"github.com/aalto-talent-network/backend/internal/platform/metrics"
+	"github.com/aalto-talent-network/backend/internal/platform/storage"
+	"github.com/aalto-talent-network/backend/internal/user/model"
+	"github.com/aalto-talent-network/backend/internal/user/repository"
+	"github.com/aalto-talent-network/backend/pkg/errs"
+	"github.com/google/uuid"
+	"go.uber.org/zap"
+)
+
+// UpdateProfileInput represents profile fields that can be updated.
+type UpdateProfileInput struct {
+	Name         *string
+	Nickname     *string
+	AvatarURL    *string
+	StudentID    *string
+	School       *string
+	Faculty      *string
+	Major        *string
+	Availability *string
+	Bio          *string
+	Projects     *[]model.Project
+	Skills       *[]string
+}
+
+type ProfileService interface {
+	GetProfile(ctx context.Context, userID int64) (*model.User, error)
+	UpdateProfile(ctx context.Context, userID int64, input UpdateProfileInput) (*model.User, error)
+	UploadAvatar(ctx context.Context, userID int64, reader io.Reader, size int64, contentType, filename string) (*model.User, error)
+	EnsureProfileUpdateRateLimit(ctx context.Context, userID int64) error
+	EnsureAvatarUploadRateLimit(ctx context.Context, userID int64) error
+	FilterSkillsByPrefix(ctx context.Context, userID int64, prefix string) ([]string, error)
+}
+
+type profileService struct {
+	userRepo          repository.UserRepository
+	storage           storage.ObjectStorage
+	redis             *cache.Redis
+	logger            *log.Logger
+	avatarURLPrefix   string
+	profileRateLimit  rateLimitConfig
+	avatarUploadLimit rateLimitConfig
+}
+
+type rateLimitConfig struct {
+	KeyFormat string
+	Limit     int
+	Window    time.Duration
+}
+
+// NewProfileService creates a new profile service.
+func NewProfileService(
+	userRepo repository.UserRepository,
+	storage storage.ObjectStorage,
+	redis *cache.Redis,
+	logger *log.Logger,
+	avatarURLPrefix string,
+) ProfileService {
+	if avatarURLPrefix != "" {
+		avatarURLPrefix = strings.TrimRight(avatarURLPrefix, "/")
+	}
+	return &profileService{
+		userRepo:        userRepo,
+		storage:         storage,
+		redis:           redis,
+		logger:          logger,
+		avatarURLPrefix: avatarURLPrefix,
+		profileRateLimit: rateLimitConfig{
+			KeyFormat: "rate:profile_update:%d",
+			Limit:     5,
+			Window:    time.Minute,
+		},
+		avatarUploadLimit: rateLimitConfig{
+			KeyFormat: "rate:avatar:%d",
+			Limit:     3,
+			Window:    time.Minute,
+		},
+	}
+}
+
+func (s *profileService) GetProfile(ctx context.Context, userID int64) (*model.User, error) {
+	return s.userRepo.FindByID(ctx, userID)
+}
+
+func (s *profileService) UpdateProfile(ctx context.Context, userID int64, input UpdateProfileInput) (*model.User, error) {
+	if input.AvatarURL != nil {
+		return nil, errs.NewAppError(errors.New("avatar update forbidden"), http.StatusBadRequest, "avatar_url is not directly editable")
+	}
+
+	fields := make(map[string]interface{})
+
+	if input.Name != nil {
+		fields["name"] = valueOrNil(normalizeOptionalStringWithLimit(input.Name, 100))
+	}
+	if input.Nickname != nil {
+		fields["nickname"] = valueOrNil(normalizeOptionalStringWithLimit(input.Nickname, 100))
+	}
+	if input.StudentID != nil {
+		fields["student_id"] = valueOrNil(normalizeOptionalStringWithLimit(input.StudentID, 64))
+	}
+	if input.School != nil {
+		fields["school"] = valueOrNil(normalizeOptionalStringWithLimit(input.School, 255))
+	}
+	if input.Faculty != nil {
+		fields["faculty"] = valueOrNil(normalizeOptionalStringWithLimit(input.Faculty, 255))
+	}
+	if input.Major != nil {
+		fields["major"] = valueOrNil(normalizeMajor(input.Major))
+	}
+	if input.Availability != nil {
+		fields["availability"] = valueOrNil(normalizeOptionalStringWithLimit(input.Availability, 100))
+	}
+	if input.Bio != nil {
+		fields["bio"] = valueOrNil(normalizeOptionalStringWithLimit(input.Bio, maxBioLength))
+	}
+	if input.Projects != nil {
+		normalizedProjects := normalizeProjects(*input.Projects)
+		projects := model.Projects(normalizedProjects)
+		fields["projects"] = projects
+	}
+	if input.Skills != nil {
+		normalizedSkills := sanitizeSkills(*input.Skills)
+		skills := model.StringArray(normalizedSkills)
+		fields["skills"] = skills
+	}
+
+	if len(fields) == 0 {
+		return s.userRepo.FindByID(ctx, userID)
+	}
+
+	return s.userRepo.UpdateProfile(ctx, repository.ProfileUpdate{
+		UserID: userID,
+		Fields: fields,
+	})
+}
+
+func (s *profileService) UploadAvatar(ctx context.Context, userID int64, reader io.Reader, size int64, contentType, filename string) (*model.User, error) {
+	if s.storage == nil {
+		return nil, fmt.Errorf("object storage not configured")
+	}
+	if size <= 0 {
+		return nil, fmt.Errorf("invalid file size")
+	}
+
+	if _, err := s.userRepo.FindByID(ctx, userID); err != nil {
+		return nil, err
+	}
+
+	ext := strings.ToLower(strings.TrimSpace(filepath.Ext(filename)))
+	if ext == "" {
+		ext = guessExt(contentType)
+	}
+	if ext == "" {
+		ext = ".bin"
+	}
+
+	objectName := fmt.Sprintf("avatars/%d/%s%s", userID, uuid.New().String(), ext)
+	if err := s.storage.Upload(ctx, objectName, reader, size, contentType, map[string]string{
+		"uploaded_at": time.Now().UTC().Format(time.RFC3339),
+		"user_id":     fmt.Sprintf("%d", userID),
+	}); err != nil {
+		metrics.AvatarUploadFailureTotal.Inc()
+		if s.logger != nil {
+			s.logger.Error("avatar upload failed",
+				zap.Int64("user_id", userID),
+				zap.String("object", objectName),
+				zap.String("content_type", contentType),
+				zap.Int64("size", size),
+				zap.Error(err),
+			)
+		}
+		return nil, err
+	}
+
+	url := s.storage.BuildPublicURL(objectName)
+	if s.avatarURLPrefix != "" && !strings.HasPrefix(url, s.avatarURLPrefix) {
+		metrics.AvatarUploadFailureTotal.Inc()
+		return nil, fmt.Errorf("unexpected avatar url domain")
+	}
+
+	updatedUser, err := s.userRepo.UpdateAvatarURL(ctx, userID, url)
+	if err != nil {
+		metrics.AvatarUploadFailureTotal.Inc()
+		return nil, err
+	}
+
+	metrics.AvatarUploadSuccessTotal.Inc()
+	if s.logger != nil {
+		s.logger.Info("avatar uploaded",
+			zap.Int64("user_id", userID),
+			zap.String("object", objectName),
+			zap.String("content_type", contentType),
+			zap.Int64("size", size),
+		)
+	}
+
+	return updatedUser, nil
+}
+
+func (s *profileService) EnsureProfileUpdateRateLimit(ctx context.Context, userID int64) error {
+	return s.enforceRateLimit(ctx, s.profileRateLimit, userID)
+}
+
+func (s *profileService) EnsureAvatarUploadRateLimit(ctx context.Context, userID int64) error {
+	return s.enforceRateLimit(ctx, s.avatarUploadLimit, userID)
+}
+
+func (s *profileService) FilterSkillsByPrefix(ctx context.Context, userID int64, prefix string) ([]string, error) {
+	user, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if prefix == "" {
+		return user.Skills, nil
+	}
+
+	prefix = strings.ToLower(strings.TrimSpace(prefix))
+	var matches []string
+	for _, skill := range user.Skills {
+		if strings.HasPrefix(strings.ToLower(skill), prefix) {
+			matches = append(matches, skill)
+		}
+	}
+	sort.Strings(matches)
+	return matches, nil
+}
+
+func (s *profileService) enforceRateLimit(ctx context.Context, cfg rateLimitConfig, userID int64) error {
+	if s.redis == nil {
+		return nil
+	}
+	client := s.redis.GetClient()
+	key := fmt.Sprintf(cfg.KeyFormat, userID)
+
+	count, err := client.Incr(ctx, key).Result()
+	if err != nil {
+		if s.logger != nil {
+			s.logger.Warn("rate limit check failed", zap.Error(err))
+		}
+		return nil
+	}
+
+	if count == 1 {
+		client.Expire(ctx, key, cfg.Window)
+	}
+
+	if count > int64(cfg.Limit) {
+		return errs.NewAppError(errs.ErrRateLimitExceeded, http.StatusTooManyRequests, "too many requests, please try again later")
+	}
+
+	return nil
+}
+
+func sanitizeSkills(skills []string) []string {
+	seen := make(map[string]struct{})
+	var normalized []string
+	for _, skill := range skills {
+		trimmed := strings.ToLower(strings.TrimSpace(skill))
+		if trimmed == "" {
+			continue
+		}
+		if _, exists := seen[trimmed]; exists {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		normalized = append(normalized, trimmed)
+	}
+	sort.Strings(normalized)
+	return normalized
+}
+
+func valueOrNil(value *string) interface{} {
+	if value == nil {
+		return nil
+	}
+	return *value
+}
+
+func normalizeProjects(projects []model.Project) []model.Project {
+	nowYear := time.Now().Year() + 1
+	normalized := make([]model.Project, 0, len(projects))
+	for _, project := range projects {
+		title := strings.TrimSpace(project.Title)
+		description := strings.TrimSpace(project.Description)
+		if title == "" || description == "" {
+			continue
+		}
+
+		var year *int
+		if project.Year != nil && *project.Year >= 1900 && *project.Year <= nowYear {
+			y := *project.Year
+			year = &y
+		}
+
+		normalized = append(normalized, model.Project{
+			Title:       title,
+			ClientName:  normalizeString(project.ClientName),
+			Description: description,
+			Tags:        sanitizeSkills(project.Tags),
+			Year:        year,
+		})
+	}
+	return normalized
+}
+
+func normalizeMajor(value *string) *string {
+	trimmed := normalizeOptionalStringWithLimit(value, 255)
+	if trimmed == nil {
+		return nil
+	}
+	lower := strings.ToLower(*trimmed)
+	formatted := strings.Title(lower)
+	return &formatted
+}
+
+func normalizeString(value string) string {
+	return strings.TrimSpace(value)
+}
+
+func normalizeOptionalString(value *string) *string {
+	return normalizeOptionalStringWithLimit(value, 0)
+}
+
+const maxBioLength = 2000
+
+func normalizeOptionalStringWithLimit(value *string, maxLen int) *string {
+	if value == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*value)
+	if trimmed == "" {
+		return nil
+	}
+	if maxLen > 0 && len(trimmed) > maxLen {
+		trimmed = trimmed[:maxLen]
+	}
+	return &trimmed
+}
+
+func guessExt(contentType string) string {
+	switch contentType {
+	case "image/jpeg":
+		return ".jpg"
+	case "image/png":
+		return ".png"
+	case "image/webp":
+		return ".webp"
+	default:
+		return ""
+	}
+}

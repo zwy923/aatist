@@ -47,8 +47,12 @@ type EmailConfig struct {
 
 // S3Config holds S3 configuration
 type S3Config struct {
-	Endpoint string
-	Bucket   string
+	Endpoint  string
+	Bucket    string
+	AccessKey string `yaml:"access_key"`
+	SecretKey string `yaml:"secret_key"`
+	UseSSL    bool   `yaml:"use_ssl"`
+	PublicURL string `yaml:"public_url"`
 }
 
 // JWTConfig holds JWT configuration

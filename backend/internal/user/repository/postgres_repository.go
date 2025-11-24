@@ -4,12 +4,31 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/aalto-talent-network/backend/internal/user/model"
 	"github.com/aalto-talent-network/backend/pkg/errs"
 	"github.com/jmoiron/sqlx"
 )
+
+const userSelectColumns = `id, email, password_hash, name, nickname, avatar_url, role,
+	student_id, school, faculty, major, availability, projects, skills, bio,
+	is_verified_email, oauth_provider, last_login_at, failed_attempts, locked_until,
+	created_at, updated_at`
+
+var profileUpdatableColumns = []string{
+	"name",
+	"nickname",
+	"student_id",
+	"school",
+	"faculty",
+	"major",
+	"availability",
+	"projects",
+	"skills",
+	"bio",
+}
 
 // postgresRepository implements UserRepository using PostgreSQL
 type postgresRepository struct {
@@ -24,10 +43,7 @@ func NewPostgresRepository(db *sqlx.DB) UserRepository {
 // FindByEmail finds a user by email
 func (r *postgresRepository) FindByEmail(ctx context.Context, email string) (*model.User, error) {
 	var user model.User
-	query := `SELECT id, email, password_hash, name, role, student_id, school, faculty, is_verified_email, 
-		oauth_provider, last_login_at, failed_attempts, locked_until, 
-		created_at, updated_at 
-		FROM users WHERE email = $1`
+	query := fmt.Sprintf("SELECT %s FROM users WHERE email = $1", userSelectColumns)
 
 	err := r.db.GetContext(ctx, &user, query, email)
 	if err != nil {
@@ -43,10 +59,7 @@ func (r *postgresRepository) FindByEmail(ctx context.Context, email string) (*mo
 // FindByID finds a user by ID
 func (r *postgresRepository) FindByID(ctx context.Context, id int64) (*model.User, error) {
 	var user model.User
-	query := `SELECT id, email, password_hash, name, role, student_id, school, faculty, is_verified_email, 
-		oauth_provider, last_login_at, failed_attempts, locked_until, 
-		created_at, updated_at 
-		FROM users WHERE id = $1`
+	query := fmt.Sprintf("SELECT %s FROM users WHERE id = $1", userSelectColumns)
 
 	err := r.db.GetContext(ctx, &user, query, id)
 	if err != nil {
@@ -144,4 +157,56 @@ func (r *postgresRepository) LockAccount(ctx context.Context, userID int64, unti
 	}
 
 	return nil
+}
+func (r *postgresRepository) UpdateProfile(ctx context.Context, update ProfileUpdate) (*model.User, error) {
+	if len(update.Fields) == 0 {
+		return r.FindByID(ctx, update.UserID)
+	}
+
+	setClauses := make([]string, 0, len(update.Fields)+1)
+	args := make([]interface{}, 0, len(update.Fields)+2)
+	argIdx := 1
+
+	for _, column := range profileUpdatableColumns {
+		value, ok := update.Fields[column]
+		if !ok {
+			continue
+		}
+		setClauses = append(setClauses, fmt.Sprintf("%s = $%d", column, argIdx))
+		args = append(args, value)
+		argIdx++
+	}
+
+	if len(setClauses) == 0 {
+		return r.FindByID(ctx, update.UserID)
+	}
+
+	setClauses = append(setClauses, fmt.Sprintf("updated_at = $%d", argIdx))
+	args = append(args, time.Now())
+	argIdx++
+	args = append(args, update.UserID)
+
+	query := fmt.Sprintf(`UPDATE users SET %s WHERE id = $%d RETURNING %s`,
+		strings.Join(setClauses, ", "),
+		argIdx,
+		userSelectColumns,
+	)
+
+	var updated model.User
+	if err := r.db.QueryRowxContext(ctx, query, args...).StructScan(&updated); err != nil {
+		return nil, fmt.Errorf("failed to update user profile: %w", err)
+	}
+
+	return &updated, nil
+}
+
+func (r *postgresRepository) UpdateAvatarURL(ctx context.Context, userID int64, avatarURL string) (*model.User, error) {
+	query := fmt.Sprintf(`UPDATE users SET avatar_url = $1, updated_at = $2 WHERE id = $3 RETURNING %s`, userSelectColumns)
+
+	var updated model.User
+	if err := r.db.QueryRowxContext(ctx, query, avatarURL, time.Now(), userID).StructScan(&updated); err != nil {
+		return nil, fmt.Errorf("failed to update avatar url: %w", err)
+	}
+
+	return &updated, nil
 }

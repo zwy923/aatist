@@ -8,12 +8,23 @@ import (
 )
 
 // UserRepository defines the interface for user data operations
+type ProfileUpdate struct {
+	UserID int64
+	Fields map[string]interface{}
+}
+
 type UserRepository interface {
 	// FindByEmail finds a user by email
 	FindByEmail(ctx context.Context, email string) (*model.User, error)
 
 	// FindByID finds a user by ID
 	FindByID(ctx context.Context, id int64) (*model.User, error)
+
+	// UpdateProfile updates profile-related fields
+	UpdateProfile(ctx context.Context, update ProfileUpdate) (*model.User, error)
+
+	// UpdateAvatarURL updates the avatar URL independently
+	UpdateAvatarURL(ctx context.Context, userID int64, avatarURL string) (*model.User, error)
 
 	// CreateUser creates a new user
 	CreateUser(ctx context.Context, user *model.User) error
@@ -30,4 +41,3 @@ type UserRepository interface {
 	// LockAccount locks an account until the specified time
 	LockAccount(ctx context.Context, userID int64, until *time.Time) error
 }
-

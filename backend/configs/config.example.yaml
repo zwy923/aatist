@@ -14,8 +14,12 @@ mq:
   broker: "amqp://guest:guest@mq:5672/"
 
 s3:
-  endpoint: "http://localhost:9000"
+  endpoint: "localhost:9000"
   bucket: "aatn-assets"
+  access_key: "minioadmin"
+  secret_key: "minioadmin"
+  use_ssl: false
+  public_url: "http://localhost:9000"
 
 jwt:
   secret: "CHANGE_ME_IN_PRODUCTION_USE_STRONG_SECRET"

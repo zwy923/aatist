@@ -17,6 +17,7 @@ import (
 	"github.com/aalto-talent-network/backend/internal/platform/log"
 	"github.com/aalto-talent-network/backend/internal/platform/middleware"
 	"github.com/aalto-talent-network/backend/internal/platform/mq"
+	"github.com/aalto-talent-network/backend/internal/platform/storage"
 	"github.com/aalto-talent-network/backend/internal/user/handler"
 	"github.com/aalto-talent-network/backend/internal/user/repository"
 	"github.com/aalto-talent-network/backend/internal/user/service"
@@ -79,6 +80,19 @@ func main() {
 
 	logger.Info("Connected to Redis")
 
+	// Initialize S3/MinIO storage
+	s3Client, err := storage.NewS3(storage.S3Config{
+		Endpoint:  cfg.S3.Endpoint,
+		AccessKey: cfg.S3.AccessKey,
+		SecretKey: cfg.S3.SecretKey,
+		UseSSL:    cfg.S3.UseSSL,
+		Bucket:    cfg.S3.Bucket,
+		PublicURL: cfg.S3.PublicURL,
+	})
+	if err != nil {
+		logger.Fatal("Failed to initialize S3 storage", zap.Error(err))
+	}
+
 	// Initialize JWT
 	jwt := auth.NewJWT(cfg.JWT.Secret, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL)
 
@@ -103,6 +117,11 @@ func main() {
 
 	// Initialize service
 	authService := service.NewAuthService(userRepo, jwt, redis, logger, emailVerifSvc)
+	avatarURLPrefix := cfg.S3.PublicURL
+	if avatarURLPrefix == "" {
+		avatarURLPrefix = s3Client.BaseURL()
+	}
+	profileService := service.NewProfileService(userRepo, s3Client, redis, logger, avatarURLPrefix)
 
 	// Prepare MQ publisher (may be nil)
 	var emailPublisher interface {
@@ -113,7 +132,7 @@ func main() {
 	}
 
 	// Initialize handler
-	authHandler := handler.NewAuthHandler(authService, emailVerifSvc, emailPublisher, logger)
+	authHandler := handler.NewAuthHandler(authService, profileService, emailVerifSvc, emailPublisher, logger)
 
 	// Setup Gin router
 	if cfg.App.Env == "production" || cfg.App.Env == "prod" {
@@ -148,6 +167,14 @@ func main() {
 			auth.POST("/logout", authHandler.LogoutHandler)
 			auth.POST("/verify-email", authHandler.VerifyEmailHandler)
 			auth.GET("/verify", authHandler.VerifyEmailGetHandler)
+		}
+
+		users := api.Group("/users")
+		users.Use(middleware.AuthMiddleware(jwt))
+		{
+			users.GET("/me", authHandler.GetCurrentUserHandler)
+			users.PATCH("/me", authHandler.UpdateCurrentUserHandler)
+			users.POST("/me/avatar", authHandler.UploadAvatarHandler)
 		}
 	}
 
