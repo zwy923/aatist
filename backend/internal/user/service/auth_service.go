@@ -121,15 +121,16 @@ func (s *authService) Register(ctx context.Context, input RegisterInput) (*model
 
 	// Create user
 	user := &model.User{
-		Email:           input.Email,
-		PasswordHash:    string(passwordHash),
-		Name:            input.Name,
-		Role:            role,
-		StudentID:       input.StudentID,
-		School:          input.School,
-		Faculty:         input.Faculty,
-		IsVerifiedEmail: isVerified,
-		FailedAttempts:  0,
+		Email:             input.Email,
+		PasswordHash:      string(passwordHash),
+		Name:              input.Name,
+		Role:              role,
+		StudentID:         input.StudentID,
+		School:            input.School,
+		Faculty:           input.Faculty,
+		ProfileVisibility: model.VisibilityPublic, // Default to public
+		IsVerifiedEmail:   isVerified,
+		FailedAttempts:    0,
 	}
 
 	if err := s.userRepo.CreateUser(ctx, user); err != nil {

@@ -41,3 +41,63 @@ type UserRepository interface {
 	// LockAccount locks an account until the specified time
 	LockAccount(ctx context.Context, userID int64, until *time.Time) error
 }
+
+// ProjectRepository defines the interface for portfolio project operations
+type ProjectRepository interface {
+	// FindByUserID finds all projects for a user
+	FindByUserID(ctx context.Context, userID int64) ([]*model.PortfolioProject, error)
+
+	// FindByID finds a project by ID
+	FindByID(ctx context.Context, id int64) (*model.PortfolioProject, error)
+
+	// Create creates a new project
+	Create(ctx context.Context, project *model.PortfolioProject) error
+
+	// Update updates an existing project
+	Update(ctx context.Context, project *model.PortfolioProject) error
+
+	// Delete deletes a project
+	Delete(ctx context.Context, id int64, userID int64) error
+}
+
+// SavedItemRepository defines the interface for saved items operations
+type SavedItemRepository interface {
+	// FindByUserID finds all saved items for a user
+	FindByUserID(ctx context.Context, userID int64) ([]*model.SavedItem, error)
+
+	// FindByUserIDAndType finds saved items by user and type
+	FindByUserIDAndType(ctx context.Context, userID int64, itemType model.SavedItemType) ([]*model.SavedItem, error)
+
+	// Create creates a new saved item
+	Create(ctx context.Context, item *model.SavedItem) error
+
+	// Delete deletes a saved item
+	Delete(ctx context.Context, userID int64, itemID int64, itemType model.SavedItemType) error
+
+	// Exists checks if a saved item exists
+	Exists(ctx context.Context, userID int64, itemID int64, itemType model.SavedItemType) (bool, error)
+}
+
+// NotificationRepository defines the interface for notification operations
+type NotificationRepository interface {
+	// Create creates a new notification
+	Create(ctx context.Context, notification *model.Notification) error
+
+	// FindByUserID finds all notifications for a user
+	FindByUserID(ctx context.Context, userID int64, limit, offset int) ([]*model.Notification, error)
+
+	// FindUnreadByUserID finds unread notifications for a user
+	FindUnreadByUserID(ctx context.Context, userID int64, limit, offset int) ([]*model.Notification, error)
+
+	// MarkAsRead marks a notification as read
+	MarkAsRead(ctx context.Context, notificationID int64, userID int64) error
+
+	// MarkAllAsRead marks all notifications as read for a user
+	MarkAllAsRead(ctx context.Context, userID int64) error
+
+	// CountUnread counts unread notifications for a user
+	CountUnread(ctx context.Context, userID int64) (int64, error)
+
+	// Delete deletes a notification
+	Delete(ctx context.Context, notificationID int64, userID int64) error
+}

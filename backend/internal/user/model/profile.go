@@ -53,7 +53,96 @@ func (p *Projects) Scan(value interface{}) error {
 	return nil
 }
 
-// StringArray is a JSONB-backed string slice.
+// Skill represents a skill with proficiency level.
+type Skill struct {
+	Name  string `json:"name"`
+	Level string `json:"level"` // Expert / Advanced / Intermediate
+}
+
+// Skills is a JSONB-backed slice of Skill.
+type Skills []Skill
+
+func (s Skills) Value() (driver.Value, error) {
+	if len(s) == 0 {
+		return []byte("[]"), nil
+	}
+	b, err := json.Marshal(s)
+	if err != nil {
+		return nil, err
+	}
+	return string(b), nil
+}
+
+func (s *Skills) Scan(value interface{}) error {
+	if value == nil {
+		*s = nil
+		return nil
+	}
+
+	bytes, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("invalid type for Skills: %T", value)
+	}
+
+	if len(bytes) == 0 {
+		*s = nil
+		return nil
+	}
+
+	var temp []Skill
+	if err := json.Unmarshal(bytes, &temp); err != nil {
+		return err
+	}
+	*s = temp
+	return nil
+}
+
+// WeeklyAvailability represents availability for a specific week.
+type WeeklyAvailability struct {
+	Week   int    `json:"week"`
+	Year   int    `json:"year"`
+	Status string `json:"status"` // open / busy / limited
+}
+
+// WeeklyAvailabilityArray is a JSONB-backed slice of WeeklyAvailability.
+type WeeklyAvailabilityArray []WeeklyAvailability
+
+func (wa WeeklyAvailabilityArray) Value() (driver.Value, error) {
+	if len(wa) == 0 {
+		return []byte("[]"), nil
+	}
+	b, err := json.Marshal(wa)
+	if err != nil {
+		return nil, err
+	}
+	return string(b), nil
+}
+
+func (wa *WeeklyAvailabilityArray) Scan(value interface{}) error {
+	if value == nil {
+		*wa = nil
+		return nil
+	}
+
+	bytes, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("invalid type for WeeklyAvailabilityArray: %T", value)
+	}
+
+	if len(bytes) == 0 {
+		*wa = nil
+		return nil
+	}
+
+	var temp []WeeklyAvailability
+	if err := json.Unmarshal(bytes, &temp); err != nil {
+		return err
+	}
+	*wa = temp
+	return nil
+}
+
+// StringArray is a JSONB-backed string slice (kept for backward compatibility).
 type StringArray []string
 
 func (sa StringArray) Value() (driver.Value, error) {

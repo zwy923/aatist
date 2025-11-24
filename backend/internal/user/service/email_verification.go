@@ -124,4 +124,3 @@ func (s *EmailVerificationService) MarkEmailAsVerified(ctx context.Context, user
 
 	return nil
 }
-

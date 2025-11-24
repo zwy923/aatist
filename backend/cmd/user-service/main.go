@@ -96,8 +96,11 @@ func main() {
 	// Initialize JWT
 	jwt := auth.NewJWT(cfg.JWT.Secret, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL)
 
-	// Initialize repository
+	// Initialize repositories
 	userRepo := repository.NewPostgresRepository(postgres.GetDB())
+	projectRepo := repository.NewPostgresProjectRepository(postgres.GetDB())
+	savedItemRepo := repository.NewPostgresSavedItemRepository(postgres.GetDB())
+	notificationRepo := repository.NewPostgresNotificationRepository(postgres.GetDB())
 
 	// Initialize MQ (optional - only if broker is configured)
 	var rabbitMQ *mq.RabbitMQ
@@ -122,6 +125,9 @@ func main() {
 		avatarURLPrefix = s3Client.BaseURL()
 	}
 	profileService := service.NewProfileService(userRepo, s3Client, redis, logger, avatarURLPrefix)
+	projectService := service.NewProjectService(projectRepo)
+	savedItemService := service.NewSavedItemService(savedItemRepo)
+	notificationService := service.NewNotificationService(notificationRepo)
 
 	// Prepare MQ publisher (may be nil)
 	var emailPublisher interface {
@@ -132,7 +138,7 @@ func main() {
 	}
 
 	// Initialize handler
-	authHandler := handler.NewAuthHandler(authService, profileService, emailVerifSvc, emailPublisher, logger)
+	authHandler := handler.NewAuthHandler(authService, profileService, projectService, savedItemService, notificationService, emailVerifSvc, emailPublisher, logger)
 
 	// Setup Gin router
 	if cfg.App.Env == "production" || cfg.App.Env == "prod" {
@@ -169,12 +175,48 @@ func main() {
 			auth.GET("/verify", authHandler.VerifyEmailGetHandler)
 		}
 
+		// Public user routes
 		users := api.Group("/users")
-		users.Use(middleware.AuthMiddleware(jwt))
 		{
-			users.GET("/me", authHandler.GetCurrentUserHandler)
-			users.PATCH("/me", authHandler.UpdateCurrentUserHandler)
-			users.POST("/me/avatar", authHandler.UploadAvatarHandler)
+			users.GET("/:id", authHandler.GetUserByIDHandler)
+			users.GET("/:id/portfolio", authHandler.GetPortfolioHandler)
+		}
+
+		// Public portfolio route
+		portfolio := api.Group("/portfolio")
+		{
+			portfolio.GET("/:id", authHandler.GetProjectDetailHandler)
+		}
+
+		// Protected user routes
+		protectedUsers := api.Group("/users")
+		protectedUsers.Use(middleware.AuthMiddleware(jwt))
+		{
+			protectedUsers.GET("/me", authHandler.GetCurrentUserHandler)
+			protectedUsers.PATCH("/me", authHandler.UpdateCurrentUserHandler)
+			protectedUsers.POST("/me/avatar", authHandler.UploadAvatarHandler)
+
+			// Availability
+			protectedUsers.GET("/me/availability", authHandler.GetAvailabilityHandler)
+			protectedUsers.PATCH("/me/availability", authHandler.UpdateAvailabilityHandler)
+
+			// Portfolio (my projects)
+			protectedUsers.GET("/me/portfolio", authHandler.GetMyPortfolioHandler)
+			protectedUsers.POST("/me/portfolio", authHandler.CreateProjectHandler)
+			protectedUsers.PUT("/me/portfolio/:id", authHandler.UpdateProjectHandler)
+			protectedUsers.DELETE("/me/portfolio/:id", authHandler.DeleteProjectHandler)
+
+			// Saved items
+			protectedUsers.GET("/me/saved", authHandler.GetSavedItemsHandler)
+			protectedUsers.POST("/me/saved", authHandler.SaveItemHandler)
+			protectedUsers.DELETE("/me/saved", authHandler.UnsaveItemHandler)
+
+			// Notifications
+			protectedUsers.GET("/me/notifications", authHandler.GetNotificationsHandler)
+			protectedUsers.GET("/me/notifications/unread-count", authHandler.GetUnreadCountHandler)
+			protectedUsers.PUT("/me/notifications/:id/read", authHandler.MarkNotificationAsReadHandler)
+			protectedUsers.PUT("/me/notifications/read-all", authHandler.MarkAllNotificationsAsReadHandler)
+			protectedUsers.DELETE("/me/notifications/:id", authHandler.DeleteNotificationHandler)
 		}
 	}
 

@@ -96,6 +96,11 @@ func main() {
 		{
 			// Proxy to user-service for auth endpoints
 			public.Any("/auth/*path", proxyToService("user-service", 8081, logger))
+			// Public portfolio route (for viewing project details)
+			public.Any("/portfolio/*path", proxyToService("user-service", 8081, logger))
+			// Public user profile routes
+			public.Any("/users/:id", proxyToService("user-service", 8081, logger))
+			public.Any("/users/:id/portfolio", proxyToService("user-service", 8081, logger))
 		}
 
 		// Protected routes (require auth)
@@ -104,7 +109,8 @@ func main() {
 		{
 			// Proxy to various services
 			protected.Any("/users/*path", proxyToService("user-service", 8081, logger))
-			protected.Any("/portfolio/*path", proxyToService("portfolio-service", 8082, logger))
+			// Portfolio routes are handled by user-service
+			protected.Any("/portfolio/*path", proxyToService("user-service", 8081, logger))
 			protected.Any("/opportunities/*path", proxyToService("opp-service", 8083, logger))
 			protected.Any("/community/*path", proxyToService("community-service", 8084, logger))
 		}

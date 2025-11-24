@@ -13,8 +13,9 @@ import (
 )
 
 const userSelectColumns = `id, email, password_hash, name, nickname, avatar_url, role,
-	student_id, school, faculty, major, availability, projects, skills, bio,
-	is_verified_email, oauth_provider, last_login_at, failed_attempts, locked_until,
+	student_id, school, faculty, major, weekly_hours, emotional_status, weekly_availability,
+	skills, bio, profile_visibility,
+	is_verified_email, oauth_provider, oauth_subject, last_login_at, failed_attempts, locked_until,
 	created_at, updated_at`
 
 var profileUpdatableColumns = []string{
@@ -24,10 +25,12 @@ var profileUpdatableColumns = []string{
 	"school",
 	"faculty",
 	"major",
-	"availability",
-	"projects",
+	"weekly_hours",
+	"emotional_status",
+	"weekly_availability",
 	"skills",
 	"bio",
+	"profile_visibility",
 }
 
 // postgresRepository implements UserRepository using PostgreSQL
@@ -74,9 +77,9 @@ func (r *postgresRepository) FindByID(ctx context.Context, id int64) (*model.Use
 
 // CreateUser creates a new user
 func (r *postgresRepository) CreateUser(ctx context.Context, user *model.User) error {
-	query := `INSERT INTO users (email, password_hash, name, role, student_id, school, faculty, is_verified_email, 
-		oauth_provider, failed_attempts, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+	query := `INSERT INTO users (email, password_hash, name, role, student_id, school, faculty, profile_visibility, 
+		is_verified_email, oauth_provider, oauth_subject, failed_attempts, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		RETURNING id`
 
 	now := time.Now()
@@ -91,8 +94,10 @@ func (r *postgresRepository) CreateUser(ctx context.Context, user *model.User) e
 		user.StudentID,
 		user.School,
 		user.Faculty,
+		user.ProfileVisibility.String(), // Convert to string for DB
 		user.IsVerifiedEmail,
 		user.OAuthProvider,
+		user.OAuthSubject,
 		user.FailedAttempts,
 		user.CreatedAt,
 		user.UpdatedAt,
@@ -209,4 +214,332 @@ func (r *postgresRepository) UpdateAvatarURL(ctx context.Context, userID int64, 
 	}
 
 	return &updated, nil
+}
+
+// ProjectRepository implementation
+
+type postgresProjectRepository struct {
+	db *sqlx.DB
+}
+
+func NewPostgresProjectRepository(db *sqlx.DB) ProjectRepository {
+	return &postgresProjectRepository{db: db}
+}
+
+func (r *postgresProjectRepository) FindByUserID(ctx context.Context, userID int64) ([]*model.PortfolioProject, error) {
+	var projects []*model.PortfolioProject
+	query := `SELECT id, user_id, title, description, year, tags, cover_image_url, project_link, created_at, updated_at
+		FROM projects WHERE user_id = $1 ORDER BY created_at DESC`
+
+	err := r.db.SelectContext(ctx, &projects, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find projects by user id: %w", err)
+	}
+
+	return projects, nil
+}
+
+func (r *postgresProjectRepository) FindByID(ctx context.Context, id int64) (*model.PortfolioProject, error) {
+	var project model.PortfolioProject
+	query := `SELECT id, user_id, title, description, year, tags, cover_image_url, project_link, created_at, updated_at
+		FROM projects WHERE id = $1`
+
+	err := r.db.GetContext(ctx, &project, query, id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errs.ErrUserNotFound // Reuse error for consistency
+		}
+		return nil, fmt.Errorf("failed to find project by id: %w", err)
+	}
+
+	return &project, nil
+}
+
+func (r *postgresProjectRepository) Create(ctx context.Context, project *model.PortfolioProject) error {
+	query := `INSERT INTO projects (user_id, title, description, year, tags, cover_image_url, project_link, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		RETURNING id`
+
+	now := time.Now()
+	project.CreatedAt = now
+	project.UpdatedAt = now
+
+	err := r.db.QueryRowContext(ctx, query,
+		project.UserID,
+		project.Title,
+		project.Description,
+		project.Year,
+		project.Tags,
+		project.CoverImageURL,
+		project.ProjectLink,
+		project.CreatedAt,
+		project.UpdatedAt,
+	).Scan(&project.ID)
+
+	if err != nil {
+		return fmt.Errorf("failed to create project: %w", err)
+	}
+
+	return nil
+}
+
+func (r *postgresProjectRepository) Update(ctx context.Context, project *model.PortfolioProject) error {
+	query := `UPDATE projects 
+		SET title = $1, description = $2, year = $3, tags = $4, cover_image_url = $5, project_link = $6, updated_at = $7
+		WHERE id = $8 AND user_id = $9
+		RETURNING id`
+
+	var id int64
+	err := r.db.QueryRowContext(ctx, query,
+		project.Title,
+		project.Description,
+		project.Year,
+		project.Tags,
+		project.CoverImageURL,
+		project.ProjectLink,
+		time.Now(),
+		project.ID,
+		project.UserID,
+	).Scan(&id)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errs.ErrUserNotFound
+		}
+		return fmt.Errorf("failed to update project: %w", err)
+	}
+
+	return nil
+}
+
+func (r *postgresProjectRepository) Delete(ctx context.Context, id int64, userID int64) error {
+	query := `DELETE FROM projects WHERE id = $1 AND user_id = $2`
+
+	result, err := r.db.ExecContext(ctx, query, id, userID)
+	if err != nil {
+		return fmt.Errorf("failed to delete project: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("notification not found or unauthorized")
+	}
+
+	return nil
+}
+
+// SavedItemRepository implementation
+
+type postgresSavedItemRepository struct {
+	db *sqlx.DB
+}
+
+func NewPostgresSavedItemRepository(db *sqlx.DB) SavedItemRepository {
+	return &postgresSavedItemRepository{db: db}
+}
+
+func (r *postgresSavedItemRepository) FindByUserID(ctx context.Context, userID int64) ([]*model.SavedItem, error) {
+	var items []*model.SavedItem
+	query := `SELECT id, user_id, item_id, item_type, created_at
+		FROM saved_items WHERE user_id = $1 ORDER BY created_at DESC`
+
+	err := r.db.SelectContext(ctx, &items, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find saved items by user id: %w", err)
+	}
+
+	return items, nil
+}
+
+func (r *postgresSavedItemRepository) FindByUserIDAndType(ctx context.Context, userID int64, itemType model.SavedItemType) ([]*model.SavedItem, error) {
+	var items []*model.SavedItem
+	query := `SELECT id, user_id, item_id, item_type, created_at
+		FROM saved_items WHERE user_id = $1 AND item_type = $2 ORDER BY created_at DESC`
+
+	err := r.db.SelectContext(ctx, &items, query, userID, itemType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find saved items by user id and type: %w", err)
+	}
+
+	return items, nil
+}
+
+func (r *postgresSavedItemRepository) Create(ctx context.Context, item *model.SavedItem) error {
+	query := `INSERT INTO saved_items (user_id, item_id, item_type, created_at)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id`
+
+	item.CreatedAt = time.Now()
+
+	err := r.db.QueryRowContext(ctx, query,
+		item.UserID,
+		item.ItemID,
+		item.ItemType,
+		item.CreatedAt,
+	).Scan(&item.ID)
+
+	if err != nil {
+		return fmt.Errorf("failed to create saved item: %w", err)
+	}
+
+	return nil
+}
+
+func (r *postgresSavedItemRepository) Delete(ctx context.Context, userID int64, itemID int64, itemType model.SavedItemType) error {
+	query := `DELETE FROM saved_items WHERE user_id = $1 AND item_id = $2 AND item_type = $3`
+
+	result, err := r.db.ExecContext(ctx, query, userID, itemID, itemType)
+	if err != nil {
+		return fmt.Errorf("failed to delete saved item: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("notification not found or unauthorized")
+	}
+
+	return nil
+}
+
+func (r *postgresSavedItemRepository) Exists(ctx context.Context, userID int64, itemID int64, itemType model.SavedItemType) (bool, error) {
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM saved_items WHERE user_id = $1 AND item_id = $2 AND item_type = $3)`
+
+	err := r.db.GetContext(ctx, &exists, query, userID, itemID, itemType)
+	if err != nil {
+		return false, fmt.Errorf("failed to check saved item existence: %w", err)
+	}
+
+	return exists, nil
+}
+
+// NotificationRepository implementation
+
+type postgresNotificationRepository struct {
+	db *sqlx.DB
+}
+
+func NewPostgresNotificationRepository(db *sqlx.DB) NotificationRepository {
+	return &postgresNotificationRepository{db: db}
+}
+
+func (r *postgresNotificationRepository) Create(ctx context.Context, notification *model.Notification) error {
+	query := `INSERT INTO notifications (user_id, type, title, message, data, is_read, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id`
+
+	notification.CreatedAt = time.Now()
+
+	err := r.db.QueryRowContext(ctx, query,
+		notification.UserID,
+		notification.Type,
+		notification.Title,
+		notification.Message,
+		notification.Data,
+		notification.IsRead,
+		notification.CreatedAt,
+	).Scan(&notification.ID)
+
+	if err != nil {
+		return fmt.Errorf("failed to create notification: %w", err)
+	}
+
+	return nil
+}
+
+func (r *postgresNotificationRepository) FindByUserID(ctx context.Context, userID int64, limit, offset int) ([]*model.Notification, error) {
+	var notifications []*model.Notification
+	query := `SELECT id, user_id, type, title, message, data, is_read, created_at
+		FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`
+
+	err := r.db.SelectContext(ctx, &notifications, query, userID, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find notifications by user id: %w", err)
+	}
+
+	return notifications, nil
+}
+
+func (r *postgresNotificationRepository) FindUnreadByUserID(ctx context.Context, userID int64, limit, offset int) ([]*model.Notification, error) {
+	var notifications []*model.Notification
+	query := `SELECT id, user_id, type, title, message, data, is_read, created_at
+		FROM notifications WHERE user_id = $1 AND is_read = false ORDER BY created_at DESC LIMIT $2 OFFSET $3`
+
+	err := r.db.SelectContext(ctx, &notifications, query, userID, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find unread notifications by user id: %w", err)
+	}
+
+	return notifications, nil
+}
+
+func (r *postgresNotificationRepository) MarkAsRead(ctx context.Context, notificationID int64, userID int64) error {
+	query := `UPDATE notifications SET is_read = true WHERE id = $1 AND user_id = $2`
+
+	result, err := r.db.ExecContext(ctx, query, notificationID, userID)
+	if err != nil {
+		return fmt.Errorf("failed to mark notification as read: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("notification not found or unauthorized")
+	}
+
+	return nil
+}
+
+func (r *postgresNotificationRepository) MarkAllAsRead(ctx context.Context, userID int64) error {
+	query := `UPDATE notifications SET is_read = true WHERE user_id = $1 AND is_read = false`
+
+	_, err := r.db.ExecContext(ctx, query, userID)
+	if err != nil {
+		return fmt.Errorf("failed to mark all notifications as read: %w", err)
+	}
+
+	return nil
+}
+
+func (r *postgresNotificationRepository) CountUnread(ctx context.Context, userID int64) (int64, error) {
+	var count int64
+	query := `SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND is_read = false`
+
+	err := r.db.GetContext(ctx, &count, query, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count unread notifications: %w", err)
+	}
+
+	return count, nil
+}
+
+func (r *postgresNotificationRepository) Delete(ctx context.Context, notificationID int64, userID int64) error {
+	query := `DELETE FROM notifications WHERE id = $1 AND user_id = $2`
+
+	result, err := r.db.ExecContext(ctx, query, notificationID, userID)
+	if err != nil {
+		return fmt.Errorf("failed to delete notification: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("notification not found or unauthorized")
+	}
+
+	return nil
 }

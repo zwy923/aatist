@@ -24,17 +24,19 @@ import (
 
 // UpdateProfileInput represents profile fields that can be updated.
 type UpdateProfileInput struct {
-	Name         *string
-	Nickname     *string
-	AvatarURL    *string
-	StudentID    *string
-	School       *string
-	Faculty      *string
-	Major        *string
-	Availability *string
-	Bio          *string
-	Projects     *[]model.Project
-	Skills       *[]string
+	Name               *string
+	Nickname           *string
+	AvatarURL          *string
+	StudentID          *string
+	School             *string
+	Faculty            *string
+	Major              *string
+	WeeklyHours        *int
+	EmotionalStatus    *string
+	WeeklyAvailability *model.WeeklyAvailabilityArray
+	Bio                *string
+	ProfileVisibility  *model.ProfileVisibility
+	Skills             *[]model.Skill
 }
 
 type ProfileService interface {
@@ -43,7 +45,7 @@ type ProfileService interface {
 	UploadAvatar(ctx context.Context, userID int64, reader io.Reader, size int64, contentType, filename string) (*model.User, error)
 	EnsureProfileUpdateRateLimit(ctx context.Context, userID int64) error
 	EnsureAvatarUploadRateLimit(ctx context.Context, userID int64) error
-	FilterSkillsByPrefix(ctx context.Context, userID int64, prefix string) ([]string, error)
+	FilterSkillsByPrefix(ctx context.Context, userID int64, prefix string) ([]model.Skill, error)
 }
 
 type profileService struct {
@@ -121,21 +123,27 @@ func (s *profileService) UpdateProfile(ctx context.Context, userID int64, input 
 	if input.Major != nil {
 		fields["major"] = valueOrNil(normalizeMajor(input.Major))
 	}
-	if input.Availability != nil {
-		fields["availability"] = valueOrNil(normalizeOptionalStringWithLimit(input.Availability, 100))
-	}
 	if input.Bio != nil {
 		fields["bio"] = valueOrNil(normalizeOptionalStringWithLimit(input.Bio, maxBioLength))
 	}
-	if input.Projects != nil {
-		normalizedProjects := normalizeProjects(*input.Projects)
-		projects := model.Projects(normalizedProjects)
-		fields["projects"] = projects
-	}
 	if input.Skills != nil {
-		normalizedSkills := sanitizeSkills(*input.Skills)
-		skills := model.StringArray(normalizedSkills)
+		normalizedSkills := sanitizeSkillsWithLevel(*input.Skills)
+		skills := model.Skills(normalizedSkills)
 		fields["skills"] = skills
+	}
+	if input.WeeklyHours != nil {
+		fields["weekly_hours"] = *input.WeeklyHours
+	}
+	if input.EmotionalStatus != nil {
+		fields["emotional_status"] = valueOrNil(normalizeOptionalStringWithLimit(input.EmotionalStatus, 50))
+	}
+	if input.WeeklyAvailability != nil {
+		fields["weekly_availability"] = *input.WeeklyAvailability
+	}
+	if input.ProfileVisibility != nil {
+		if input.ProfileVisibility.IsValid() {
+			fields["profile_visibility"] = input.ProfileVisibility.String()
+		}
 	}
 
 	if len(fields) == 0 {
@@ -219,7 +227,7 @@ func (s *profileService) EnsureAvatarUploadRateLimit(ctx context.Context, userID
 	return s.enforceRateLimit(ctx, s.avatarUploadLimit, userID)
 }
 
-func (s *profileService) FilterSkillsByPrefix(ctx context.Context, userID int64, prefix string) ([]string, error) {
+func (s *profileService) FilterSkillsByPrefix(ctx context.Context, userID int64, prefix string) ([]model.Skill, error) {
 	user, err := s.userRepo.FindByID(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -230,13 +238,16 @@ func (s *profileService) FilterSkillsByPrefix(ctx context.Context, userID int64,
 	}
 
 	prefix = strings.ToLower(strings.TrimSpace(prefix))
-	var matches []string
+	var matches []model.Skill
 	for _, skill := range user.Skills {
-		if strings.HasPrefix(strings.ToLower(skill), prefix) {
+		if strings.HasPrefix(strings.ToLower(skill.Name), prefix) {
 			matches = append(matches, skill)
 		}
 	}
-	sort.Strings(matches)
+	// Sort by name
+	sort.Slice(matches, func(i, j int) bool {
+		return strings.ToLower(matches[i].Name) < strings.ToLower(matches[j].Name)
+	})
 	return matches, nil
 }
 
@@ -266,11 +277,42 @@ func (s *profileService) enforceRateLimit(ctx context.Context, cfg rateLimitConf
 	return nil
 }
 
-func sanitizeSkills(skills []string) []string {
+func sanitizeSkillsWithLevel(skills []model.Skill) []model.Skill {
+	seen := make(map[string]struct{})
+	var normalized []model.Skill
+	for _, skill := range skills {
+		name := strings.ToLower(strings.TrimSpace(skill.Name))
+		if name == "" {
+			continue
+		}
+		if _, exists := seen[name]; exists {
+			continue
+		}
+		seen[name] = struct{}{}
+
+		// Normalize level
+		level := strings.ToLower(strings.TrimSpace(skill.Level))
+		if level != "expert" && level != "advanced" && level != "intermediate" {
+			level = "intermediate" // Default
+		}
+
+		normalized = append(normalized, model.Skill{
+			Name:  name,
+			Level: level,
+		})
+	}
+	// Sort by name
+	sort.Slice(normalized, func(i, j int) bool {
+		return normalized[i].Name < normalized[j].Name
+	})
+	return normalized
+}
+
+func sanitizeStringArray(arr []string) []string {
 	seen := make(map[string]struct{})
 	var normalized []string
-	for _, skill := range skills {
-		trimmed := strings.ToLower(strings.TrimSpace(skill))
+	for _, item := range arr {
+		trimmed := strings.ToLower(strings.TrimSpace(item))
 		if trimmed == "" {
 			continue
 		}
@@ -311,7 +353,7 @@ func normalizeProjects(projects []model.Project) []model.Project {
 			Title:       title,
 			ClientName:  normalizeString(project.ClientName),
 			Description: description,
-			Tags:        sanitizeSkills(project.Tags),
+			Tags:        sanitizeStringArray(project.Tags),
 			Year:        year,
 		})
 	}
