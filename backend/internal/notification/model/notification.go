@@ -11,11 +11,29 @@ import (
 type NotificationType string
 
 const (
-	NotificationTypeProfileSaved     NotificationType = "profile_saved"
+	// User-related notifications
+	NotificationTypeProfileSaved NotificationType = "profile_saved"
+	
+	// Social notifications
+	NotificationTypeFollow        NotificationType = "follow"
+	NotificationTypeProjectSaved  NotificationType = "project_saved"
+	NotificationTypeComment       NotificationType = "comment"
+	
+	// Opportunity notifications
 	NotificationTypeOpportunityMatch NotificationType = "opportunity_match"
-	NotificationTypeProjectInvite    NotificationType = "project_invite"
-	NotificationTypeMessage          NotificationType = "message"
-	NotificationTypeSystem           NotificationType = "system"
+	
+	// Project notifications
+	NotificationTypeProjectInvite NotificationType = "project_invite"
+	
+	// AI notifications
+	NotificationTypeAISummaryFinished NotificationType = "ai_summary_finished"
+	
+	// System notifications
+	NotificationTypeSystem      NotificationType = "system"
+	NotificationTypeWeeklyDigest NotificationType = "weekly_digest"
+	
+	// Message notifications
+	NotificationTypeMessage NotificationType = "message"
 )
 
 // NotificationData is a JSONB field for additional notification data
@@ -57,6 +75,7 @@ func (nd *NotificationData) Scan(value interface{}) error {
 }
 
 // Notification represents a notification in the system
+// This is a generic domain model that can be used by any service
 type Notification struct {
 	ID        int64            `db:"id" json:"id"`
 	UserID    int64            `db:"user_id" json:"user_id"`
@@ -67,3 +86,4 @@ type Notification struct {
 	IsRead    bool             `db:"is_read" json:"is_read"`
 	CreatedAt time.Time        `db:"created_at" json:"created_at"`
 }
+

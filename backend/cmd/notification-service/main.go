@@ -10,13 +10,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/aalto-talent-network/backend/internal/notification/handler"
+	"github.com/aalto-talent-network/backend/internal/notification/repository"
+	"github.com/aalto-talent-network/backend/internal/notification/service"
 	"github.com/aalto-talent-network/backend/internal/platform/config"
 	"github.com/aalto-talent-network/backend/internal/platform/db"
 	"github.com/aalto-talent-network/backend/internal/platform/log"
 	"github.com/aalto-talent-network/backend/internal/platform/middleware"
-	"github.com/aalto-talent-network/backend/internal/portfolio/handler"
-	"github.com/aalto-talent-network/backend/internal/portfolio/repository"
-	"github.com/aalto-talent-network/backend/internal/portfolio/service"
 	"github.com/aalto-talent-network/backend/pkg/response"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -43,7 +43,7 @@ func main() {
 	}
 	defer logger.Sync()
 
-	logger.Info("Starting portfolio service",
+	logger.Info("Starting notification service",
 		zap.String("env", cfg.App.Env),
 		zap.Int("port", cfg.App.HTTPPort),
 	)
@@ -57,18 +57,24 @@ func main() {
 
 	logger.Info("Connected to PostgreSQL")
 
-	// Initialize repositories
-	projectRepo := repository.NewPostgresProjectRepository(postgres.GetDB())
+	// Run database migrations
+	migrationsDir := os.Getenv("MIGRATIONS_DIR")
+	if migrationsDir == "" {
+		migrationsDir = "migrations"
+	}
+	if err := db.RunMigrations(postgres.GetSQLDB(), migrationsDir); err != nil {
+		logger.Fatal("Failed to run migrations", zap.Error(err))
+	}
+	logger.Info("Database migrations completed")
 
-	// Initialize user service client (for checking profile visibility)
-	// All internal calls go through Gateway
-	userClient := service.NewHTTPUserServiceClient(os.Getenv("GATEWAY_URL"))
+	// Initialize repositories
+	notificationRepo := repository.NewPostgresNotificationRepository(postgres.GetDB())
 
 	// Initialize services
-	projectService := service.NewProjectService(projectRepo, userClient)
+	notificationService := service.NewNotificationService(notificationRepo)
 
 	// Initialize handler
-	portfolioHandler := handler.NewPortfolioHandler(projectService, logger)
+	notificationHandler := handler.NewNotificationHandler(notificationService, logger)
 
 	// Setup Gin router
 	if cfg.App.Env == "production" || cfg.App.Env == "prod" {
@@ -80,7 +86,6 @@ func main() {
 	// Apply global middlewares
 	router.Use(middleware.RecoveryMiddleware(logger))
 	router.Use(middleware.RequestIDMiddleware())
-	router.Use(middleware.TrustGatewayMiddleware()) // Trust headers from Gateway
 	// CORS configuration
 	env := os.Getenv("CORS_ORIGINS")
 	var corsOrigins []string
@@ -92,33 +97,32 @@ func main() {
 	router.Use(middleware.CORSMiddleware(corsOrigins))
 
 	// Health check endpoint
-	router.GET("/portfolio/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, response.Success(gin.H{"status": "ok", "service": "portfolio"}))
+	router.GET("/notification/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, response.Success(gin.H{"status": "ok", "service": "notification"}))
 	})
 
 	// API routes
 	api := router.Group("/api/v1")
 	{
-		// Public portfolio routes
-		portfolio := api.Group("/portfolio")
+		// Internal API for creating notifications (for other services)
+		// This should only be accessible from internal services (gateway, other microservices)
+		internal := api.Group("/internal/notifications")
+		internal.Use(middleware.RequireInternalCall()) // Require internal service authentication
 		{
-			portfolio.GET("/:id", portfolioHandler.GetProjectDetailHandler)
+			internal.POST("", notificationHandler.CreateNotificationHandler)
 		}
 
-		// Public user portfolio route
-		users := api.Group("/users")
+		// User-facing notification routes (require auth via Gateway)
+		// Use /me/notifications instead of /users/me/notifications for cleaner API
+		userNotifications := api.Group("/me/notifications")
+		userNotifications.Use(middleware.TrustGatewayMiddleware()) // Trust Gateway headers
+		userNotifications.Use(middleware.RequireGatewayAuth())     // Require Gateway to set user identity
 		{
-			users.GET("/:id/portfolio", portfolioHandler.GetUserPortfolioHandler)
-		}
-
-		// Protected portfolio routes (require auth via Gateway)
-		protectedPortfolio := api.Group("/users")
-		protectedPortfolio.Use(middleware.RequireGatewayAuth()) // Require Gateway to set user identity
-		{
-			protectedPortfolio.GET("/me/portfolio", portfolioHandler.GetMyPortfolioHandler)
-			protectedPortfolio.POST("/me/portfolio", portfolioHandler.CreateProjectHandler)
-			protectedPortfolio.PUT("/me/portfolio/:id", portfolioHandler.UpdateProjectHandler)
-			protectedPortfolio.DELETE("/me/portfolio/:id", portfolioHandler.DeleteProjectHandler)
+			userNotifications.GET("", notificationHandler.GetNotificationsHandler)
+			userNotifications.GET("/unread-count", notificationHandler.GetUnreadCountHandler)
+			userNotifications.PUT("/:id/read", notificationHandler.MarkNotificationAsReadHandler)
+			userNotifications.PUT("/read-all", notificationHandler.MarkAllNotificationsAsReadHandler)
+			userNotifications.DELETE("/:id", notificationHandler.DeleteNotificationHandler)
 		}
 	}
 

@@ -76,7 +76,9 @@ services:
       - S3_SECRET_KEY=minioadmin
       - S3_BUCKET=avatars
       - S3_USE_SSL=false
-      - S3_PUBLIC_URL=http://localhost:9000/avatars
+      - S3_PUBLIC_URL=http://localhost:9000/files
+      - GATEWAY_URL=http://gateway:8080
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-}
     ports:
       - "8081:8081"
     volumes:
@@ -100,6 +102,76 @@ services:
     volumes:
       - ./configs:/app/configs
 
+  portfolio-service:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.portfolio-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+    environment:
+      - CONFIG_PATH=/app/configs/config.yaml
+      - POSTGRES_DSN=postgres://aatn:aatn@postgres:5432/aatn?sslmode=disable
+      - HTTP_PORT=8082
+      - APP_ENV=dev
+      - GATEWAY_URL=http://gateway:8080
+    ports:
+      - "8082:8082"
+    volumes:
+      - ./configs:/app/configs
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.notification-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - CONFIG_PATH=/app/configs/config.yaml
+      - POSTGRES_DSN=postgres://aatn:aatn@postgres:5432/aatn?sslmode=disable
+      - HTTP_PORT=8085
+      - APP_ENV=dev
+      - MIGRATIONS_DIR=/app/migrations
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-}
+      - INTERNAL_ALLOWED_IPS=${INTERNAL_ALLOWED_IPS:-}
+    ports:
+      - "8085:8085"
+    volumes:
+      - ./configs:/app/configs
+      - ./migrations:/app/migrations
+
+  file-service:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.file-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    environment:
+      - CONFIG_PATH=/app/configs/config.yaml
+      - POSTGRES_DSN=postgres://aatn:aatn@postgres:5432/aatn?sslmode=disable
+      - HTTP_PORT=8086
+      - APP_ENV=dev
+      - MIGRATIONS_DIR=/app/migrations
+      - S3_ENDPOINT=minio:9000
+      - S3_ACCESS_KEY=minioadmin
+      - S3_SECRET_KEY=minioadmin
+      - S3_BUCKET=files
+      - S3_USE_SSL=false
+      - S3_PUBLIC_URL=http://localhost:9000/files
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-}
+      - INTERNAL_ALLOWED_IPS=${INTERNAL_ALLOWED_IPS:-}
+    ports:
+      - "8086:8086"
+    volumes:
+      - ./configs:/app/configs
+      - ./migrations:/app/migrations
+
   gateway:
     build:
       context: .
@@ -115,6 +187,13 @@ services:
         condition: service_started
       user-service:
         condition: service_started
+      portfolio-service:
+        condition: service_started
+      notification-service:
+        condition: service_started
+      file-service:
+        condition: service_started
+    # Gateway must be started before services that depend on it for internal calls
     environment:
       - CONFIG_PATH=/app/configs/config.yaml
       - REDIS_ADDR=redis:6379
@@ -122,6 +201,7 @@ services:
       - JWT_SECRET=CHANGE_ME_IN_PRODUCTION_USE_STRONG_SECRET
       - HTTP_PORT=8080
       - CORS_ORIGINS=*
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-}
     ports:
       - "8080:8080"
     volumes:

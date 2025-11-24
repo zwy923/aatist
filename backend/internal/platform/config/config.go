@@ -13,6 +13,7 @@ type Config struct {
 	S3       S3Config
 	JWT      JWTConfig
 	Email    EmailConfig
+	Gateway  GatewayConfig
 }
 
 // AppConfig holds application-level configuration
@@ -61,4 +62,13 @@ type JWTConfig struct {
 	TTLMinutes int `yaml:"ttl_minutes"`
 	AccessTTL  time.Duration
 	RefreshTTL time.Duration
+}
+
+// GatewayConfig holds Gateway configuration
+type GatewayConfig struct {
+	// ServiceTimeout is the default timeout for all downstream services
+	ServiceTimeout time.Duration `yaml:"service_timeout"`
+	// ServiceTimeouts allows per-service timeout configuration
+	// Key is service name (e.g., "user-service"), value is timeout duration
+	ServiceTimeouts map[string]time.Duration `yaml:"service_timeouts"`
 }

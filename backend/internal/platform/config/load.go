@@ -97,5 +97,13 @@ func Load(configPath string) (*Config, error) {
 	cfg.JWT.AccessTTL = 15 * time.Minute
 	cfg.JWT.RefreshTTL = 30 * 24 * time.Hour // 30 days
 
+	// Set default Gateway service timeout (10 seconds)
+	if cfg.Gateway.ServiceTimeout == 0 {
+		cfg.Gateway.ServiceTimeout = 10 * time.Second
+	}
+	if cfg.Gateway.ServiceTimeouts == nil {
+		cfg.Gateway.ServiceTimeouts = make(map[string]time.Duration)
+	}
+
 	return cfg, nil
 }

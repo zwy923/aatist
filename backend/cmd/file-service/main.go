@@ -10,13 +10,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/aalto-talent-network/backend/internal/file/handler"
+	"github.com/aalto-talent-network/backend/internal/file/repository"
+	"github.com/aalto-talent-network/backend/internal/file/service"
 	"github.com/aalto-talent-network/backend/internal/platform/config"
 	"github.com/aalto-talent-network/backend/internal/platform/db"
 	"github.com/aalto-talent-network/backend/internal/platform/log"
 	"github.com/aalto-talent-network/backend/internal/platform/middleware"
-	"github.com/aalto-talent-network/backend/internal/portfolio/handler"
-	"github.com/aalto-talent-network/backend/internal/portfolio/repository"
-	"github.com/aalto-talent-network/backend/internal/portfolio/service"
+	"github.com/aalto-talent-network/backend/internal/platform/storage"
 	"github.com/aalto-talent-network/backend/pkg/response"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -43,7 +44,7 @@ func main() {
 	}
 	defer logger.Sync()
 
-	logger.Info("Starting portfolio service",
+	logger.Info("Starting file service",
 		zap.String("env", cfg.App.Env),
 		zap.Int("port", cfg.App.HTTPPort),
 	)
@@ -57,18 +58,37 @@ func main() {
 
 	logger.Info("Connected to PostgreSQL")
 
-	// Initialize repositories
-	projectRepo := repository.NewPostgresProjectRepository(postgres.GetDB())
+	// Run database migrations
+	migrationsDir := os.Getenv("MIGRATIONS_DIR")
+	if migrationsDir == "" {
+		migrationsDir = "migrations"
+	}
+	if err := db.RunMigrations(postgres.GetSQLDB(), migrationsDir); err != nil {
+		logger.Fatal("Failed to run migrations", zap.Error(err))
+	}
+	logger.Info("Database migrations completed")
 
-	// Initialize user service client (for checking profile visibility)
-	// All internal calls go through Gateway
-	userClient := service.NewHTTPUserServiceClient(os.Getenv("GATEWAY_URL"))
+	// Initialize S3/MinIO storage
+	s3Client, err := storage.NewS3(storage.S3Config{
+		Endpoint:  cfg.S3.Endpoint,
+		AccessKey: cfg.S3.AccessKey,
+		SecretKey: cfg.S3.SecretKey,
+		UseSSL:    cfg.S3.UseSSL,
+		Bucket:    cfg.S3.Bucket,
+		PublicURL: cfg.S3.PublicURL,
+	})
+	if err != nil {
+		logger.Fatal("Failed to initialize S3 storage", zap.Error(err))
+	}
+
+	// Initialize repositories
+	fileRepo := repository.NewPostgresFileRepository(postgres.GetDB())
 
 	// Initialize services
-	projectService := service.NewProjectService(projectRepo, userClient)
+	fileService := service.NewFileService(fileRepo, s3Client, logger)
 
 	// Initialize handler
-	portfolioHandler := handler.NewPortfolioHandler(projectService, logger)
+	fileHandler := handler.NewFileHandler(fileService, logger)
 
 	// Setup Gin router
 	if cfg.App.Env == "production" || cfg.App.Env == "prod" {
@@ -80,7 +100,8 @@ func main() {
 	// Apply global middlewares
 	router.Use(middleware.RecoveryMiddleware(logger))
 	router.Use(middleware.RequestIDMiddleware())
-	router.Use(middleware.TrustGatewayMiddleware()) // Trust headers from Gateway
+	// Note: TrustGatewayMiddleware is only applied to user-facing routes, not globally
+
 	// CORS configuration
 	env := os.Getenv("CORS_ORIGINS")
 	var corsOrigins []string
@@ -92,33 +113,35 @@ func main() {
 	router.Use(middleware.CORSMiddleware(corsOrigins))
 
 	// Health check endpoint
-	router.GET("/portfolio/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, response.Success(gin.H{"status": "ok", "service": "portfolio"}))
+	router.GET("/file/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, response.Success(gin.H{"status": "ok", "service": "file"}))
 	})
 
 	// API routes
 	api := router.Group("/api/v1")
 	{
-		// Public portfolio routes
-		portfolio := api.Group("/portfolio")
+		// Internal API routes (for service-to-service communication)
+		// These routes require internal authentication
+		internal := api.Group("/internal/file")
+		internal.Use(middleware.RequireInternalCall()) // Require internal service authentication
+		internal.Use(middleware.TrustGatewayMiddleware()) // Extract user identity from headers (set by Gateway)
 		{
-			portfolio.GET("/:id", portfolioHandler.GetProjectDetailHandler)
+			internal.POST("/upload", fileHandler.UploadFileHandler)
+			internal.GET("/:id", fileHandler.GetFileHandler)
+			internal.DELETE("/:id", fileHandler.DeleteFileHandler)
 		}
 
-		// Public user portfolio route
-		users := api.Group("/users")
+		// User-facing file routes (require auth via Gateway)
+		files := api.Group("/files")
+		files.Use(middleware.TrustGatewayMiddleware()) // Trust Gateway headers
+		files.Use(middleware.RequireGatewayAuth())    // Require Gateway to set user identity
 		{
-			users.GET("/:id/portfolio", portfolioHandler.GetUserPortfolioHandler)
-		}
-
-		// Protected portfolio routes (require auth via Gateway)
-		protectedPortfolio := api.Group("/users")
-		protectedPortfolio.Use(middleware.RequireGatewayAuth()) // Require Gateway to set user identity
-		{
-			protectedPortfolio.GET("/me/portfolio", portfolioHandler.GetMyPortfolioHandler)
-			protectedPortfolio.POST("/me/portfolio", portfolioHandler.CreateProjectHandler)
-			protectedPortfolio.PUT("/me/portfolio/:id", portfolioHandler.UpdateProjectHandler)
-			protectedPortfolio.DELETE("/me/portfolio/:id", portfolioHandler.DeleteProjectHandler)
+			files.POST("/upload", fileHandler.UploadFileHandler)
+			files.POST("/presigned-upload", fileHandler.GeneratePresignedUploadURLHandler)
+			files.POST("/confirm-upload", fileHandler.ConfirmUploadHandler)
+			files.GET("", fileHandler.GetUserFilesHandler)
+			files.GET("/:id", fileHandler.GetFileHandler)
+			files.DELETE("/:id", fileHandler.DeleteFileHandler)
 		}
 	}
 
@@ -153,3 +176,4 @@ func main() {
 
 	logger.Info("Server exited")
 }
+

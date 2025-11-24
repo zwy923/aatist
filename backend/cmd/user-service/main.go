@@ -17,7 +17,6 @@ import (
 	"github.com/aalto-talent-network/backend/internal/platform/log"
 	"github.com/aalto-talent-network/backend/internal/platform/middleware"
 	"github.com/aalto-talent-network/backend/internal/platform/mq"
-	"github.com/aalto-talent-network/backend/internal/platform/storage"
 	"github.com/aalto-talent-network/backend/internal/user/handler"
 	"github.com/aalto-talent-network/backend/internal/user/repository"
 	"github.com/aalto-talent-network/backend/internal/user/service"
@@ -80,27 +79,15 @@ func main() {
 
 	logger.Info("Connected to Redis")
 
-	// Initialize S3/MinIO storage
-	s3Client, err := storage.NewS3(storage.S3Config{
-		Endpoint:  cfg.S3.Endpoint,
-		AccessKey: cfg.S3.AccessKey,
-		SecretKey: cfg.S3.SecretKey,
-		UseSSL:    cfg.S3.UseSSL,
-		Bucket:    cfg.S3.Bucket,
-		PublicURL: cfg.S3.PublicURL,
-	})
-	if err != nil {
-		logger.Fatal("Failed to initialize S3 storage", zap.Error(err))
-	}
+	// Initialize file service client (for avatar uploads)
+	fileClient := service.NewHTTPFileServiceClient()
 
 	// Initialize JWT
 	jwt := auth.NewJWT(cfg.JWT.Secret, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL)
 
 	// Initialize repositories
 	userRepo := repository.NewPostgresRepository(postgres.GetDB())
-	projectRepo := repository.NewPostgresProjectRepository(postgres.GetDB())
 	savedItemRepo := repository.NewPostgresSavedItemRepository(postgres.GetDB())
-	notificationRepo := repository.NewPostgresNotificationRepository(postgres.GetDB())
 
 	// Initialize MQ (optional - only if broker is configured)
 	var rabbitMQ *mq.RabbitMQ
@@ -122,12 +109,11 @@ func main() {
 	authService := service.NewAuthService(userRepo, jwt, redis, logger, emailVerifSvc)
 	avatarURLPrefix := cfg.S3.PublicURL
 	if avatarURLPrefix == "" {
-		avatarURLPrefix = s3Client.BaseURL()
+		avatarURLPrefix = "http://localhost:9000/files" // Default file service public URL
 	}
-	profileService := service.NewProfileService(userRepo, s3Client, redis, logger, avatarURLPrefix)
-	projectService := service.NewProjectService(projectRepo)
+	profileService := service.NewProfileService(userRepo, fileClient, redis, logger, avatarURLPrefix)
 	savedItemService := service.NewSavedItemService(savedItemRepo)
-	notificationService := service.NewNotificationService(notificationRepo)
+	notificationClient := service.NewHTTPNotificationClient()
 
 	// Prepare MQ publisher (may be nil)
 	var emailPublisher interface {
@@ -138,7 +124,7 @@ func main() {
 	}
 
 	// Initialize handler
-	authHandler := handler.NewAuthHandler(authService, profileService, projectService, savedItemService, notificationService, emailVerifSvc, emailPublisher, logger)
+	authHandler := handler.NewAuthHandler(authService, profileService, savedItemService, notificationClient, emailVerifSvc, emailPublisher, logger)
 
 	// Setup Gin router
 	if cfg.App.Env == "production" || cfg.App.Env == "prod" {
@@ -151,15 +137,19 @@ func main() {
 	router.Use(middleware.RecoveryMiddleware(logger))
 	router.Use(middleware.RequestIDMiddleware())
 	router.Use(middleware.TrustGatewayMiddleware()) // Trust headers from Gateway
-	corsOrigins := strings.Split(os.Getenv("CORS_ORIGINS"), ",")
-	if len(corsOrigins) == 0 || corsOrigins[0] == "" {
+	// CORS configuration
+	env := os.Getenv("CORS_ORIGINS")
+	var corsOrigins []string
+	if env == "" {
 		corsOrigins = []string{"*"}
+	} else {
+		corsOrigins = strings.Split(env, ",")
 	}
 	router.Use(middleware.CORSMiddleware(corsOrigins))
 
 	// Health check endpoint
-	router.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, response.Success(gin.H{"status": "ok"}))
+	router.GET("/user/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, response.Success(gin.H{"status": "ok", "service": "user"}))
 	})
 
 	// API routes
@@ -179,13 +169,6 @@ func main() {
 		users := api.Group("/users")
 		{
 			users.GET("/:id", authHandler.GetUserByIDHandler)
-			users.GET("/:id/portfolio", authHandler.GetPortfolioHandler)
-		}
-
-		// Public portfolio route
-		portfolio := api.Group("/portfolio")
-		{
-			portfolio.GET("/:id", authHandler.GetProjectDetailHandler)
 		}
 
 		// Protected user routes
@@ -200,23 +183,11 @@ func main() {
 			protectedUsers.GET("/me/availability", authHandler.GetAvailabilityHandler)
 			protectedUsers.PATCH("/me/availability", authHandler.UpdateAvailabilityHandler)
 
-			// Portfolio (my projects)
-			protectedUsers.GET("/me/portfolio", authHandler.GetMyPortfolioHandler)
-			protectedUsers.POST("/me/portfolio", authHandler.CreateProjectHandler)
-			protectedUsers.PUT("/me/portfolio/:id", authHandler.UpdateProjectHandler)
-			protectedUsers.DELETE("/me/portfolio/:id", authHandler.DeleteProjectHandler)
-
 			// Saved items
 			protectedUsers.GET("/me/saved", authHandler.GetSavedItemsHandler)
 			protectedUsers.POST("/me/saved", authHandler.SaveItemHandler)
 			protectedUsers.DELETE("/me/saved", authHandler.UnsaveItemHandler)
 
-			// Notifications
-			protectedUsers.GET("/me/notifications", authHandler.GetNotificationsHandler)
-			protectedUsers.GET("/me/notifications/unread-count", authHandler.GetUnreadCountHandler)
-			protectedUsers.PUT("/me/notifications/:id/read", authHandler.MarkNotificationAsReadHandler)
-			protectedUsers.PUT("/me/notifications/read-all", authHandler.MarkAllNotificationsAsReadHandler)
-			protectedUsers.DELETE("/me/notifications/:id", authHandler.DeleteNotificationHandler)
 		}
 	}
 

@@ -2,12 +2,12 @@ package service
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/aalto-talent-network/backend/internal/user/model"
-	"github.com/aalto-talent-network/backend/internal/user/repository"
+	"github.com/aalto-talent-network/backend/internal/notification/model"
+	"github.com/aalto-talent-network/backend/internal/notification/repository"
 )
 
+// NotificationService defines the interface for notification operations
 type NotificationService interface {
 	CreateNotification(ctx context.Context, userID int64, notifType model.NotificationType, title string, message *string, data model.NotificationData) error
 	GetNotifications(ctx context.Context, userID int64, limit, offset int) ([]*model.Notification, error)
@@ -81,13 +81,3 @@ func (s *notificationService) DeleteNotification(ctx context.Context, userID int
 	return s.notifRepo.Delete(ctx, notificationID, userID)
 }
 
-// Helper function to notify when profile is saved
-func NotifyProfileSaved(notifSvc NotificationService, ctx context.Context, savedUserID int64, saverUserID int64, saverName string) error {
-	title := "Your profile was saved"
-	message := fmt.Sprintf("%s saved your profile", saverName)
-	data := model.NotificationData{
-		"saver_user_id": saverUserID,
-		"saver_name":    saverName,
-	}
-	return notifSvc.CreateNotification(ctx, savedUserID, model.NotificationTypeProfileSaved, title, &message, data)
-}

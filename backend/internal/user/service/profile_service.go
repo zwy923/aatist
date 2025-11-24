@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -14,11 +13,9 @@ import (
 	"github.com/aalto-talent-network/backend/internal/platform/cache"
 	"github.com/aalto-talent-network/backend/internal/platform/log"
 	"github.com/aalto-talent-network/backend/internal/platform/metrics"
-	"github.com/aalto-talent-network/backend/internal/platform/storage"
 	"github.com/aalto-talent-network/backend/internal/user/model"
 	"github.com/aalto-talent-network/backend/internal/user/repository"
 	"github.com/aalto-talent-network/backend/pkg/errs"
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -50,7 +47,7 @@ type ProfileService interface {
 
 type profileService struct {
 	userRepo          repository.UserRepository
-	storage           storage.ObjectStorage
+	fileClient        FileServiceClient // Changed from storage to fileClient
 	redis             *cache.Redis
 	logger            *log.Logger
 	avatarURLPrefix   string
@@ -67,7 +64,7 @@ type rateLimitConfig struct {
 // NewProfileService creates a new profile service.
 func NewProfileService(
 	userRepo repository.UserRepository,
-	storage storage.ObjectStorage,
+	fileClient FileServiceClient, // Changed from storage to fileClient
 	redis *cache.Redis,
 	logger *log.Logger,
 	avatarURLPrefix string,
@@ -77,7 +74,7 @@ func NewProfileService(
 	}
 	return &profileService{
 		userRepo:        userRepo,
-		storage:         storage,
+		fileClient:      fileClient,
 		redis:           redis,
 		logger:          logger,
 		avatarURLPrefix: avatarURLPrefix,
@@ -157,8 +154,8 @@ func (s *profileService) UpdateProfile(ctx context.Context, userID int64, input 
 }
 
 func (s *profileService) UploadAvatar(ctx context.Context, userID int64, reader io.Reader, size int64, contentType, filename string) (*model.User, error) {
-	if s.storage == nil {
-		return nil, fmt.Errorf("object storage not configured")
+	if s.fileClient == nil {
+		return nil, fmt.Errorf("file service client not configured")
 	}
 	if size <= 0 {
 		return nil, fmt.Errorf("invalid file size")
@@ -168,33 +165,22 @@ func (s *profileService) UploadAvatar(ctx context.Context, userID int64, reader 
 		return nil, err
 	}
 
-	ext := strings.ToLower(strings.TrimSpace(filepath.Ext(filename)))
-	if ext == "" {
-		ext = guessExt(contentType)
-	}
-	if ext == "" {
-		ext = ".bin"
-	}
-
-	objectName := fmt.Sprintf("avatars/%d/%s%s", userID, uuid.New().String(), ext)
-	if err := s.storage.Upload(ctx, objectName, reader, size, contentType, map[string]string{
-		"uploaded_at": time.Now().UTC().Format(time.RFC3339),
-		"user_id":     fmt.Sprintf("%d", userID),
-	}); err != nil {
+	// Upload file via file-service
+	fileResp, err := s.fileClient.UploadFile(ctx, userID, "avatar", reader, size, contentType, filename)
+	if err != nil {
 		metrics.AvatarUploadFailureTotal.Inc()
 		if s.logger != nil {
 			s.logger.Error("avatar upload failed",
 				zap.Int64("user_id", userID),
-				zap.String("object", objectName),
 				zap.String("content_type", contentType),
 				zap.Int64("size", size),
 				zap.Error(err),
 			)
 		}
-		return nil, err
+		return nil, fmt.Errorf("failed to upload avatar: %w", err)
 	}
 
-	url := s.storage.BuildPublicURL(objectName)
+	url := fileResp.Data.URL
 	if s.avatarURLPrefix != "" && !strings.HasPrefix(url, s.avatarURLPrefix) {
 		metrics.AvatarUploadFailureTotal.Inc()
 		return nil, fmt.Errorf("unexpected avatar url domain")
@@ -210,7 +196,7 @@ func (s *profileService) UploadAvatar(ctx context.Context, userID int64, reader 
 	if s.logger != nil {
 		s.logger.Info("avatar uploaded",
 			zap.Int64("user_id", userID),
-			zap.String("object", objectName),
+			zap.String("file_id", fmt.Sprintf("%d", fileResp.Data.ID)),
 			zap.String("content_type", contentType),
 			zap.Int64("size", size),
 		)

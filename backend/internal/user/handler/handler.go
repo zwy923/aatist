@@ -2,7 +2,6 @@ package handler
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"net/http"
 	"path/filepath"
@@ -32,13 +31,12 @@ var allowedAvatarTypes = map[string]struct{}{
 
 // AuthHandler handles authentication-related HTTP requests
 type AuthHandler struct {
-	authService     service.AuthService
-	profileSvc      service.ProfileService
-	projectSvc      service.ProjectService
-	savedItemSvc    service.SavedItemService
-	notificationSvc service.NotificationService
-	emailVerifSvc   *service.EmailVerificationService
-	mq              interface {
+	authService        service.AuthService
+	profileSvc         service.ProfileService
+	savedItemSvc       service.SavedItemService
+	notificationClient service.NotificationClient
+	emailVerifSvc      *service.EmailVerificationService
+	mq                 interface {
 		PublishEmailVerification(message interface{}) error
 	}
 	logger *log.Logger
@@ -48,9 +46,8 @@ type AuthHandler struct {
 func NewAuthHandler(
 	authService service.AuthService,
 	profileService service.ProfileService,
-	projectService service.ProjectService,
 	savedItemService service.SavedItemService,
-	notificationService service.NotificationService,
+	notificationClient service.NotificationClient,
 	emailVerifSvc *service.EmailVerificationService,
 	mq interface {
 		PublishEmailVerification(message interface{}) error
@@ -58,14 +55,13 @@ func NewAuthHandler(
 	logger *log.Logger,
 ) *AuthHandler {
 	return &AuthHandler{
-		authService:     authService,
-		profileSvc:      profileService,
-		projectSvc:      projectService,
-		savedItemSvc:    savedItemService,
-		notificationSvc: notificationService,
-		emailVerifSvc:   emailVerifSvc,
-		mq:              mq,
-		logger:          logger,
+		authService:        authService,
+		profileSvc:         profileService,
+		savedItemSvc:       savedItemService,
+		notificationClient: notificationClient,
+		emailVerifSvc:      emailVerifSvc,
+		mq:                 mq,
+		logger:             logger,
 	}
 }
 
@@ -559,217 +555,6 @@ func (h *AuthHandler) UpdateAvailabilityHandler(c *gin.Context) {
 	}))
 }
 
-// GetPortfolioHandler returns all projects for a user
-func (h *AuthHandler) GetPortfolioHandler(c *gin.Context) {
-	var req struct {
-		ID int64 `uri:"id" binding:"required"`
-	}
-	if err := c.ShouldBindUri(&req); err != nil {
-		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "invalid user id")
-		return
-	}
-
-	// Check user visibility first
-	user, err := h.profileSvc.GetProfile(c.Request.Context(), req.ID)
-	if err != nil {
-		h.handleServiceError(c, err)
-		return
-	}
-
-	var viewerEmail *string
-	// Try to get email from authenticated user
-	if userID, err := middleware.GetUserID(c); err == nil {
-		if viewer, err := h.profileSvc.GetProfile(c.Request.Context(), userID); err == nil {
-			viewerEmail = &viewer.Email
-		}
-	}
-
-	if !user.ProfileVisibility.CanView(viewerEmail) {
-		h.respondError(c, http.StatusForbidden, errs.ErrUnauthorized, "portfolio is not accessible")
-		return
-	}
-
-	projects, err := h.projectSvc.GetUserProjects(c.Request.Context(), req.ID)
-	if err != nil {
-		h.handleServiceError(c, err)
-		return
-	}
-
-	c.JSON(http.StatusOK, response.Success(projects))
-}
-
-// GetProjectDetailHandler returns a single project by ID (public)
-func (h *AuthHandler) GetProjectDetailHandler(c *gin.Context) {
-	var req struct {
-		ID int64 `uri:"id" binding:"required"`
-	}
-	if err := c.ShouldBindUri(&req); err != nil {
-		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "invalid project id")
-		return
-	}
-
-	project, err := h.projectSvc.GetProject(c.Request.Context(), req.ID)
-	if err != nil {
-		h.handleServiceError(c, err)
-		return
-	}
-
-	// Check if the project owner's profile is visible
-	user, err := h.profileSvc.GetProfile(c.Request.Context(), project.UserID)
-	if err != nil {
-		h.handleServiceError(c, err)
-		return
-	}
-
-	var viewerEmail *string
-	// Try to get email from authenticated user
-	if userID, err := middleware.GetUserID(c); err == nil {
-		if viewer, err := h.profileSvc.GetProfile(c.Request.Context(), userID); err == nil {
-			viewerEmail = &viewer.Email
-		}
-	}
-
-	if !user.ProfileVisibility.CanView(viewerEmail) {
-		h.respondError(c, http.StatusForbidden, errs.ErrUnauthorized, "project is not accessible")
-		return
-	}
-
-	c.JSON(http.StatusOK, response.Success(project))
-}
-
-// GetMyPortfolioHandler returns all projects for the authenticated user
-func (h *AuthHandler) GetMyPortfolioHandler(c *gin.Context) {
-	userID, err := middleware.GetUserID(c)
-	if err != nil {
-		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
-		return
-	}
-
-	projects, err := h.projectSvc.GetUserProjects(c.Request.Context(), userID)
-	if err != nil {
-		h.handleServiceError(c, err)
-		return
-	}
-
-	c.JSON(http.StatusOK, response.Success(projects))
-}
-
-// CreateProjectHandler creates a new project
-func (h *AuthHandler) CreateProjectHandler(c *gin.Context) {
-	userID, err := middleware.GetUserID(c)
-	if err != nil {
-		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
-		return
-	}
-
-	var req struct {
-		Title         string   `json:"title" binding:"required"`
-		Description   *string  `json:"description"`
-		Year          *int     `json:"year"`
-		Tags          []string `json:"tags"`
-		CoverImageURL *string  `json:"cover_image_url"`
-		ProjectLink   *string  `json:"project_link"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, err.Error())
-		return
-	}
-
-	project := &model.PortfolioProject{
-		Title:         req.Title,
-		Description:   req.Description,
-		Year:          req.Year,
-		Tags:          model.StringArray(req.Tags),
-		CoverImageURL: req.CoverImageURL,
-		ProjectLink:   req.ProjectLink,
-	}
-
-	if err := h.projectSvc.CreateProject(c.Request.Context(), userID, project); err != nil {
-		h.handleServiceError(c, err)
-		return
-	}
-
-	c.JSON(http.StatusCreated, response.Success(project))
-}
-
-// UpdateProjectHandler updates an existing project
-func (h *AuthHandler) UpdateProjectHandler(c *gin.Context) {
-	userID, err := middleware.GetUserID(c)
-	if err != nil {
-		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
-		return
-	}
-
-	var uriReq struct {
-		ID int64 `uri:"id" binding:"required"`
-	}
-	if err := c.ShouldBindUri(&uriReq); err != nil {
-		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "invalid project id")
-		return
-	}
-
-	var req struct {
-		Title         string   `json:"title" binding:"required"`
-		Description   *string  `json:"description"`
-		Year          *int     `json:"year"`
-		Tags          []string `json:"tags"`
-		CoverImageURL *string  `json:"cover_image_url"`
-		ProjectLink   *string  `json:"project_link"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, err.Error())
-		return
-	}
-
-	project := &model.PortfolioProject{
-		ID:            uriReq.ID,
-		Title:         req.Title,
-		Description:   req.Description,
-		Year:          req.Year,
-		Tags:          model.StringArray(req.Tags),
-		CoverImageURL: req.CoverImageURL,
-		ProjectLink:   req.ProjectLink,
-	}
-
-	if err := h.projectSvc.UpdateProject(c.Request.Context(), userID, project); err != nil {
-		h.handleServiceError(c, err)
-		return
-	}
-
-	// Fetch updated project
-	updated, err := h.projectSvc.GetProject(c.Request.Context(), uriReq.ID)
-	if err != nil {
-		h.handleServiceError(c, err)
-		return
-	}
-
-	c.JSON(http.StatusOK, response.Success(updated))
-}
-
-// DeleteProjectHandler deletes a project
-func (h *AuthHandler) DeleteProjectHandler(c *gin.Context) {
-	userID, err := middleware.GetUserID(c)
-	if err != nil {
-		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
-		return
-	}
-
-	var req struct {
-		ID int64 `uri:"id" binding:"required"`
-	}
-	if err := c.ShouldBindUri(&req); err != nil {
-		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "invalid project id")
-		return
-	}
-
-	if err := h.projectSvc.DeleteProject(c.Request.Context(), userID, req.ID); err != nil {
-		h.handleServiceError(c, err)
-		return
-	}
-
-	c.JSON(http.StatusOK, response.Success(gin.H{"message": "project deleted successfully"}))
-}
-
 // GetSavedItemsHandler returns all saved items for the authenticated user
 func (h *AuthHandler) GetSavedItemsHandler(c *gin.Context) {
 	userID, err := middleware.GetUserID(c)
@@ -829,12 +614,12 @@ func (h *AuthHandler) SaveItemHandler(c *gin.Context) {
 	}
 
 	// Send notification if saving a user profile
-	if itemType == model.SavedItemTypeUser && h.notificationSvc != nil {
+	if itemType == model.SavedItemTypeUser && h.notificationClient != nil {
 		// Get saver info
 		saver, err := h.profileSvc.GetProfile(c.Request.Context(), userID)
 		if err == nil {
 			// Notify the saved user
-			service.NotifyProfileSaved(h.notificationSvc, c.Request.Context(), req.ItemID, userID, saver.Name)
+			service.NotifyProfileSaved(h.notificationClient, c.Request.Context(), req.ItemID, userID, saver.Name)
 		}
 	}
 
@@ -886,122 +671,4 @@ func mapUserToPublicResponse(user *model.User) gin.H {
 		"profile_visibility":  user.ProfileVisibility.String(),
 		"created_at":          user.CreatedAt.Format(time.RFC3339),
 	}
-}
-
-// Notification handlers
-
-// GetNotificationsHandler returns notifications for the authenticated user
-func (h *AuthHandler) GetNotificationsHandler(c *gin.Context) {
-	userID, err := middleware.GetUserID(c)
-	if err != nil {
-		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
-		return
-	}
-
-	limit := 50
-	offset := 0
-	if limitStr := c.Query("limit"); limitStr != "" {
-		fmt.Sscanf(limitStr, "%d", &limit)
-	}
-	if offsetStr := c.Query("offset"); offsetStr != "" {
-		fmt.Sscanf(offsetStr, "%d", &offset)
-	}
-
-	unreadOnly := c.Query("unread") == "true"
-	var notifications []*model.Notification
-	var err2 error
-
-	if unreadOnly {
-		notifications, err2 = h.notificationSvc.GetUnreadNotifications(c.Request.Context(), userID, limit, offset)
-	} else {
-		notifications, err2 = h.notificationSvc.GetNotifications(c.Request.Context(), userID, limit, offset)
-	}
-
-	if err2 != nil {
-		h.handleServiceError(c, err2)
-		return
-	}
-
-	c.JSON(http.StatusOK, response.Success(notifications))
-}
-
-// GetUnreadCountHandler returns unread notification count
-func (h *AuthHandler) GetUnreadCountHandler(c *gin.Context) {
-	userID, err := middleware.GetUserID(c)
-	if err != nil {
-		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
-		return
-	}
-
-	count, err := h.notificationSvc.GetUnreadCount(c.Request.Context(), userID)
-	if err != nil {
-		h.handleServiceError(c, err)
-		return
-	}
-
-	c.JSON(http.StatusOK, response.Success(gin.H{"count": count}))
-}
-
-// MarkNotificationAsReadHandler marks a notification as read
-func (h *AuthHandler) MarkNotificationAsReadHandler(c *gin.Context) {
-	userID, err := middleware.GetUserID(c)
-	if err != nil {
-		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
-		return
-	}
-
-	var req struct {
-		ID int64 `uri:"id" binding:"required"`
-	}
-	if err := c.ShouldBindUri(&req); err != nil {
-		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "invalid notification id")
-		return
-	}
-
-	if err := h.notificationSvc.MarkAsRead(c.Request.Context(), userID, req.ID); err != nil {
-		h.handleServiceError(c, err)
-		return
-	}
-
-	c.JSON(http.StatusOK, response.Success(gin.H{"message": "notification marked as read"}))
-}
-
-// MarkAllNotificationsAsReadHandler marks all notifications as read
-func (h *AuthHandler) MarkAllNotificationsAsReadHandler(c *gin.Context) {
-	userID, err := middleware.GetUserID(c)
-	if err != nil {
-		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
-		return
-	}
-
-	if err := h.notificationSvc.MarkAllAsRead(c.Request.Context(), userID); err != nil {
-		h.handleServiceError(c, err)
-		return
-	}
-
-	c.JSON(http.StatusOK, response.Success(gin.H{"message": "all notifications marked as read"}))
-}
-
-// DeleteNotificationHandler deletes a notification
-func (h *AuthHandler) DeleteNotificationHandler(c *gin.Context) {
-	userID, err := middleware.GetUserID(c)
-	if err != nil {
-		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
-		return
-	}
-
-	var req struct {
-		ID int64 `uri:"id" binding:"required"`
-	}
-	if err := c.ShouldBindUri(&req); err != nil {
-		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "invalid notification id")
-		return
-	}
-
-	if err := h.notificationSvc.DeleteNotification(c.Request.Context(), userID, req.ID); err != nil {
-		h.handleServiceError(c, err)
-		return
-	}
-
-	c.JSON(http.StatusOK, response.Success(gin.H{"message": "notification deleted"}))
 }

@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -19,6 +22,29 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
+
+// Global HTTP client for proxy requests (reused for connection pooling)
+// Note: httputil.ReverseProxy uses its own transport, but we keep this for fallback
+var httpClient = &http.Client{
+	Timeout: 30 * time.Second,
+}
+
+// Hop-by-hop headers that should not be forwarded (RFC 2616)
+var hopByHopHeaders = map[string]bool{
+	"Connection":          true,
+	"Transfer-Encoding":   true,
+	"Keep-Alive":          true,
+	"Proxy-Authenticate":  true,
+	"Proxy-Authorization": true,
+	"Trailer":             true,
+	"TE":                  true,
+	"Upgrade":             true,
+}
+
+// Context key type for request ID
+type contextKey string
+
+const requestIDKey contextKey = "request_id"
 
 func main() {
 	// Load configuration
@@ -64,6 +90,14 @@ func main() {
 	// Initialize JWT
 	jwt := auth.NewJWT(cfg.JWT.Secret, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL)
 
+	// Helper function to get service timeout
+	getServiceTimeout := func(serviceName string) time.Duration {
+		if timeout, ok := cfg.Gateway.ServiceTimeouts[serviceName]; ok {
+			return timeout
+		}
+		return cfg.Gateway.ServiceTimeout
+	}
+
 	// Setup Gin router
 	if cfg.App.Env == "production" || cfg.App.Env == "prod" {
 		gin.SetMode(gin.ReleaseMode)
@@ -76,16 +110,19 @@ func main() {
 	router.Use(middleware.RequestIDMiddleware())
 
 	// CORS configuration
-	corsOrigins := strings.Split(os.Getenv("CORS_ORIGINS"), ",")
-	if len(corsOrigins) == 0 || corsOrigins[0] == "" {
+	env := os.Getenv("CORS_ORIGINS")
+	var corsOrigins []string
+	if env == "" {
 		// Default to allow all in development
 		corsOrigins = []string{"*"}
+	} else {
+		corsOrigins = strings.Split(env, ",")
 	}
 	router.Use(middleware.CORSMiddleware(corsOrigins))
 
 	// Health check endpoint
-	router.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, response.Success(gin.H{"status": "ok"}))
+	router.GET("/gateway/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, response.Success(gin.H{"status": "ok", "service": "gateway"}))
 	})
 
 	// API routes with /api/v1 prefix
@@ -95,12 +132,11 @@ func main() {
 		public := api.Group("")
 		{
 			// Proxy to user-service for auth endpoints
-			public.Any("/auth/*path", proxyToService("user-service", 8081, logger))
-			// Public portfolio route (for viewing project details)
-			public.Any("/portfolio/*path", proxyToService("user-service", 8081, logger))
-			// Public user profile routes
-			public.Any("/users/:id", proxyToService("user-service", 8081, logger))
-			public.Any("/users/:id/portfolio", proxyToService("user-service", 8081, logger))
+			public.Any("/auth/*path", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
+			// Note: Portfolio and user routes are handled in protected group only
+			// Services will handle permission control internally:
+			// - Portfolio: /portfolio/123 is public, creating/updating requires auth
+			// - Users: /users/123 is public, /users/me requires auth
 		}
 
 		// Protected routes (require auth)
@@ -108,11 +144,56 @@ func main() {
 		protected.Use(middleware.GatewayAuthMiddleware(jwt))
 		{
 			// Proxy to various services
-			protected.Any("/users/*path", proxyToService("user-service", 8081, logger))
-			// Portfolio routes are handled by user-service
-			protected.Any("/portfolio/*path", proxyToService("user-service", 8081, logger))
-			protected.Any("/opportunities/*path", proxyToService("opp-service", 8083, logger))
-			protected.Any("/community/*path", proxyToService("community-service", 8084, logger))
+			// Gateway only handles authentication, services handle authorization
+			// User routes: Public paths like /users/123 are handled by user-service without requiring auth
+			// Protected paths like /users/me require auth and are validated by Gateway
+			protected.Any("/users/*path", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
+			// Portfolio routes: Gateway only handles authentication, portfolio-service handles authorization
+			// Public paths like /portfolio/123 are handled by portfolio-service without requiring auth
+			// Protected paths like creating/updating projects require auth and are validated by Gateway
+			protected.Any("/portfolio/*path", proxyToServiceWithTimeout("portfolio-service", 8082, getServiceTimeout("portfolio-service"), logger))
+			// Notification routes are handled by notification-service (new path: /me/notifications)
+			protected.Any("/me/notifications/*path", proxyToServiceWithTimeout("notification-service", 8085, getServiceTimeout("notification-service"), logger))
+			// File routes are handled by file-service
+			protected.Any("/files/*path", proxyToServiceWithTimeout("file-service", 8086, getServiceTimeout("file-service"), logger))
+			protected.Any("/opportunities/*path", proxyToServiceWithTimeout("opp-service", 8083, getServiceTimeout("opp-service"), logger))
+			protected.Any("/community/*path", proxyToServiceWithTimeout("community-service", 8084, getServiceTimeout("community-service"), logger))
+		}
+
+		// Internal API routes (for service-to-service communication)
+		// These routes bypass Gateway auth but require internal authentication
+		// All internal traffic goes through Gateway for unified monitoring, rate limiting, and tracing
+		internal := api.Group("/internal")
+		internal.Use(middleware.InternalServiceMiddleware())
+		{
+			// Internal user API (for other services to check user profile visibility, etc.)
+			internal.Any("/user/*path", func(c *gin.Context) {
+				// Rewrite path: /api/v1/internal/user/users/:id -> /api/v1/users/:id
+				originalPath := c.Request.URL.Path
+				if strings.HasPrefix(originalPath, "/api/v1/internal/user/") {
+					newPath := strings.Replace(originalPath, "/api/v1/internal/user/", "/api/v1/", 1)
+					c.Request.URL.Path = newPath
+				}
+				proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger)(c)
+			})
+
+			// Internal notification API (for other services to create notifications)
+			internal.Any("/notification/*path", func(c *gin.Context) {
+				// Rewrite path: /api/v1/internal/notification/notifications -> /api/v1/internal/notifications
+				originalPath := c.Request.URL.Path
+				if strings.HasPrefix(originalPath, "/api/v1/internal/notification/") {
+					newPath := strings.Replace(originalPath, "/api/v1/internal/notification/", "/api/v1/internal/", 1)
+					c.Request.URL.Path = newPath
+				}
+				proxyToServiceWithTimeout("notification-service", 8085, getServiceTimeout("notification-service"), logger)(c)
+			})
+
+			// Internal portfolio API (for future service-to-service calls)
+			internal.Any("/portfolio/*path", proxyToServiceWithTimeout("portfolio-service", 8082, getServiceTimeout("portfolio-service"), logger))
+
+			// Internal file API (for other services to upload files)
+			// Keep the path as-is since file-service expects /api/v1/internal/file/*
+			internal.Any("/file/*path", proxyToServiceWithTimeout("file-service", 8086, getServiceTimeout("file-service"), logger))
 		}
 	}
 
@@ -122,7 +203,7 @@ func main() {
 		// Rewrite the path to include /api/v1 prefix
 		c.Request.URL.Path = "/api/v1/auth" + path
 		// Create a new handler and call it
-		proxyToService("user-service", 8081, logger)(c)
+		proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger)(c)
 	})
 
 	// Create HTTP server
@@ -157,65 +238,91 @@ func main() {
 	logger.Info("Server exited")
 }
 
-// proxyToService creates a proxy handler to forward requests to downstream services
+// proxyToService creates a reverse proxy handler to forward requests to downstream services
+// Uses httputil.ReverseProxy for better performance, connection reuse, and proper streaming
 func proxyToService(serviceName string, port int, logger *log.Logger) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Simple proxy implementation
-		// In production, use a proper reverse proxy library like httputil.ReverseProxy
+	return proxyToServiceWithTimeout(serviceName, port, 0, logger)
+}
 
-		// Get the full request path
-		// This will be the complete path like /api/v1/auth/register
-		fullPath := c.Request.URL.Path
+// proxyToServiceWithTimeout creates a reverse proxy handler with custom timeout
+func proxyToServiceWithTimeout(serviceName string, port int, timeout time.Duration, logger *log.Logger) gin.HandlerFunc {
+	// Build target URL
+	targetURL, err := url.Parse(fmt.Sprintf("http://%s:%d", serviceName, port))
+	if err != nil {
+		logger.Fatal("Failed to parse target URL", zap.Error(err))
+	}
 
-		// Build target URL - forward the full path to maintain consistency
-		targetURL := fmt.Sprintf("http://%s:%d%s", serviceName, port, fullPath)
-		if c.Request.URL.RawQuery != "" {
-			targetURL += "?" + c.Request.URL.RawQuery
-		}
+	// Create reverse proxy
+	proxy := httputil.NewSingleHostReverseProxy(targetURL)
 
-		logger.Info("Proxying request",
-			zap.String("service", serviceName),
-			zap.String("path", fullPath),
-			zap.String("method", c.Request.Method),
-			middleware.RequestIDLogField(c),
-		)
+	// Customize Director to modify the request
+	originalDirector := proxy.Director
+	proxy.Director = func(req *http.Request) {
+		// Call original director first (sets Host, Scheme, etc.)
+		originalDirector(req)
 
-		// Create request to downstream service
-		req, err := http.NewRequest(c.Request.Method, targetURL, c.Request.Body)
-		if err != nil {
-			logger.Error("Failed to create proxy request", zap.Error(err))
-			c.JSON(http.StatusInternalServerError, response.Error(err))
-			return
-		}
-
-		// Copy headers (including user identity headers set by GatewayAuthMiddleware)
-		for key, values := range c.Request.Header {
-			req.Header[key] = values
-		}
-
-		// Forward request ID
-		if requestID := middleware.GetRequestID(c); requestID != "" {
-			req.Header.Set("X-Request-ID", requestID)
-		}
-
-		// Make request
-		client := &http.Client{Timeout: 30 * time.Second}
-		resp, err := client.Do(req)
-		if err != nil {
-			logger.Error("Failed to proxy request", zap.Error(err))
-			c.JSON(http.StatusBadGateway, response.Error(err))
-			return
-		}
-		defer resp.Body.Close()
-
-		// Copy response headers
-		for key, values := range resp.Header {
-			for _, value := range values {
-				c.Header(key, value)
+		// Remove hop-by-hop headers from request
+		for key := range req.Header {
+			if hopByHopHeaders[key] {
+				delete(req.Header, key)
 			}
 		}
 
-		// Copy status code and body
-		c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
+		// Forward request ID from context if present
+		if ctxRequestID, ok := req.Context().Value(requestIDKey).(string); ok {
+			req.Header.Set("X-Request-ID", ctxRequestID)
+		}
+
+		// Forward user identity headers if present (these are already in headers from GatewayAuthMiddleware)
+		// No need to modify them, just ensure they're forwarded
+
+		// Log the proxied request
+		logger.Info("Proxying request",
+			zap.String("service", serviceName),
+			zap.String("path", req.URL.Path),
+			zap.String("method", req.Method),
+			zap.String("target", req.URL.String()),
+		)
+	}
+
+	// Customize error handler
+	proxy.ErrorHandler = func(rw http.ResponseWriter, req *http.Request, err error) {
+		logger.Error("Reverse proxy error",
+			zap.String("service", serviceName),
+			zap.String("path", req.URL.Path),
+			zap.Error(err),
+		)
+		rw.Header().Set("Content-Type", "application/json")
+		rw.WriteHeader(http.StatusBadGateway)
+		json.NewEncoder(rw).Encode(response.Error(err))
+	}
+
+	// Customize ModifyResponse to filter hop-by-hop headers from response
+	proxy.ModifyResponse = func(resp *http.Response) error {
+		// Remove hop-by-hop headers from response
+		for key := range resp.Header {
+			if hopByHopHeaders[key] {
+				resp.Header.Del(key)
+			}
+		}
+		return nil
+	}
+
+	return func(c *gin.Context) {
+		// Store request ID in context for Director to access
+		if requestID := middleware.GetRequestID(c); requestID != "" {
+			ctx := context.WithValue(c.Request.Context(), requestIDKey, requestID)
+			c.Request = c.Request.WithContext(ctx)
+		}
+
+		// Apply timeout if specified
+		if timeout > 0 {
+			ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)
+			defer cancel()
+			c.Request = c.Request.WithContext(ctx)
+		}
+
+		// Use ReverseProxy to handle the request
+		proxy.ServeHTTP(c.Writer, c.Request)
 	}
 }

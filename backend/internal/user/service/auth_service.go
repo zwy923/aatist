@@ -93,8 +93,11 @@ func (s *authService) Register(ctx context.Context, input RegisterInput) (*model
 		return nil, nil, err
 	}
 
-	// Check if email already exists
-	existingUser, err := s.userRepo.FindByEmail(ctx, input.Email)
+	// Normalize email to lowercase (email should be case-insensitive)
+	normalizedEmail := strings.ToLower(strings.TrimSpace(input.Email))
+
+	// Check if email already exists (using normalized email)
+	existingUser, err := s.userRepo.FindByEmail(ctx, normalizedEmail)
 	if err != nil && err != errs.ErrUserNotFound {
 		s.logger.Error("Failed to check email existence", zap.Error(err))
 		return nil, nil, fmt.Errorf("failed to check email: %w", err)
@@ -117,11 +120,11 @@ func (s *authService) Register(ctx context.Context, input RegisterInput) (*model
 	}
 
 	// Auto-verify @aalto.fi emails
-	isVerified := strings.HasSuffix(strings.ToLower(input.Email), "@aalto.fi")
+	isVerified := strings.HasSuffix(normalizedEmail, "@aalto.fi")
 
-	// Create user
+	// Create user (store email in lowercase)
 	user := &model.User{
-		Email:             input.Email,
+		Email:             normalizedEmail,
 		PasswordHash:      string(passwordHash),
 		Name:              input.Name,
 		Role:              role,
@@ -189,14 +192,17 @@ func (s *authService) Login(ctx context.Context, email, password, ip string) (*m
 		return nil, nil, errs.NewAppError(errs.ErrInvalidInput, 400, "password is required")
 	}
 
-	// Rate limiting
-	if err := s.checkRateLimit(ctx, fmt.Sprintf(loginRateLimitKey, email, ip), loginRateLimit); err != nil {
-		s.logger.Warn("Login rate limit exceeded", zap.String("email", email), zap.String("ip", ip))
+	// Normalize email to lowercase (email should be case-insensitive)
+	normalizedEmail := strings.ToLower(strings.TrimSpace(email))
+
+	// Rate limiting (use normalized email for consistency)
+	if err := s.checkRateLimit(ctx, fmt.Sprintf(loginRateLimitKey, normalizedEmail, ip), loginRateLimit); err != nil {
+		s.logger.Warn("Login rate limit exceeded", zap.String("email", normalizedEmail), zap.String("ip", ip))
 		return nil, nil, err
 	}
 
-	// Find user
-	user, err := s.userRepo.FindByEmail(ctx, email)
+	// Find user (using normalized email)
+	user, err := s.userRepo.FindByEmail(ctx, normalizedEmail)
 	if err != nil {
 		// Use same error message for security (don't reveal if email exists)
 		s.handleFailedLogin(ctx, nil, ip)

@@ -15,7 +15,9 @@ import (
 // ObjectStorage defines upload capabilities needed by services.
 type ObjectStorage interface {
 	Upload(ctx context.Context, objectName string, reader io.Reader, size int64, contentType string, metadata map[string]string) error
+	Delete(ctx context.Context, objectName string) error
 	BuildPublicURL(objectName string) string
+	PresignedPutURL(ctx context.Context, objectName string, expires time.Duration) (string, error)
 }
 
 // S3 encapsulates an S3/MinIO client.
@@ -126,6 +128,34 @@ func sanitizeEndpoint(endpoint string) (string, *bool) {
 		}
 	}
 	return endpoint, nil
+}
+
+// Delete removes an object from the bucket.
+func (s *S3) Delete(ctx context.Context, objectName string) error {
+	if objectName == "" {
+		return fmt.Errorf("objectName is required")
+	}
+
+	err := s.client.RemoveObject(ctx, s.bucket, objectName, minio.RemoveObjectOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to delete object: %w", err)
+	}
+
+	return nil
+}
+
+// PresignedPutURL generates a pre-signed URL for PUT operations (for direct client uploads).
+func (s *S3) PresignedPutURL(ctx context.Context, objectName string, expires time.Duration) (string, error) {
+	if objectName == "" {
+		return "", fmt.Errorf("objectName is required")
+	}
+
+	url, err := s.client.PresignedPutObject(ctx, s.bucket, objectName, expires)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate presigned URL: %w", err)
+	}
+
+	return url.String(), nil
 }
 
 // BuildPublicURL constructs the public URL for a given object.

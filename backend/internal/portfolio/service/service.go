@@ -3,38 +3,47 @@ package service
 import (
 	"context"
 
-	"github.com/aalto-talent-network/backend/internal/user/model"
-	"github.com/aalto-talent-network/backend/internal/user/repository"
+	"github.com/aalto-talent-network/backend/internal/portfolio/model"
+	"github.com/aalto-talent-network/backend/internal/portfolio/repository"
 	"github.com/aalto-talent-network/backend/pkg/errs"
 )
 
+// ProjectService defines the interface for project operations
 type ProjectService interface {
-	GetUserProjects(ctx context.Context, userID int64) ([]*model.PortfolioProject, error)
-	GetProject(ctx context.Context, id int64) (*model.PortfolioProject, error)
-	CreateProject(ctx context.Context, userID int64, project *model.PortfolioProject) error
-	UpdateProject(ctx context.Context, userID int64, project *model.PortfolioProject) error
+	GetUserProjects(ctx context.Context, userID int64) ([]*model.Project, error)
+	GetProject(ctx context.Context, id int64) (*model.Project, error)
+	CreateProject(ctx context.Context, userID int64, project *model.Project) error
+	UpdateProject(ctx context.Context, userID int64, project *model.Project) error
 	DeleteProject(ctx context.Context, userID int64, id int64) error
+}
+
+// UserServiceClient defines interface for checking user profile visibility
+// This will be called via HTTP to user-service
+type UserServiceClient interface {
+	CheckProfileVisibility(ctx context.Context, userID int64, viewerEmail *string) (bool, error)
 }
 
 type projectService struct {
 	projectRepo repository.ProjectRepository
+	userClient  UserServiceClient
 }
 
-func NewProjectService(projectRepo repository.ProjectRepository) ProjectService {
+func NewProjectService(projectRepo repository.ProjectRepository, userClient UserServiceClient) ProjectService {
 	return &projectService{
 		projectRepo: projectRepo,
+		userClient:  userClient,
 	}
 }
 
-func (s *projectService) GetUserProjects(ctx context.Context, userID int64) ([]*model.PortfolioProject, error) {
+func (s *projectService) GetUserProjects(ctx context.Context, userID int64) ([]*model.Project, error) {
 	return s.projectRepo.FindByUserID(ctx, userID)
 }
 
-func (s *projectService) GetProject(ctx context.Context, id int64) (*model.PortfolioProject, error) {
+func (s *projectService) GetProject(ctx context.Context, id int64) (*model.Project, error) {
 	return s.projectRepo.FindByID(ctx, id)
 }
 
-func (s *projectService) CreateProject(ctx context.Context, userID int64, project *model.PortfolioProject) error {
+func (s *projectService) CreateProject(ctx context.Context, userID int64, project *model.Project) error {
 	if project.Title == "" {
 		return errs.NewAppError(errs.ErrInvalidInput, 400, "title is required")
 	}
@@ -42,7 +51,7 @@ func (s *projectService) CreateProject(ctx context.Context, userID int64, projec
 	return s.projectRepo.Create(ctx, project)
 }
 
-func (s *projectService) UpdateProject(ctx context.Context, userID int64, project *model.PortfolioProject) error {
+func (s *projectService) UpdateProject(ctx context.Context, userID int64, project *model.Project) error {
 	if project.Title == "" {
 		return errs.NewAppError(errs.ErrInvalidInput, 400, "title is required")
 	}
