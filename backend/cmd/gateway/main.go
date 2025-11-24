@@ -143,20 +143,34 @@ func main() {
 		protected := api.Group("")
 		protected.Use(middleware.GatewayAuthMiddleware(jwt))
 		{
-			// Proxy to various services
-			// Gateway only handles authentication, services handle authorization
-			// User routes: Public paths like /users/123 are handled by user-service without requiring auth
-			// Protected paths like /users/me require auth and are validated by Gateway
-			protected.Any("/users/*path", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
-			// Portfolio routes: Gateway only handles authentication, portfolio-service handles authorization
-			// Public paths like /portfolio/123 are handled by portfolio-service without requiring auth
-			// Protected paths like creating/updating projects require auth and are validated by Gateway
+			// Current user self-management routes → user-service
+			// Gateway only handles authentication, user-service handles authorization
+			// User-service handles paths like /me, /me/profile, /me/settings, etc.
+			// Using /me instead of /users/me for cleaner RESTful design and microservice boundaries
+			protected.Any("/me/*path", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
+			protected.Any("/me", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
+
+			// Portfolio routes → portfolio-service
+			// Gateway only handles authentication, portfolio-service handles authorization
+			// Portfolio-service handles all portfolio paths:
+			// - /portfolio/me (current user's portfolio, requires auth)
+			// - /portfolio/:id (public portfolio view, no auth required)
+			// - /portfolio (create/update portfolio, requires auth)
+			// This is the correct microservice boundary: portfolio is independent of users namespace
 			protected.Any("/portfolio/*path", proxyToServiceWithTimeout("portfolio-service", 8082, getServiceTimeout("portfolio-service"), logger))
-			// Notification routes are handled by notification-service (new path: /me/notifications)
+
+			// Notification routes → notification-service
+			// Gateway only handles authentication, notification-service handles authorization
 			protected.Any("/me/notifications/*path", proxyToServiceWithTimeout("notification-service", 8085, getServiceTimeout("notification-service"), logger))
-			// File routes are handled by file-service
+
+			// File routes → file-service
+			// Gateway only handles authentication, file-service handles authorization
 			protected.Any("/files/*path", proxyToServiceWithTimeout("file-service", 8086, getServiceTimeout("file-service"), logger))
+
+			// Opportunities routes → opp-service
 			protected.Any("/opportunities/*path", proxyToServiceWithTimeout("opp-service", 8083, getServiceTimeout("opp-service"), logger))
+
+			// Community routes → community-service
 			protected.Any("/community/*path", proxyToServiceWithTimeout("community-service", 8084, getServiceTimeout("community-service"), logger))
 		}
 
