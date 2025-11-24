@@ -1,0 +1,29 @@
+app:
+  name: "aatn-backend"
+  env: "dev"
+  http_port: 8080
+
+postgres:
+  dsn: "postgres://user:password@localhost:5432/aatn?sslmode=disable"
+
+redis:
+  addr: "localhost:6379"
+  db: 0
+
+mq:
+  broker: "amqp://guest:guest@mq:5672/"
+
+s3:
+  endpoint: "http://localhost:9000"
+  bucket: "aatn-assets"
+
+jwt:
+  secret: "CHANGE_ME_IN_PRODUCTION_USE_STRONG_SECRET"
+  ttl_minutes: 60
+  # Access token TTL: 15 minutes (hardcoded in code)
+  # Refresh token TTL: 30 days (hardcoded in code)
+
+email:
+  sendgrid_api_key: "SG.xxxxx"
+  from_email: "no-reply@aatist.fi"
+  frontend_url: "http://localhost:5173"

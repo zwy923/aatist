@@ -1,9 +1,13 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import "./styles/global.css";
+import { useUser } from "./store/userStore";
+import LoginModal from "./components/LoginModal";
 
 export default function App() {
   const textRef = useRef(null);
   const canvasRef = useRef(null);
+  const { user, logout, isAuthenticated } = useUser();
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   // 标题轻微浮动
   useEffect(() => {
@@ -152,8 +156,83 @@ export default function App() {
     <div className="container">
       <div className="glow"></div>
       <div className="overlay"></div>
+      
+      {/* 顶部导航栏 */}
+      <div style={{
+        position: "absolute",
+        top: "2rem",
+        right: "2rem",
+        zIndex: 10,
+        display: "flex",
+        alignItems: "center",
+        gap: "1rem"
+      }}>
+        {isAuthenticated ? (
+          <>
+            <div style={{
+              color: "white",
+              fontSize: "1rem",
+              textShadow: "0 0 10px rgba(0, 150, 255, 0.6)"
+            }}>
+              欢迎, {user?.name}!
+            </div>
+            <button
+              onClick={logout}
+              style={{
+                padding: "0.5rem 1rem",
+                background: "rgba(255, 255, 255, 0.1)",
+                border: "1px solid rgba(255, 255, 255, 0.3)",
+                borderRadius: "8px",
+                color: "white",
+                cursor: "pointer",
+                fontSize: "0.9rem",
+                transition: "all 0.2s"
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.background = "rgba(255, 255, 255, 0.2)";
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = "rgba(255, 255, 255, 0.1)";
+              }}
+            >
+              退出
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={() => setShowLoginModal(true)}
+            style={{
+              padding: "0.75rem 1.5rem",
+              background: "linear-gradient(135deg, #007bff 0%, #0056b3 100%)",
+              border: "none",
+              borderRadius: "8px",
+              color: "white",
+              cursor: "pointer",
+              fontSize: "1rem",
+              fontWeight: 600,
+              boxShadow: "0 4px 12px rgba(0, 128, 255, 0.4)",
+              transition: "all 0.2s"
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.transform = "translateY(-2px)";
+              e.target.style.boxShadow = "0 6px 16px rgba(0, 128, 255, 0.5)";
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.transform = "translateY(0)";
+              e.target.style.boxShadow = "0 4px 12px rgba(0, 128, 255, 0.4)";
+            }}
+          >
+            登录
+          </button>
+        )}
+      </div>
+      
       <h1 ref={textRef} className="main-text">Aatist.fi</h1>
       <canvas ref={canvasRef} className="particle-canvas" />
+      
+      {showLoginModal && (
+        <LoginModal onClose={() => setShowLoginModal(false)} />
+      )}
     </div>
   );
 }
