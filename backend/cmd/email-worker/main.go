@@ -97,7 +97,7 @@ func main() {
 	logger.Info("Starting email worker")
 
 	// Initialize RabbitMQ with retry
-	rabbitMQ := mustConnectRabbitMQ(cfg.MQ.Broker, logger)
+	rabbitMQ := mustConnectRabbitMQ(cfg.MQ.Broker, cfg.MQ.PublishConfirmTimeout, logger)
 	defer rabbitMQ.Close()
 
 	// Initialize email service
@@ -152,7 +152,7 @@ func main() {
 	logger.Info("Email worker stopped")
 }
 
-func mustConnectRabbitMQ(broker string, logger *log.Logger) *mq.RabbitMQ {
+func mustConnectRabbitMQ(broker string, confirmTimeout time.Duration, logger *log.Logger) *mq.RabbitMQ {
 	if broker == "" {
 		logger.Fatal("MQ broker not configured")
 	}
@@ -163,7 +163,7 @@ func mustConnectRabbitMQ(broker string, logger *log.Logger) *mq.RabbitMQ {
 		err    error
 	)
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		client, err = mq.NewRabbitMQ(broker, logger)
+		client, err = mq.NewRabbitMQ(broker, confirmTimeout, logger)
 		if err == nil {
 			logger.Info("Connected to RabbitMQ", zap.String("broker", broker))
 			return client

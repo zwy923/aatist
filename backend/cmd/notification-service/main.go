@@ -13,12 +13,15 @@ import (
 	"github.com/aalto-talent-network/backend/internal/notification/handler"
 	"github.com/aalto-talent-network/backend/internal/notification/repository"
 	"github.com/aalto-talent-network/backend/internal/notification/service"
+	"github.com/aalto-talent-network/backend/internal/platform/cache"
 	"github.com/aalto-talent-network/backend/internal/platform/config"
 	"github.com/aalto-talent-network/backend/internal/platform/db"
 	"github.com/aalto-talent-network/backend/internal/platform/log"
 	"github.com/aalto-talent-network/backend/internal/platform/middleware"
+	"github.com/aalto-talent-network/backend/internal/platform/mq"
 	"github.com/aalto-talent-network/backend/pkg/response"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
 
@@ -67,11 +70,55 @@ func main() {
 	}
 	logger.Info("Database migrations completed")
 
+	// Initialize Redis (optional - used for batching)
+	var redisClient *cache.Redis
+	var redisCmd redis.Cmdable
+	if cfg.Redis.Addr != "" {
+		redisClient, err = cache.NewRedis(cfg.Redis.Addr, cfg.Redis.DB)
+		if err != nil {
+			logger.Warn("Failed to initialize Redis - community batching disabled", zap.Error(err))
+		} else {
+			defer redisClient.Close()
+			redisCmd = redisClient.GetClient()
+			logger.Info("Connected to Redis", zap.String("addr", cfg.Redis.Addr))
+		}
+	}
+
+	// Initialize RabbitMQ (optional - used for community events)
+	var rabbitMQ *mq.RabbitMQ
+	if cfg.MQ.Broker != "" {
+		rabbitMQ, err = mq.NewRabbitMQ(cfg.MQ.Broker, cfg.MQ.PublishConfirmTimeout, logger)
+		if err != nil {
+			logger.Warn("Failed to initialize RabbitMQ - community events disabled", zap.Error(err))
+		} else {
+			defer rabbitMQ.Close()
+			logger.Info("Connected to RabbitMQ")
+		}
+	}
+
 	// Initialize repositories
 	notificationRepo := repository.NewPostgresNotificationRepository(postgres.GetDB())
 
 	// Initialize services
 	notificationService := service.NewNotificationService(notificationRepo)
+
+	if rabbitMQ != nil {
+		consumer := service.NewCommunityEventConsumer(notificationService, redisCmd, logger)
+		// Use SERVICE_NAME env var → queues: {SERVICE_NAME}.community, {SERVICE_NAME}.community.dlq, {SERVICE_NAME}.community.retry
+		serviceName := os.Getenv("SERVICE_NAME")
+		if serviceName == "" {
+			serviceName = "notification-service"
+		}
+		if err := rabbitMQ.ConsumeCommunityEvents(
+			serviceName,
+			[]string{"community.post.created", "community.post.liked", "community.post.commented"},
+			func(eventType string, payload []byte) error {
+				return consumer.HandleMessage(eventType, payload)
+			},
+		); err != nil {
+			logger.Warn("Failed to start community event consumer", zap.Error(err))
+		}
+	}
 
 	// Initialize handler
 	notificationHandler := handler.NewNotificationHandler(notificationService, logger)

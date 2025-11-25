@@ -170,3 +170,78 @@ DROP TRIGGER IF EXISTS update_files_updated_at ON files;
 CREATE TRIGGER update_files_updated_at BEFORE UPDATE ON files
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+-- Enable pg_trgm extension for fuzzy search (idempotent)
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+-- Community: discussion posts table
+CREATE TABLE IF NOT EXISTS discussion_posts (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    category VARCHAR(50) NOT NULL DEFAULT 'general',
+    tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+    like_count BIGINT NOT NULL DEFAULT 0,
+    comment_count BIGINT NOT NULL DEFAULT 0,
+    tsv tsvector NOT NULL DEFAULT to_tsvector('english', ''),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+-- Triggers for discussion_posts
+DROP TRIGGER IF EXISTS update_discussion_posts_updated_at ON discussion_posts;
+CREATE TRIGGER update_discussion_posts_updated_at BEFORE UPDATE ON discussion_posts
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP FUNCTION IF EXISTS discussion_posts_tsv_trigger() CASCADE;
+CREATE FUNCTION discussion_posts_tsv_trigger()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.tsv := to_tsvector('english', coalesce(NEW.content, ''));
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS discussion_posts_tsv_update ON discussion_posts;
+CREATE TRIGGER discussion_posts_tsv_update BEFORE INSERT OR UPDATE ON discussion_posts
+    FOR EACH ROW EXECUTE FUNCTION discussion_posts_tsv_trigger();
+
+-- Indexes for discussion_posts
+CREATE INDEX IF NOT EXISTS idx_discussion_posts_user_id ON discussion_posts(user_id);
+CREATE INDEX IF NOT EXISTS idx_discussion_posts_category_created_at ON discussion_posts(category, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_discussion_posts_created_at ON discussion_posts(created_at);
+CREATE INDEX IF NOT EXISTS idx_discussion_posts_title_trgm ON discussion_posts USING GIN (title gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_discussion_posts_tsv ON discussion_posts USING GIN (tsv);
+CREATE INDEX IF NOT EXISTS idx_discussion_posts_tags_gin ON discussion_posts USING GIN (tags);
+
+-- Post comments table
+CREATE TABLE IF NOT EXISTS post_comments (
+    id BIGSERIAL PRIMARY KEY,
+    post_id BIGINT NOT NULL REFERENCES discussion_posts(id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    parent_id BIGINT NULL REFERENCES post_comments(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+DROP TRIGGER IF EXISTS update_post_comments_updated_at ON post_comments;
+CREATE TRIGGER update_post_comments_updated_at BEFORE UPDATE ON post_comments
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE INDEX IF NOT EXISTS idx_post_comments_post_id_created_at ON post_comments(post_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_post_comments_user_id ON post_comments(user_id);
+CREATE INDEX IF NOT EXISTS idx_post_comments_parent_id ON post_comments(parent_id);
+
+-- Post likes table
+CREATE TABLE IF NOT EXISTS post_likes (
+    id BIGSERIAL PRIMARY KEY,
+    post_id BIGINT NOT NULL REFERENCES discussion_posts(id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    UNIQUE(post_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_post_likes_user_id ON post_likes(user_id);
+CREATE INDEX IF NOT EXISTS idx_post_likes_post_id ON post_likes(post_id);
+

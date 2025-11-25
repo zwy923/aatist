@@ -12,6 +12,7 @@ redis:
 
 mq:
   broker: "amqp://guest:guest@mq:5672/"
+  publish_confirm_timeout: 5s
 
 s3:
   endpoint: "localhost:9000"

@@ -36,7 +36,8 @@ type RedisConfig struct {
 
 // MQConfig holds message queue configuration
 type MQConfig struct {
-	Broker string
+	Broker                string
+	PublishConfirmTimeout time.Duration `yaml:"publish_confirm_timeout"`
 }
 
 // EmailConfig holds email provider configuration

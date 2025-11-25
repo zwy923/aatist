@@ -7,36 +7,38 @@ import (
 
 // Error codes
 const (
-	CodeUserNotFound      = "USER_NOT_FOUND"
+	CodeUserNotFound       = "USER_NOT_FOUND"
 	CodeInvalidCredentials = "INVALID_CREDENTIALS"
-	CodeAccountLocked     = "ACCOUNT_LOCKED"
-	CodeEmailExists       = "EMAIL_EXISTS"
-	CodeInvalidToken      = "INVALID_TOKEN"
-	CodeTokenExpired      = "TOKEN_EXPIRED"
-	CodeUnauthorized      = "UNAUTHORIZED"
-	CodeForbidden         = "FORBIDDEN"
-	CodeRateLimitExceeded = "RATE_LIMIT_EXCEEDED"
-	CodeInvalidInput      = "INVALID_INPUT"
-	CodeInternalError     = "INTERNAL_ERROR"
-	CodeBadRequest        = "BAD_REQUEST"
+	CodeAccountLocked      = "ACCOUNT_LOCKED"
+	CodeEmailExists        = "EMAIL_EXISTS"
+	CodeInvalidToken       = "INVALID_TOKEN"
+	CodeTokenExpired       = "TOKEN_EXPIRED"
+	CodeUnauthorized       = "UNAUTHORIZED"
+	CodeForbidden          = "FORBIDDEN"
+	CodeRateLimitExceeded  = "RATE_LIMIT_EXCEEDED"
+	CodeInvalidInput       = "INVALID_INPUT"
+	CodeInternalError      = "INTERNAL_ERROR"
+	CodeBadRequest         = "BAD_REQUEST"
+	CodeNotFound           = "NOT_FOUND"
 )
 
 var (
 	ErrInternalError = errors.New("internal error")
+	ErrNotFound      = errors.New("not found")
 )
 
 // Common application errors
 var (
-	ErrUserNotFound      = errors.New("user not found")
+	ErrUserNotFound       = errors.New("user not found")
 	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrAccountLocked     = errors.New("account is locked")
-	ErrEmailExists       = errors.New("email already exists")
-	ErrInvalidToken      = errors.New("invalid token")
-	ErrTokenExpired      = errors.New("token expired")
-	ErrUnauthorized      = errors.New("unauthorized")
-	ErrForbidden         = errors.New("forbidden")
-	ErrRateLimitExceeded = errors.New("rate limit exceeded")
-	ErrInvalidInput      = errors.New("invalid input")
+	ErrAccountLocked      = errors.New("account is locked")
+	ErrEmailExists        = errors.New("email already exists")
+	ErrInvalidToken       = errors.New("invalid token")
+	ErrTokenExpired       = errors.New("token expired")
+	ErrUnauthorized       = errors.New("unauthorized")
+	ErrForbidden          = errors.New("forbidden")
+	ErrRateLimitExceeded  = errors.New("rate limit exceeded")
+	ErrInvalidInput       = errors.New("invalid input")
 )
 
 // AppError represents an application error with HTTP status code and error code
@@ -130,6 +132,8 @@ func ToHTTPStatus(err error) int {
 		return http.StatusUnauthorized
 	case ErrForbidden:
 		return http.StatusForbidden
+	case ErrNotFound, ErrUserNotFound:
+		return http.StatusNotFound
 	case ErrRateLimitExceeded:
 		return http.StatusTooManyRequests
 	case ErrInvalidInput:
@@ -170,6 +174,8 @@ func GetErrorCode(err error) string {
 		return CodeRateLimitExceeded
 	case ErrInvalidInput:
 		return CodeInvalidInput
+	case ErrNotFound:
+		return CodeNotFound
 	default:
 		return CodeInternalError
 	}

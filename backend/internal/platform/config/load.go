@@ -48,6 +48,11 @@ func Load(configPath string) (*Config, error) {
 	if broker := os.Getenv("MQ_BROKER"); broker != "" {
 		cfg.MQ.Broker = broker
 	}
+	if confirmTimeout := os.Getenv("MQ_CONFIRM_TIMEOUT"); confirmTimeout != "" {
+		if d, err := time.ParseDuration(confirmTimeout); err == nil {
+			cfg.MQ.PublishConfirmTimeout = d
+		}
+	}
 	if endpoint := os.Getenv("S3_ENDPOINT"); endpoint != "" {
 		cfg.S3.Endpoint = endpoint
 	}
@@ -91,6 +96,9 @@ func Load(configPath string) (*Config, error) {
 	}
 	if cfg.Email.FrontendURL == "" {
 		cfg.Email.FrontendURL = "http://localhost:5173"
+	}
+	if cfg.MQ.PublishConfirmTimeout == 0 {
+		cfg.MQ.PublishConfirmTimeout = 5 * time.Second
 	}
 
 	// Calculate JWT TTL durations

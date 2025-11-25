@@ -12,5 +12,6 @@ WORKDIR /app
 COPY --from=builder /app/notification-service .
 COPY --from=builder /app/configs ./configs
 COPY --from=builder /app/migrations ./migrations
+ENV SERVICE_NAME=notification-service
 CMD ["./notification-service"]
 

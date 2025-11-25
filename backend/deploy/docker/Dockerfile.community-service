@@ -1,17 +1,18 @@
-# Dockerfile for file-service
+# Dockerfile for community-service
 FROM golang:1.22-alpine AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN go build -o file-service ./cmd/file-service
+RUN go build -o community-service ./cmd/community-service
 
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
 WORKDIR /app
-COPY --from=builder /app/file-service .
+COPY --from=builder /app/community-service .
 COPY --from=builder /app/configs ./configs
 COPY --from=builder /app/migrations ./migrations
-ENV SERVICE_NAME=file-service
-CMD ["./file-service"]
+ENV SERVICE_NAME=community-service
+CMD ["./community-service"]
+
 

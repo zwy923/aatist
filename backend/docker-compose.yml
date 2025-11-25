@@ -63,6 +63,7 @@ services:
       minio:
         condition: service_started
     environment:
+      - SERVICE_NAME=user-service
       - CONFIG_PATH=/app/configs/config.yaml
       - REDIS_ADDR=redis:6379
       - POSTGRES_DSN=postgres://aatn:aatn@postgres:5432/aatn?sslmode=disable
@@ -93,6 +94,7 @@ services:
       backend-mq:
         condition: service_healthy
     environment:
+      - SERVICE_NAME=email-worker
       - CONFIG_PATH=/app/configs/config.yaml
       - MQ_BROKER=amqp://guest:guest@backend-mq:5672/
       - SENDGRID_API_KEY=${SENDGRID_API_KEY}
@@ -112,6 +114,7 @@ services:
       user-service:
         condition: service_started
     environment:
+      - SERVICE_NAME=portfolio-service
       - CONFIG_PATH=/app/configs/config.yaml
       - POSTGRES_DSN=postgres://aatn:aatn@postgres:5432/aatn?sslmode=disable
       - HTTP_PORT=8082
@@ -129,9 +132,16 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend-mq:
+        condition: service_healthy
     environment:
+      - SERVICE_NAME=notification-service
       - CONFIG_PATH=/app/configs/config.yaml
       - POSTGRES_DSN=postgres://aatn:aatn@postgres:5432/aatn?sslmode=disable
+      - REDIS_ADDR=redis:6379
+      - MQ_BROKER=amqp://guest:guest@backend-mq:5672/
       - HTTP_PORT=8085
       - APP_ENV=dev
       - MIGRATIONS_DIR=/app/migrations
@@ -153,6 +163,7 @@ services:
       minio:
         condition: service_started
     environment:
+      - SERVICE_NAME=file-service
       - CONFIG_PATH=/app/configs/config.yaml
       - POSTGRES_DSN=postgres://aatn:aatn@postgres:5432/aatn?sslmode=disable
       - HTTP_PORT=8086
@@ -168,6 +179,33 @@ services:
       - INTERNAL_ALLOWED_IPS=${INTERNAL_ALLOWED_IPS:-}
     ports:
       - "8086:8086"
+    volumes:
+      - ./configs:/app/configs
+      - ./migrations:/app/migrations
+
+  community-service:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.community-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend-mq:
+        condition: service_healthy
+    environment:
+      - SERVICE_NAME=community-service
+      - CONFIG_PATH=/app/configs/config.yaml
+      - POSTGRES_DSN=postgres://aatn:aatn@postgres:5432/aatn?sslmode=disable
+      - REDIS_ADDR=redis:6379
+      - MQ_BROKER=amqp://guest:guest@backend-mq:5672/
+      - HTTP_PORT=8087
+      - APP_ENV=dev
+      - MIGRATIONS_DIR=/app/migrations
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-}
+    ports:
+      - "8087:8087"
     volumes:
       - ./configs:/app/configs
       - ./migrations:/app/migrations
@@ -193,8 +231,11 @@ services:
         condition: service_started
       file-service:
         condition: service_started
+      community-service:
+        condition: service_started
     # Gateway must be started before services that depend on it for internal calls
     environment:
+      - SERVICE_NAME=gateway
       - CONFIG_PATH=/app/configs/config.yaml
       - REDIS_ADDR=redis:6379
       - POSTGRES_DSN=postgres://aatn:aatn@postgres:5432/aatn?sslmode=disable

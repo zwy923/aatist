@@ -93,7 +93,7 @@ func main() {
 	var rabbitMQ *mq.RabbitMQ
 	if cfg.MQ.Broker != "" {
 		var err error
-		rabbitMQ, err = mq.NewRabbitMQ(cfg.MQ.Broker, logger)
+		rabbitMQ, err = mq.NewRabbitMQ(cfg.MQ.Broker, cfg.MQ.PublishConfirmTimeout, logger)
 		if err != nil {
 			logger.Warn("Failed to initialize RabbitMQ - email verification will be disabled", zap.Error(err))
 		} else {

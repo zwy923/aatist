@@ -13,25 +13,30 @@ type NotificationType string
 const (
 	// User-related notifications
 	NotificationTypeProfileSaved NotificationType = "profile_saved"
-	
+
 	// Social notifications
-	NotificationTypeFollow        NotificationType = "follow"
-	NotificationTypeProjectSaved  NotificationType = "project_saved"
-	NotificationTypeComment       NotificationType = "comment"
-	
+	NotificationTypeFollow       NotificationType = "follow"
+	NotificationTypeProjectSaved NotificationType = "project_saved"
+	NotificationTypeComment      NotificationType = "comment"
+
+	// Community notifications
+	NotificationTypeCommunityLike    NotificationType = "community_like"
+	NotificationTypeCommunityComment NotificationType = "community_comment"
+	NotificationTypeCommunityMention NotificationType = "community_mention"
+
 	// Opportunity notifications
 	NotificationTypeOpportunityMatch NotificationType = "opportunity_match"
-	
+
 	// Project notifications
 	NotificationTypeProjectInvite NotificationType = "project_invite"
-	
+
 	// AI notifications
 	NotificationTypeAISummaryFinished NotificationType = "ai_summary_finished"
-	
+
 	// System notifications
-	NotificationTypeSystem      NotificationType = "system"
+	NotificationTypeSystem       NotificationType = "system"
 	NotificationTypeWeeklyDigest NotificationType = "weekly_digest"
-	
+
 	// Message notifications
 	NotificationTypeMessage NotificationType = "message"
 )
@@ -86,4 +91,3 @@ type Notification struct {
 	IsRead    bool             `db:"is_read" json:"is_read"`
 	CreatedAt time.Time        `db:"created_at" json:"created_at"`
 }
-
