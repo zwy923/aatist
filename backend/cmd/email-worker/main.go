@@ -36,24 +36,17 @@ func NewEmailService(apiKey, fromEmail, frontendURL string, logger *zap.Logger) 
 
 // SendVerificationEmail sends an email verification email
 func (e *EmailService) SendVerificationEmail(email, name, token string) error {
-	// Link directly to backend API for verification
-	// Backend will redirect to frontend after successful verification
 	verificationLink := fmt.Sprintf("%s/verify?token=%s", e.frontendURL, token)
 
 	subject := "Verify your Aatist account"
 	content := fmt.Sprintf(`
 Hello %s,
 
-Welcome to Aatist! Please click the link below to verify your email address:
+Click the link below to verify your email:
 
 %s
 
-This link will expire in 24 hours.
-
-If you didn't create an account on Aatist, please ignore this email.
-
-Best regards,
-The Aatist Team
+If you didn’t request this, please ignore this email.
 `, name, verificationLink)
 
 	from := mail.NewEmail("Aatist", e.fromEmail)

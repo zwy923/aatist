@@ -28,5 +28,11 @@ type NotificationRepository interface {
 
 	// Delete deletes a notification
 	Delete(ctx context.Context, notificationID int64, userID int64) error
+
+	// DeleteMultiple deletes multiple notifications by IDs
+	DeleteMultiple(ctx context.Context, notificationIDs []int64, userID int64) (int64, error)
+
+	// DeleteAll deletes all notifications for a user
+	DeleteAll(ctx context.Context, userID int64) (int64, error)
 }
 

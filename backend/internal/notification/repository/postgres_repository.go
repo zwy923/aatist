@@ -130,3 +130,45 @@ func (r *postgresNotificationRepository) Delete(ctx context.Context, notificatio
 	return nil
 }
 
+func (r *postgresNotificationRepository) DeleteMultiple(ctx context.Context, notificationIDs []int64, userID int64) (int64, error) {
+	if len(notificationIDs) == 0 {
+		return 0, nil
+	}
+
+	query, args, err := sqlx.In(`DELETE FROM notifications WHERE id IN (?) AND user_id = ?`, notificationIDs, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to build delete query: %w", err)
+	}
+
+	// Rebind for PostgreSQL
+	query = r.db.Rebind(query)
+
+	result, err := r.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete notifications: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	return rowsAffected, nil
+}
+
+func (r *postgresNotificationRepository) DeleteAll(ctx context.Context, userID int64) (int64, error) {
+	query := `DELETE FROM notifications WHERE user_id = $1`
+
+	result, err := r.db.ExecContext(ctx, query, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete all notifications: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	return rowsAffected, nil
+}
+

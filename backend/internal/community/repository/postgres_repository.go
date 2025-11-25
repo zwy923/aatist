@@ -150,6 +150,27 @@ func (r *postgresPostRepository) List(ctx context.Context, filter PostListFilter
 	return posts, nil
 }
 
+func (r *postgresPostRepository) ListByUserID(ctx context.Context, userID int64, limit, offset int) ([]*model.DiscussionPost, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	query := `SELECT id, user_id, title, content, category, tags, like_count, comment_count, created_at, updated_at
+			  FROM discussion_posts
+			  WHERE user_id = $1
+			  ORDER BY created_at DESC
+			  LIMIT $2 OFFSET $3`
+
+	var posts []*model.DiscussionPost
+	if err := r.db.SelectContext(ctx, &posts, query, userID, limit, offset); err != nil {
+		return nil, fmt.Errorf("failed to list user posts: %w", err)
+	}
+	return posts, nil
+}
+
 func (r *postgresPostRepository) Search(ctx context.Context, filter PostSearchFilter) ([]*model.DiscussionPost, error) {
 	query := strings.TrimSpace(filter.Query)
 	if query == "" {

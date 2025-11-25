@@ -173,3 +173,43 @@ func (h *NotificationHandler) CreateNotificationHandler(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, response.Success(gin.H{"message": "notification created successfully"}))
 }
+
+// DeleteMultipleNotificationsHandler deletes multiple notifications
+func (h *NotificationHandler) DeleteMultipleNotificationsHandler(c *gin.Context) {
+	userID, err := middleware.GetUserID(c)
+	if err != nil {
+		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized)
+		return
+	}
+
+	var req struct {
+		IDs []int64 `json:"ids"`
+		All bool    `json:"all"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput)
+		return
+	}
+
+	var deleted int64
+	if req.All {
+		// Delete all notifications
+		deleted, err = h.notificationSvc.DeleteAllNotifications(c.Request.Context(), userID)
+	} else if len(req.IDs) > 0 {
+		// Delete specific notifications
+		deleted, err = h.notificationSvc.DeleteMultipleNotifications(c.Request.Context(), userID, req.IDs)
+	} else {
+		h.respondError(c, http.StatusBadRequest, errs.NewAppError(errs.ErrInvalidInput, 400, "either 'ids' array or 'all: true' is required"))
+		return
+	}
+
+	if err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, response.Success(gin.H{
+		"message": "notifications deleted successfully",
+		"deleted": deleted,
+	}))
+}

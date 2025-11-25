@@ -36,6 +36,7 @@ type PostRepository interface {
 	Delete(ctx context.Context, id int64, userID int64) error
 	FindByID(ctx context.Context, id int64) (*model.DiscussionPost, error)
 	List(ctx context.Context, filter PostListFilter) ([]*model.DiscussionPost, error)
+	ListByUserID(ctx context.Context, userID int64, limit, offset int) ([]*model.DiscussionPost, error)
 	Search(ctx context.Context, filter PostSearchFilter) ([]*model.DiscussionPost, error)
 	SearchIDs(ctx context.Context, filter PostSearchFilter) ([]int64, error)
 	GetPostsByIDs(ctx context.Context, ids []int64) ([]*model.DiscussionPost, error)

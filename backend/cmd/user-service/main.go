@@ -105,6 +105,9 @@ func main() {
 	// Initialize email verification service
 	emailVerifSvc := service.NewEmailVerificationService(userRepo, redis, logger)
 
+	// Initialize password reset service
+	passwordResetSvc := service.NewPasswordResetService(userRepo, redis, logger)
+
 	// Initialize service
 	authService := service.NewAuthService(userRepo, jwt, redis, logger, emailVerifSvc)
 	avatarURLPrefix := cfg.S3.PublicURL
@@ -116,15 +119,16 @@ func main() {
 	notificationClient := service.NewHTTPNotificationClient()
 
 	// Prepare MQ publisher (may be nil)
-	var emailPublisher interface {
+	var mqPublisher interface {
 		PublishEmailVerification(message interface{}) error
+		PublishPasswordReset(message interface{}) error
 	}
 	if rabbitMQ != nil {
-		emailPublisher = rabbitMQ
+		mqPublisher = rabbitMQ
 	}
 
 	// Initialize handler
-	authHandler := handler.NewAuthHandler(authService, profileService, savedItemService, notificationClient, emailVerifSvc, emailPublisher, logger)
+	authHandler := handler.NewAuthHandler(authService, profileService, savedItemService, notificationClient, emailVerifSvc, passwordResetSvc, mqPublisher, logger)
 
 	// Setup Gin router
 	if cfg.App.Env == "production" || cfg.App.Env == "prod" {
@@ -163,12 +167,24 @@ func main() {
 			auth.POST("/logout", authHandler.LogoutHandler)
 			auth.POST("/verify-email", authHandler.VerifyEmailHandler)
 			auth.GET("/verify", authHandler.VerifyEmailGetHandler)
+
+			// Password reset (forgot password)
+			auth.POST("/forgot-password", authHandler.ForgotPasswordHandler)
+			auth.POST("/reset-password", authHandler.ResetPasswordHandler)
 		}
 
 		// Public user routes
 		users := api.Group("/users")
 		{
+			// Check username/email availability (for registration validation)
+			users.GET("/check-username", authHandler.CheckUsernameHandler)
+			users.GET("/check-email", authHandler.CheckEmailHandler)
+
+			// Get user by ID
 			users.GET("/:id", authHandler.GetUserByIDHandler)
+
+			// Get user summary (lightweight profile for cards/lists)
+			users.GET("/:id/summary", authHandler.GetUserSummaryHandler)
 		}
 
 		// Protected user routes (require auth via Gateway)
@@ -178,6 +194,9 @@ func main() {
 			protectedUsers.GET("/me", authHandler.GetCurrentUserHandler)
 			protectedUsers.PATCH("/me", authHandler.UpdateCurrentUserHandler)
 			protectedUsers.POST("/me/avatar", authHandler.UploadAvatarHandler)
+
+			// Password management
+			protectedUsers.PATCH("/me/password", authHandler.ChangePasswordHandler)
 
 			// Availability
 			protectedUsers.GET("/me/availability", authHandler.GetAvailabilityHandler)

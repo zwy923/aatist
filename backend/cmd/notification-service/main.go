@@ -170,6 +170,7 @@ func main() {
 			userNotifications.PUT("/:id/read", notificationHandler.MarkNotificationAsReadHandler)
 			userNotifications.PUT("/read-all", notificationHandler.MarkAllNotificationsAsReadHandler)
 			userNotifications.DELETE("/:id", notificationHandler.DeleteNotificationHandler)
+			userNotifications.DELETE("", notificationHandler.DeleteMultipleNotificationsHandler) // Batch delete
 		}
 	}
 

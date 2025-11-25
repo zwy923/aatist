@@ -403,3 +403,55 @@ func (h *CommunityHandler) DeleteCommentHandler(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, response.Success(gin.H{"message": "comment deleted"}))
 }
+
+// GetUserPostsHandler handles GET /community/users/:id/posts
+func (h *CommunityHandler) GetUserPostsHandler(c *gin.Context) {
+	var uri struct {
+		ID int64 `uri:"id" binding:"required"`
+	}
+	if err := c.ShouldBindUri(&uri); err != nil {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "invalid user id")
+		return
+	}
+
+	var query struct {
+		Limit  int `form:"limit"`
+		Offset int `form:"offset"`
+	}
+	if err := c.ShouldBindQuery(&query); err != nil {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "invalid query parameters")
+		return
+	}
+
+	posts, err := h.postSvc.ListUserPosts(c.Request.Context(), uri.ID, query.Limit, query.Offset)
+	if err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, response.Success(posts))
+}
+
+// GetMyPostsHandler handles GET /community/users/me/posts
+func (h *CommunityHandler) GetMyPostsHandler(c *gin.Context) {
+	userID, err := middleware.GetUserID(c)
+	if err != nil {
+		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
+		return
+	}
+
+	var query struct {
+		Limit  int `form:"limit"`
+		Offset int `form:"offset"`
+	}
+	if err := c.ShouldBindQuery(&query); err != nil {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "invalid query parameters")
+		return
+	}
+
+	posts, err := h.postSvc.ListUserPosts(c.Request.Context(), userID, query.Limit, query.Offset)
+	if err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, response.Success(posts))
+}

@@ -16,6 +16,8 @@ type NotificationService interface {
 	MarkAllAsRead(ctx context.Context, userID int64) error
 	GetUnreadCount(ctx context.Context, userID int64) (int64, error)
 	DeleteNotification(ctx context.Context, userID int64, notificationID int64) error
+	DeleteMultipleNotifications(ctx context.Context, userID int64, notificationIDs []int64) (int64, error)
+	DeleteAllNotifications(ctx context.Context, userID int64) (int64, error)
 }
 
 type notificationService struct {
@@ -79,5 +81,19 @@ func (s *notificationService) GetUnreadCount(ctx context.Context, userID int64) 
 
 func (s *notificationService) DeleteNotification(ctx context.Context, userID int64, notificationID int64) error {
 	return s.notifRepo.Delete(ctx, notificationID, userID)
+}
+
+func (s *notificationService) DeleteMultipleNotifications(ctx context.Context, userID int64, notificationIDs []int64) (int64, error) {
+	if len(notificationIDs) == 0 {
+		return 0, nil
+	}
+	if len(notificationIDs) > 100 {
+		notificationIDs = notificationIDs[:100] // Limit to 100 per request
+	}
+	return s.notifRepo.DeleteMultiple(ctx, notificationIDs, userID)
+}
+
+func (s *notificationService) DeleteAllNotifications(ctx context.Context, userID int64) (int64, error) {
+	return s.notifRepo.DeleteAll(ctx, userID)
 }
 

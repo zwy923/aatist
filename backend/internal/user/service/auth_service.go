@@ -443,3 +443,66 @@ func (s *authService) storeRefreshToken(ctx context.Context, token string, userI
 	// Store for 30 days (refresh token TTL)
 	return s.redis.GetClient().Set(ctx, key, userID, 30*24*time.Hour).Err()
 }
+
+// CheckEmailExists checks if an email is already registered
+func (s *authService) CheckEmailExists(ctx context.Context, email string) (bool, error) {
+	if err := s.validateEmail(email); err != nil {
+		return false, errs.NewAppError(err, 400, "invalid email format")
+	}
+
+	normalizedEmail := strings.ToLower(strings.TrimSpace(email))
+	return s.userRepo.ExistsByEmail(ctx, normalizedEmail)
+}
+
+// CheckUsernameExists checks if a username (nickname) is already taken
+func (s *authService) CheckUsernameExists(ctx context.Context, username string) (bool, error) {
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return false, errs.NewAppError(errs.ErrInvalidInput, 400, "username is required")
+	}
+	if len(username) > 100 {
+		return false, errs.NewAppError(errs.ErrInvalidInput, 400, "username must be at most 100 characters")
+	}
+
+	return s.userRepo.ExistsByNickname(ctx, username)
+}
+
+// ChangePassword changes user's password (requires current password verification)
+func (s *authService) ChangePassword(ctx context.Context, userID int64, currentPassword, newPassword string) error {
+	// Validate new password
+	if err := s.validatePassword(newPassword); err != nil {
+		return errs.NewAppError(err, 400, "new password does not meet requirements")
+	}
+
+	// Get user to verify current password
+	user, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	// Verify current password
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(currentPassword)); err != nil {
+		return errs.NewAppError(errs.ErrInvalidCredentials, 401, "current password is incorrect")
+	}
+
+	// Check that new password is different from current
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(newPassword)); err == nil {
+		return errs.NewAppError(errs.ErrInvalidInput, 400, "new password must be different from current password")
+	}
+
+	// Hash new password
+	newPasswordHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), 12)
+	if err != nil {
+		s.logger.Error("Failed to hash new password", zap.Error(err))
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	// Update password
+	if err := s.userRepo.UpdatePassword(ctx, userID, string(newPasswordHash)); err != nil {
+		s.logger.Error("Failed to update password", zap.Error(err))
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	s.logger.Info("Password changed successfully", zap.Int64("user_id", userID))
+	return nil
+}

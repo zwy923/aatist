@@ -133,6 +133,9 @@ func main() {
 		community.GET("/posts/trending", communityHandler.GetTrendingPostsHandler)
 		community.GET("/posts/:id", communityHandler.GetPostDetailHandler)
 		community.GET("/posts/:id/comments", communityHandler.ListCommentsHandler)
+
+		// Public user posts
+		community.GET("/users/:id/posts", communityHandler.GetUserPostsHandler)
 	}
 
 	protected := community.Group("")
@@ -144,6 +147,9 @@ func main() {
 		protected.POST("/posts/:id/like", communityHandler.LikePostHandler)
 		protected.DELETE("/posts/:id/like", communityHandler.UnlikePostHandler)
 		protected.POST("/posts/:id/comments", communityHandler.CreateCommentHandler)
+
+		// Current user's posts
+		protected.GET("/users/me/posts", communityHandler.GetMyPostsHandler)
 	}
 
 	commentRoutes := api.Group("/community/comments")

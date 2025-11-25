@@ -36,8 +36,10 @@ type AuthHandler struct {
 	savedItemSvc       service.SavedItemService
 	notificationClient service.NotificationClient
 	emailVerifSvc      *service.EmailVerificationService
+	passwordResetSvc   *service.PasswordResetService
 	mq                 interface {
 		PublishEmailVerification(message interface{}) error
+		PublishPasswordReset(message interface{}) error
 	}
 	logger *log.Logger
 }
@@ -49,8 +51,10 @@ func NewAuthHandler(
 	savedItemService service.SavedItemService,
 	notificationClient service.NotificationClient,
 	emailVerifSvc *service.EmailVerificationService,
+	passwordResetSvc *service.PasswordResetService,
 	mq interface {
 		PublishEmailVerification(message interface{}) error
+		PublishPasswordReset(message interface{}) error
 	},
 	logger *log.Logger,
 ) *AuthHandler {
@@ -60,6 +64,7 @@ func NewAuthHandler(
 		savedItemSvc:       savedItemService,
 		notificationClient: notificationClient,
 		emailVerifSvc:      emailVerifSvc,
+		passwordResetSvc:   passwordResetSvc,
 		mq:                 mq,
 		logger:             logger,
 	}
@@ -219,6 +224,67 @@ func (h *AuthHandler) processEmailVerification(c *gin.Context, token string) {
 	}
 
 	c.JSON(http.StatusOK, response.Success(gin.H{"message": "email verified successfully"}))
+}
+
+// ForgotPasswordHandler handles forgot password request
+func (h *AuthHandler) ForgotPasswordHandler(c *gin.Context) {
+	var req ForgotPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, err.Error())
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	// Generate reset token
+	token, userID, userName, err := h.passwordResetSvc.GenerateResetToken(ctx, req.Email)
+	if err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+
+	// If token is empty, user not found - but we still return success for security
+	// (don't reveal if email exists)
+	if token == "" {
+		c.JSON(http.StatusOK, response.Success(gin.H{
+			"message": "if the email exists, a password reset link will be sent",
+		}))
+		return
+	}
+
+	// Publish to MQ for async email sending
+	if h.mq != nil {
+		emailMsg := model.PasswordResetRequest{
+			UserID: userID,
+			Email:  req.Email,
+			Name:   userName,
+			Token:  token,
+		}
+		if err := h.mq.PublishPasswordReset(emailMsg); err != nil {
+			h.logger.Error("Failed to publish password reset message", zap.Error(err))
+			// Non-critical for the user, continue
+		}
+	}
+
+	c.JSON(http.StatusOK, response.Success(gin.H{
+		"message": "if the email exists, a password reset link will be sent",
+	}))
+}
+
+// ResetPasswordHandler handles password reset with token
+func (h *AuthHandler) ResetPasswordHandler(c *gin.Context) {
+	var req ResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, err.Error())
+		return
+	}
+
+	if err := h.passwordResetSvc.VerifyTokenAndReset(c.Request.Context(), req.Token, req.NewPassword); err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, response.Success(gin.H{"message": "password reset successfully"}))
 }
 
 // GetCurrentUserHandler returns profile of the authenticated user.
@@ -671,4 +737,101 @@ func mapUserToPublicResponse(user *model.User) gin.H {
 		"profile_visibility":  user.ProfileVisibility.String(),
 		"created_at":          user.CreatedAt.Format(time.RFC3339),
 	}
+}
+
+// CheckUsernameHandler checks if a username (nickname) is already taken
+func (h *AuthHandler) CheckUsernameHandler(c *gin.Context) {
+	username := c.Query("username")
+	if username == "" {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "username query parameter is required")
+		return
+	}
+
+	exists, err := h.authService.CheckUsernameExists(c.Request.Context(), username)
+	if err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, response.Success(CheckExistsResponse{Exists: exists}))
+}
+
+// CheckEmailHandler checks if an email is already registered
+func (h *AuthHandler) CheckEmailHandler(c *gin.Context) {
+	email := c.Query("email")
+	if email == "" {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "email query parameter is required")
+		return
+	}
+
+	exists, err := h.authService.CheckEmailExists(c.Request.Context(), email)
+	if err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, response.Success(CheckExistsResponse{Exists: exists}))
+}
+
+// ChangePasswordHandler handles password change for authenticated user
+func (h *AuthHandler) ChangePasswordHandler(c *gin.Context) {
+	userID, err := middleware.GetUserID(c)
+	if err != nil {
+		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
+		return
+	}
+
+	var req ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, err.Error())
+		return
+	}
+
+	if err := h.authService.ChangePassword(c.Request.Context(), userID, req.CurrentPassword, req.NewPassword); err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, response.Success(gin.H{"message": "password changed successfully"}))
+}
+
+// GetUserSummaryHandler returns a lightweight summary of a user's public profile
+func (h *AuthHandler) GetUserSummaryHandler(c *gin.Context) {
+	var req struct {
+		ID int64 `uri:"id" binding:"required"`
+	}
+	if err := c.ShouldBindUri(&req); err != nil {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "invalid user id")
+		return
+	}
+
+	// First check profile visibility
+	user, err := h.profileSvc.GetProfile(c.Request.Context(), req.ID)
+	if err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+
+	// Check visibility
+	var viewerEmail *string
+	if email, exists := c.Get("email"); exists {
+		if e, ok := email.(string); ok {
+			viewerEmail = &e
+		}
+	}
+
+	// Check if viewer can access this profile
+	if !user.ProfileVisibility.CanView(viewerEmail) {
+		h.respondError(c, http.StatusForbidden, errs.ErrUnauthorized, "profile is not accessible")
+		return
+	}
+
+	// Return summary (lightweight version)
+	summary, err := h.profileSvc.GetUserSummary(c.Request.Context(), req.ID)
+	if err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, response.Success(summary))
 }

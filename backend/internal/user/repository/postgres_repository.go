@@ -77,6 +77,53 @@ func (r *postgresRepository) FindByID(ctx context.Context, id int64) (*model.Use
 	return &user, nil
 }
 
+// ExistsByEmail checks if an email is already registered (case-insensitive)
+func (r *postgresRepository) ExistsByEmail(ctx context.Context, email string) (bool, error) {
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM users WHERE LOWER(email) = LOWER($1))`
+
+	err := r.db.GetContext(ctx, &exists, query, email)
+	if err != nil {
+		return false, fmt.Errorf("failed to check email existence: %w", err)
+	}
+
+	return exists, nil
+}
+
+// ExistsByNickname checks if a nickname is already taken (case-insensitive)
+func (r *postgresRepository) ExistsByNickname(ctx context.Context, nickname string) (bool, error) {
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM users WHERE LOWER(nickname) = LOWER($1))`
+
+	err := r.db.GetContext(ctx, &exists, query, nickname)
+	if err != nil {
+		return false, fmt.Errorf("failed to check nickname existence: %w", err)
+	}
+
+	return exists, nil
+}
+
+// UpdatePassword updates user's password hash
+func (r *postgresRepository) UpdatePassword(ctx context.Context, userID int64, passwordHash string) error {
+	query := `UPDATE users SET password_hash = $1, updated_at = $2 WHERE id = $3`
+
+	result, err := r.db.ExecContext(ctx, query, passwordHash, time.Now(), userID)
+	if err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return errs.ErrUserNotFound
+	}
+
+	return nil
+}
+
 // CreateUser creates a new user
 func (r *postgresRepository) CreateUser(ctx context.Context, user *model.User) error {
 	query := `INSERT INTO users (email, password_hash, name, role, student_id, school, faculty, profile_visibility, 

@@ -128,9 +128,14 @@ func main() {
 			// Proxy to user-service for auth endpoints
 			public.Any("/auth/*path", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
 
-			// Public user profile → user-service
+			// Public user routes → user-service
+			// Check username/email availability (for registration validation)
+			public.GET("/users/check-username", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
+			public.GET("/users/check-email", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
 			// GET /users/:id - view user profile (public)
 			public.GET("/users/:id", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
+			// GET /users/:id/summary - view user summary (public, lightweight profile for cards)
+			public.GET("/users/:id/summary", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
 
 			// Public portfolio routes → portfolio-service
 			// GET /portfolio/:id - view single project (public)
@@ -145,6 +150,8 @@ func main() {
 		public.GET("/community/posts/trending", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
 		public.GET("/community/posts/:id", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
 		public.GET("/community/posts/:id/comments", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
+		// Public user posts
+		public.GET("/community/users/:id/posts", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
 
 		// Protected routes (require auth)
 		protected := api.Group("")
@@ -186,6 +193,8 @@ func main() {
 			protected.POST("/community/posts/:id/comments", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
 			protected.PUT("/community/comments/:id", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
 			protected.DELETE("/community/comments/:id", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
+			// Current user's posts
+			protected.GET("/community/users/me/posts", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
 		}
 
 		// Internal API routes (for service-to-service communication)

@@ -40,4 +40,24 @@ type AuthService interface {
 
 	// VerifyEmail verifies a user's email using a verification token
 	VerifyEmail(ctx context.Context, token string) error
+
+	// CheckEmailExists checks if an email is already registered
+	CheckEmailExists(ctx context.Context, email string) (bool, error)
+
+	// CheckUsernameExists checks if a username (nickname) is already taken
+	CheckUsernameExists(ctx context.Context, username string) (bool, error)
+
+	// ChangePassword changes user's password (requires current password verification)
+	ChangePassword(ctx context.Context, userID int64, currentPassword, newPassword string) error
+}
+
+// UserSummary represents a lightweight user profile for display in lists/cards
+type UserSummary struct {
+	ID        int64   `json:"id"`
+	Name      string  `json:"name"`
+	Nickname  *string `json:"nickname,omitempty"`
+	AvatarURL *string `json:"avatar_url,omitempty"`
+	Role      string  `json:"role"`
+	School    *string `json:"school,omitempty"`
+	Major     *string `json:"major,omitempty"`
 }

@@ -21,6 +21,7 @@ type PostService interface {
 	DeletePost(ctx context.Context, id int64, userID int64) error
 	GetPost(ctx context.Context, id int64) (*model.DiscussionPost, error)
 	ListPosts(ctx context.Context, filter repository.PostListFilter) ([]*model.DiscussionPost, error)
+	ListUserPosts(ctx context.Context, userID int64, limit, offset int) ([]*model.DiscussionPost, error)
 	SearchPosts(ctx context.Context, filter repository.PostSearchFilter) ([]*model.DiscussionPost, error)
 	SearchPostsTrending(ctx context.Context, filter repository.PostSearchFilter) ([]*model.DiscussionPost, error)
 	GetTrendingPosts(ctx context.Context, limit int) ([]*model.DiscussionPost, error)
@@ -107,6 +108,16 @@ func (s *postService) GetPost(ctx context.Context, id int64) (*model.DiscussionP
 
 func (s *postService) ListPosts(ctx context.Context, filter repository.PostListFilter) ([]*model.DiscussionPost, error) {
 	return s.postRepo.List(ctx, filter)
+}
+
+func (s *postService) ListUserPosts(ctx context.Context, userID int64, limit, offset int) ([]*model.DiscussionPost, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	return s.postRepo.ListByUserID(ctx, userID, limit, offset)
 }
 
 func (s *postService) SearchPosts(ctx context.Context, filter repository.PostSearchFilter) ([]*model.DiscussionPost, error) {

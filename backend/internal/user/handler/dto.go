@@ -71,6 +71,28 @@ type ErrorResponse struct {
 	Message string `json:"message,omitempty"`
 }
 
+// ChangePasswordRequest represents change password request
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password" binding:"required"`
+	NewPassword     string `json:"new_password" binding:"required,min=10"`
+}
+
+// CheckExistsResponse represents the response for check username/email existence
+type CheckExistsResponse struct {
+	Exists bool `json:"exists"`
+}
+
+// ForgotPasswordRequest represents forgot password request
+type ForgotPasswordRequest struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
+// ResetPasswordRequest represents reset password request
+type ResetPasswordRequest struct {
+	Token       string `json:"token" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required,min=10"`
+}
+
 // SkillInput represents a skill with level in request.
 type SkillInput struct {
 	Name  string `json:"name" binding:"required"`

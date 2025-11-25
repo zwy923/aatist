@@ -38,6 +38,7 @@ type UpdateProfileInput struct {
 
 type ProfileService interface {
 	GetProfile(ctx context.Context, userID int64) (*model.User, error)
+	GetUserSummary(ctx context.Context, userID int64) (*UserSummary, error)
 	UpdateProfile(ctx context.Context, userID int64, input UpdateProfileInput) (*model.User, error)
 	UploadAvatar(ctx context.Context, userID int64, reader io.Reader, size int64, contentType, filename string) (*model.User, error)
 	EnsureProfileUpdateRateLimit(ctx context.Context, userID int64) error
@@ -93,6 +94,23 @@ func NewProfileService(
 
 func (s *profileService) GetProfile(ctx context.Context, userID int64) (*model.User, error) {
 	return s.userRepo.FindByID(ctx, userID)
+}
+
+func (s *profileService) GetUserSummary(ctx context.Context, userID int64) (*UserSummary, error) {
+	user, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &UserSummary{
+		ID:        user.ID,
+		Name:      user.Name,
+		Nickname:  user.Nickname,
+		AvatarURL: user.AvatarURL,
+		Role:      user.Role.String(),
+		School:    user.School,
+		Major:     user.Major,
+	}, nil
 }
 
 func (s *profileService) UpdateProfile(ctx context.Context, userID int64, input UpdateProfileInput) (*model.User, error) {
