@@ -104,14 +104,14 @@ CREATE TRIGGER update_projects_updated_at BEFORE UPDATE ON projects
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Create saved_items table
--- Note: item_id is polymorphic (can reference projects, opportunities, or users)
+-- Note: item_id is polymorphic (can reference projects, opportunities, users, or events)
 -- Foreign key constraints are not used here due to polymorphic design
 -- Consider adding triggers to validate item existence if needed
 CREATE TABLE IF NOT EXISTS saved_items (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     item_id BIGINT NOT NULL,
-    item_type VARCHAR(50) NOT NULL CHECK (item_type IN ('project', 'opportunity', 'user')),
+    item_type VARCHAR(50) NOT NULL CHECK (item_type IN ('project', 'opportunity', 'user', 'event')),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     UNIQUE(user_id, item_id, item_type)
 );

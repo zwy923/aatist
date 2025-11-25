@@ -105,6 +105,15 @@ type SavedItemClient interface {
 
 	// IsOpportunitySaved checks if an opportunity is saved by a user (convenience method)
 	IsOpportunitySaved(ctx context.Context, userID int64, opportunityID int64) (bool, error)
+
+	// SaveEvent saves an event (convenience method)
+	SaveEvent(ctx context.Context, userID int64, eventID int64) error
+
+	// UnsaveEvent unsaves an event (convenience method)
+	UnsaveEvent(ctx context.Context, userID int64, eventID int64) error
+
+	// IsEventSaved checks if an event is saved by a user (convenience method)
+	IsEventSaved(ctx context.Context, userID int64, eventID int64) (bool, error)
 }
 
 type httpSavedItemClient struct {
@@ -290,4 +299,19 @@ func (c *httpSavedItemClient) UnsaveOpportunity(ctx context.Context, userID int6
 // IsOpportunitySaved checks if an opportunity is saved by a user (convenience method)
 func (c *httpSavedItemClient) IsOpportunitySaved(ctx context.Context, userID int64, opportunityID int64) (bool, error) {
 	return c.IsSaved(ctx, userID, opportunityID, string(model.SavedItemTypeOpportunity))
+}
+
+// SaveEvent saves an event (convenience method)
+func (c *httpSavedItemClient) SaveEvent(ctx context.Context, userID int64, eventID int64) error {
+	return c.SaveItem(ctx, userID, eventID, string(model.SavedItemTypeEvent))
+}
+
+// UnsaveEvent unsaves an event (convenience method)
+func (c *httpSavedItemClient) UnsaveEvent(ctx context.Context, userID int64, eventID int64) error {
+	return c.UnsaveItem(ctx, userID, eventID, string(model.SavedItemTypeEvent))
+}
+
+// IsEventSaved checks if an event is saved by a user (convenience method)
+func (c *httpSavedItemClient) IsEventSaved(ctx context.Context, userID int64, eventID int64) (bool, error) {
+	return c.IsSaved(ctx, userID, eventID, string(model.SavedItemTypeEvent))
 }

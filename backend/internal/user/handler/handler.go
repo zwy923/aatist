@@ -634,7 +634,8 @@ func (h *AuthHandler) GetSavedItemsHandler(c *gin.Context) {
 		savedItemType := model.SavedItemType(itemType)
 		if savedItemType != model.SavedItemTypeProject &&
 			savedItemType != model.SavedItemTypeOpportunity &&
-			savedItemType != model.SavedItemTypeUser {
+			savedItemType != model.SavedItemTypeUser &&
+			savedItemType != model.SavedItemTypeEvent {
 			h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "invalid item type")
 			return
 		}
@@ -666,7 +667,7 @@ func (h *AuthHandler) SaveItemHandler(c *gin.Context) {
 
 	var req struct {
 		ItemID   int64  `json:"item_id" binding:"required"`
-		ItemType string `json:"item_type" binding:"required,oneof=project opportunity user"`
+		ItemType string `json:"item_type" binding:"required,oneof=project opportunity user event"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, err.Error())
@@ -702,7 +703,7 @@ func (h *AuthHandler) UnsaveItemHandler(c *gin.Context) {
 
 	var req struct {
 		ItemID   int64  `json:"item_id" binding:"required"`
-		ItemType string `json:"item_type" binding:"required,oneof=project opportunity user"`
+		ItemType string `json:"item_type" binding:"required,oneof=project opportunity user event"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, err.Error())

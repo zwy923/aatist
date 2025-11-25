@@ -153,6 +153,11 @@ func main() {
 		// Public user posts
 		public.GET("/community/users/:id/posts", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
 
+		// Public events routes (no auth required) → events-service
+		public.GET("/events", proxyToServiceWithTimeout("events-service", 8084, getServiceTimeout("events-service"), logger))
+		public.GET("/events/:id", proxyToServiceWithTimeout("events-service", 8084, getServiceTimeout("events-service"), logger))
+		public.GET("/events/:id/comments", proxyToServiceWithTimeout("events-service", 8084, getServiceTimeout("events-service"), logger))
+
 		// Protected routes (require auth)
 		protected := api.Group("")
 		protected.Use(middleware.GatewayAuthMiddleware(jwt))
@@ -183,6 +188,10 @@ func main() {
 			// Opportunities routes → opp-service
 			protected.Any("/opportunities/*path", proxyToServiceWithTimeout("opp-service", 8083, getServiceTimeout("opp-service"), logger))
 			protected.Any("/opportunities", proxyToServiceWithTimeout("opp-service", 8083, getServiceTimeout("opp-service"), logger))
+
+			// Events routes → events-service
+			protected.Any("/events/*path", proxyToServiceWithTimeout("events-service", 8084, getServiceTimeout("events-service"), logger))
+			protected.Any("/events", proxyToServiceWithTimeout("events-service", 8084, getServiceTimeout("events-service"), logger))
 
 			// Community protected routes → community-service
 			protected.POST("/community/posts", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))

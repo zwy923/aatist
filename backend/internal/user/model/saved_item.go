@@ -11,6 +11,7 @@ const (
 	SavedItemTypeProject     SavedItemType = "project"
 	SavedItemTypeOpportunity SavedItemType = "opportunity"
 	SavedItemTypeUser        SavedItemType = "user"
+	SavedItemTypeEvent       SavedItemType = "event"
 )
 
 // SavedItem represents a saved item in the saved_items table.
