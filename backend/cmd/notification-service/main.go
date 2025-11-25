@@ -160,8 +160,8 @@ func main() {
 		}
 
 		// User-facing notification routes (require auth via Gateway)
-		// Use /me/notifications instead of /users/me/notifications for cleaner API
-		userNotifications := api.Group("/me/notifications")
+		// Use /notifications instead of /me/notifications to avoid Gin wildcard conflicts in Gateway
+		userNotifications := api.Group("/notifications")
 		userNotifications.Use(middleware.TrustGatewayMiddleware()) // Trust Gateway headers
 		userNotifications.Use(middleware.RequireGatewayAuth())     // Require Gateway to set user identity
 		{

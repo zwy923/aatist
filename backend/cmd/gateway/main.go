@@ -23,12 +23,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// Global HTTP client for proxy requests (reused for connection pooling)
-// Note: httputil.ReverseProxy uses its own transport, but we keep this for fallback
-var httpClient = &http.Client{
-	Timeout: 30 * time.Second,
-}
-
 // Hop-by-hop headers that should not be forwarded (RFC 2616)
 var hopByHopHeaders = map[string]bool{
 	"Connection":          true,
@@ -133,45 +127,65 @@ func main() {
 		{
 			// Proxy to user-service for auth endpoints
 			public.Any("/auth/*path", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
-			// Note: Portfolio and user routes are handled in protected group only
-			// Services will handle permission control internally:
-			// - Portfolio: /portfolio/123 is public, creating/updating requires auth
-			// - Users: /users/123 is public, /users/me requires auth
+
+			// Public user profile → user-service
+			// GET /users/:id - view user profile (public)
+			public.GET("/users/:id", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
+
+			// Public portfolio routes → portfolio-service
+			// GET /portfolio/:id - view single project (public)
+			public.GET("/portfolio/:id", proxyToServiceWithTimeout("portfolio-service", 8082, getServiceTimeout("portfolio-service"), logger))
+			// GET /users/:id/portfolio - view user's portfolio (public)
+			public.GET("/users/:id/portfolio", proxyToServiceWithTimeout("portfolio-service", 8082, getServiceTimeout("portfolio-service"), logger))
 		}
+
+		// Public community routes (no auth required) → community-service
+		// These must be before protected routes to avoid auth requirement
+		public.GET("/community/posts", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
+		public.GET("/community/posts/trending", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
+		public.GET("/community/posts/:id", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
+		public.GET("/community/posts/:id/comments", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
 
 		// Protected routes (require auth)
 		protected := api.Group("")
 		protected.Use(middleware.GatewayAuthMiddleware(jwt))
 		{
-			// Current user self-management routes → user-service
-			// Gateway only handles authentication, user-service handles authorization
-			// User-service handles paths like /me, /me/profile, /me/settings, etc.
-			// Using /me instead of /users/me for cleaner RESTful design and microservice boundaries
-			protected.Any("/me/*path", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
-			protected.Any("/me", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
-
-			// Portfolio routes → portfolio-service
-			// Gateway only handles authentication, portfolio-service handles authorization
-			// Portfolio-service handles all portfolio paths:
-			// - /portfolio/me (current user's portfolio, requires auth)
-			// - /portfolio/:id (public portfolio view, no auth required)
-			// - /portfolio (create/update portfolio, requires auth)
-			// This is the correct microservice boundary: portfolio is independent of users namespace
-			protected.Any("/portfolio/*path", proxyToServiceWithTimeout("portfolio-service", 8082, getServiceTimeout("portfolio-service"), logger))
-
 			// Notification routes → notification-service
-			// Gateway only handles authentication, notification-service handles authorization
-			protected.Any("/me/notifications/*path", proxyToServiceWithTimeout("notification-service", 8085, getServiceTimeout("notification-service"), logger))
+			protected.Any("/notifications/*path", proxyToServiceWithTimeout("notification-service", 8085, getServiceTimeout("notification-service"), logger))
+			protected.Any("/notifications", proxyToServiceWithTimeout("notification-service", 8085, getServiceTimeout("notification-service"), logger))
+
+			// Current user routes → route based on path
+			// /users/me/portfolio* → portfolio-service
+			// /users/me/* (other) → user-service
+			protected.Any("/users/me/*path", func(c *gin.Context) {
+				path := c.Param("path")
+				if strings.HasPrefix(path, "/portfolio") {
+					// Portfolio routes → portfolio-service
+					proxyToServiceWithTimeout("portfolio-service", 8082, getServiceTimeout("portfolio-service"), logger)(c)
+				} else {
+					// All other /users/me/* routes → user-service
+					proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger)(c)
+				}
+			})
+			protected.Any("/users/me", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
 
 			// File routes → file-service
-			// Gateway only handles authentication, file-service handles authorization
 			protected.Any("/files/*path", proxyToServiceWithTimeout("file-service", 8086, getServiceTimeout("file-service"), logger))
+			protected.Any("/files", proxyToServiceWithTimeout("file-service", 8086, getServiceTimeout("file-service"), logger))
 
 			// Opportunities routes → opp-service
 			protected.Any("/opportunities/*path", proxyToServiceWithTimeout("opp-service", 8083, getServiceTimeout("opp-service"), logger))
+			protected.Any("/opportunities", proxyToServiceWithTimeout("opp-service", 8083, getServiceTimeout("opp-service"), logger))
 
-			// Community routes → community-service
-			protected.Any("/community/*path", proxyToServiceWithTimeout("community-service", 8084, getServiceTimeout("community-service"), logger))
+			// Community protected routes → community-service
+			protected.POST("/community/posts", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
+			protected.PUT("/community/posts/:id", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
+			protected.DELETE("/community/posts/:id", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
+			protected.POST("/community/posts/:id/like", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
+			protected.DELETE("/community/posts/:id/like", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
+			protected.POST("/community/posts/:id/comments", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
+			protected.PUT("/community/comments/:id", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
+			protected.DELETE("/community/comments/:id", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
 		}
 
 		// Internal API routes (for service-to-service communication)

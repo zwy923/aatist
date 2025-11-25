@@ -171,9 +171,9 @@ func main() {
 			users.GET("/:id", authHandler.GetUserByIDHandler)
 		}
 
-		// Protected user routes
+		// Protected user routes (require auth via Gateway)
 		protectedUsers := api.Group("/users")
-		protectedUsers.Use(middleware.AuthMiddleware(jwt))
+		protectedUsers.Use(middleware.RequireGatewayAuth()) // Trust Gateway auth
 		{
 			protectedUsers.GET("/me", authHandler.GetCurrentUserHandler)
 			protectedUsers.PATCH("/me", authHandler.UpdateCurrentUserHandler)
@@ -187,7 +187,6 @@ func main() {
 			protectedUsers.GET("/me/saved", authHandler.GetSavedItemsHandler)
 			protectedUsers.POST("/me/saved", authHandler.SaveItemHandler)
 			protectedUsers.DELETE("/me/saved", authHandler.UnsaveItemHandler)
-
 		}
 	}
 
