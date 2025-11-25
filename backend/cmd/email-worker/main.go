@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/aalto-talent-network/backend/internal/platform/config"
+	"github.com/aalto-talent-network/backend/internal/platform/app"
 	"github.com/aalto-talent-network/backend/internal/platform/log"
 	"github.com/aalto-talent-network/backend/internal/platform/mq"
 	"github.com/aalto-talent-network/backend/internal/user/model"
@@ -75,19 +75,14 @@ If you didn’t request this, please ignore this email.
 
 func main() {
 	// Load configuration
-	cfgPath := os.Getenv("CONFIG_PATH")
-	if cfgPath == "" {
-		cfgPath = "configs/config.yaml"
-	}
-
-	cfg, err := config.Load(cfgPath)
+	cfg, err := app.LoadConfig()
 	if err != nil {
 		fmt.Printf("Failed to load config: %v\n", err)
 		os.Exit(1)
 	}
 
 	// Initialize logger
-	logger, err := log.NewLogger(cfg.App.Env)
+	logger, err := app.InitLogger(cfg.App.Env)
 	if err != nil {
 		fmt.Printf("Failed to initialize logger: %v\n", err)
 		os.Exit(1)

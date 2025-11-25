@@ -131,39 +131,51 @@ func main() {
 		protected.Use(middleware.GatewayAuthMiddleware(jwt))
 		{
 			// Notification routes → notification-service
-			protected.Any("/notifications/*path", proxyToServiceWithTimeout("notification-service", 8085, getServiceTimeout("notification-service"), logger))
-			protected.Any("/notifications", proxyToServiceWithTimeout("notification-service", 8085, getServiceTimeout("notification-service"), logger))
+			protected.GET("/notifications", proxyToServiceWithTimeout("notification-service", 8085, getServiceTimeout("notification-service"), logger))
+			protected.GET("/notifications/*path", proxyToServiceWithTimeout("notification-service", 8085, getServiceTimeout("notification-service"), logger))
+			protected.POST("/notifications", proxyToServiceWithTimeout("notification-service", 8085, getServiceTimeout("notification-service"), logger))
+			protected.POST("/notifications/*path", proxyToServiceWithTimeout("notification-service", 8085, getServiceTimeout("notification-service"), logger))
+			protected.PUT("/notifications/*path", proxyToServiceWithTimeout("notification-service", 8085, getServiceTimeout("notification-service"), logger))
+			protected.PATCH("/notifications/*path", proxyToServiceWithTimeout("notification-service", 8085, getServiceTimeout("notification-service"), logger))
+			protected.DELETE("/notifications/*path", proxyToServiceWithTimeout("notification-service", 8085, getServiceTimeout("notification-service"), logger))
 
-			// Current user routes → route based on path
-			// Handle /users/me (exact match) first
-			protected.Any("/users/me", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
-			// Handle /users/me/*path (with sub-path)
-			protected.Any("/users/me/*path", func(c *gin.Context) {
-				path := c.Param("path")
-				// path will be like "/portfolio" or "/saved" or "/avatar"
-				// Empty path should not happen here due to exact match above, but handle it anyway
-				if path == "" || path == "/" {
-					proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger)(c)
-					return
-				}
-				// Remove leading slash for prefix check
-				pathWithoutSlash := strings.TrimPrefix(path, "/")
-				if strings.HasPrefix(pathWithoutSlash, "portfolio") {
-					// Portfolio routes → portfolio-service
-					proxyToServiceWithTimeout("portfolio-service", 8082, getServiceTimeout("portfolio-service"), logger)(c)
-				} else {
-					// All other /users/me/* routes → user-service
-					proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger)(c)
-				}
-			})
+			// Current user routes → user-service
+			// Use explicit routes instead of wildcard to avoid ambiguity
+			protected.GET("/users/me", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
+			protected.PATCH("/users/me", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
+			// Avatar
+			protected.POST("/users/me/avatar", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
+			// Password
+			protected.PATCH("/users/me/password", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
+			// Availability
+			protected.GET("/users/me/availability", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
+			protected.PATCH("/users/me/availability", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
+			// Saved items
+			protected.GET("/users/me/saved", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
+			protected.POST("/users/me/saved", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
+			protected.DELETE("/users/me/saved", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
+
+			// Portfolio routes → portfolio-service (explicit routes)
+			protected.GET("/users/me/portfolio", proxyToServiceWithTimeout("portfolio-service", 8082, getServiceTimeout("portfolio-service"), logger))
+			protected.POST("/users/me/portfolio", proxyToServiceWithTimeout("portfolio-service", 8082, getServiceTimeout("portfolio-service"), logger))
+			protected.PUT("/users/me/portfolio/:id", proxyToServiceWithTimeout("portfolio-service", 8082, getServiceTimeout("portfolio-service"), logger))
+			protected.DELETE("/users/me/portfolio/:id", proxyToServiceWithTimeout("portfolio-service", 8082, getServiceTimeout("portfolio-service"), logger))
 
 			// File routes → file-service
-			protected.Any("/files/*path", proxyToServiceWithTimeout("file-service", 8086, getServiceTimeout("file-service"), logger))
-			protected.Any("/files", proxyToServiceWithTimeout("file-service", 8086, getServiceTimeout("file-service"), logger))
+			protected.GET("/files", proxyToServiceWithTimeout("file-service", 8086, getServiceTimeout("file-service"), logger))
+			protected.GET("/files/*path", proxyToServiceWithTimeout("file-service", 8086, getServiceTimeout("file-service"), logger))
+			protected.POST("/files", proxyToServiceWithTimeout("file-service", 8086, getServiceTimeout("file-service"), logger))
+			protected.POST("/files/*path", proxyToServiceWithTimeout("file-service", 8086, getServiceTimeout("file-service"), logger))
+			protected.DELETE("/files/*path", proxyToServiceWithTimeout("file-service", 8086, getServiceTimeout("file-service"), logger))
 
 			// Opportunities routes → opp-service
-			protected.Any("/opportunities/*path", proxyToServiceWithTimeout("opp-service", 8083, getServiceTimeout("opp-service"), logger))
-			protected.Any("/opportunities", proxyToServiceWithTimeout("opp-service", 8083, getServiceTimeout("opp-service"), logger))
+			protected.GET("/opportunities", proxyToServiceWithTimeout("opp-service", 8083, getServiceTimeout("opp-service"), logger))
+			protected.GET("/opportunities/*path", proxyToServiceWithTimeout("opp-service", 8083, getServiceTimeout("opp-service"), logger))
+			protected.POST("/opportunities", proxyToServiceWithTimeout("opp-service", 8083, getServiceTimeout("opp-service"), logger))
+			protected.POST("/opportunities/*path", proxyToServiceWithTimeout("opp-service", 8083, getServiceTimeout("opp-service"), logger))
+			protected.PUT("/opportunities/*path", proxyToServiceWithTimeout("opp-service", 8083, getServiceTimeout("opp-service"), logger))
+			protected.PATCH("/opportunities/*path", proxyToServiceWithTimeout("opp-service", 8083, getServiceTimeout("opp-service"), logger))
+			protected.DELETE("/opportunities/*path", proxyToServiceWithTimeout("opp-service", 8083, getServiceTimeout("opp-service"), logger))
 
 			// Events protected routes → events-service
 			// Create, update, delete events
@@ -197,11 +209,13 @@ func main() {
 		// ============================================
 		// PUBLIC ROUTES (no auth required) - REGISTERED AFTER PROTECTED
 		// ============================================
-		// Only GET methods are public - POST/PUT/DELETE are handled by protected routes above
+		// Only GET and POST methods are public - PUT/PATCH/DELETE are handled by protected routes above
 		public := api.Group("")
 		{
 			// Proxy to user-service for auth endpoints (login, register, etc.)
-			public.Any("/auth/*path", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
+			// Auth endpoints only support GET and POST methods
+			public.GET("/auth/*path", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
+			public.POST("/auth/*path", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
 
 			// Public user routes → user-service (GET only)
 			// Check username/email availability (for registration validation)
@@ -237,56 +251,181 @@ func main() {
 		// ============================================
 		// These routes bypass Gateway auth but require internal authentication
 		// All internal traffic goes through Gateway for unified monitoring, rate limiting, and tracing
+		// Internal routes rewrite paths to avoid conflicts with client routes
+		// We add X-Internal-Request header to distinguish internal vs client requests
 		internal := api.Group("/internal")
 		internal.Use(middleware.InternalServiceMiddleware())
 		{
 			// Internal user API (for other services to check user profile visibility, etc.)
 			// Path rewrite: /api/v1/internal/user/users/:id -> /api/v1/users/:id
-			// Path rewrite: /api/v1/internal/user/users/:id/summary -> /api/v1/users/:id/summary
-			internal.Any("/user/*path", func(c *gin.Context) {
+			// Add X-Internal-Request header so user-service can distinguish internal vs client requests
+			internal.GET("/user/*path", func(c *gin.Context) {
 				originalPath := c.Request.URL.Path
-				// Only rewrite if path starts with /api/v1/internal/user/
 				if strings.HasPrefix(originalPath, "/api/v1/internal/user/") {
 					// Remove /api/v1/internal/user prefix, keep the rest
 					// Example: /api/v1/internal/user/users/123 -> /api/v1/users/123
 					newPath := strings.TrimPrefix(originalPath, "/api/v1/internal/user")
 					c.Request.URL.Path = "/api/v1" + newPath
+					// Add header to identify internal request
+					c.Request.Header.Set("X-Internal-Request", "true")
+				}
+				proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger)(c)
+			})
+			internal.POST("/user/*path", func(c *gin.Context) {
+				originalPath := c.Request.URL.Path
+				if strings.HasPrefix(originalPath, "/api/v1/internal/user/") {
+					newPath := strings.TrimPrefix(originalPath, "/api/v1/internal/user")
+					c.Request.URL.Path = "/api/v1" + newPath
+					c.Request.Header.Set("X-Internal-Request", "true")
+				}
+				proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger)(c)
+			})
+			internal.PUT("/user/*path", func(c *gin.Context) {
+				originalPath := c.Request.URL.Path
+				if strings.HasPrefix(originalPath, "/api/v1/internal/user/") {
+					newPath := strings.TrimPrefix(originalPath, "/api/v1/internal/user")
+					c.Request.URL.Path = "/api/v1" + newPath
+					c.Request.Header.Set("X-Internal-Request", "true")
+				}
+				proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger)(c)
+			})
+			internal.PATCH("/user/*path", func(c *gin.Context) {
+				originalPath := c.Request.URL.Path
+				if strings.HasPrefix(originalPath, "/api/v1/internal/user/") {
+					newPath := strings.TrimPrefix(originalPath, "/api/v1/internal/user")
+					c.Request.URL.Path = "/api/v1" + newPath
+					c.Request.Header.Set("X-Internal-Request", "true")
+				}
+				proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger)(c)
+			})
+			internal.DELETE("/user/*path", func(c *gin.Context) {
+				originalPath := c.Request.URL.Path
+				if strings.HasPrefix(originalPath, "/api/v1/internal/user/") {
+					newPath := strings.TrimPrefix(originalPath, "/api/v1/internal/user")
+					c.Request.URL.Path = "/api/v1" + newPath
+					c.Request.Header.Set("X-Internal-Request", "true")
 				}
 				proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger)(c)
 			})
 
 			// Internal notification API (for other services to create notifications)
 			// Path rewrite: /api/v1/internal/notification/notifications -> /api/v1/notifications
-			internal.Any("/notification/*path", func(c *gin.Context) {
+			// Add X-Internal-Request header to distinguish internal vs client requests
+			internal.GET("/notification/*path", func(c *gin.Context) {
 				originalPath := c.Request.URL.Path
 				if strings.HasPrefix(originalPath, "/api/v1/internal/notification/") {
-					// Remove /api/v1/internal/notification prefix, keep the rest
 					newPath := strings.TrimPrefix(originalPath, "/api/v1/internal/notification")
 					c.Request.URL.Path = "/api/v1" + newPath
+					c.Request.Header.Set("X-Internal-Request", "true")
+				}
+				proxyToServiceWithTimeout("notification-service", 8085, getServiceTimeout("notification-service"), logger)(c)
+			})
+			internal.POST("/notification/*path", func(c *gin.Context) {
+				originalPath := c.Request.URL.Path
+				if strings.HasPrefix(originalPath, "/api/v1/internal/notification/") {
+					newPath := strings.TrimPrefix(originalPath, "/api/v1/internal/notification")
+					c.Request.URL.Path = "/api/v1" + newPath
+					c.Request.Header.Set("X-Internal-Request", "true")
+				}
+				proxyToServiceWithTimeout("notification-service", 8085, getServiceTimeout("notification-service"), logger)(c)
+			})
+			internal.PUT("/notification/*path", func(c *gin.Context) {
+				originalPath := c.Request.URL.Path
+				if strings.HasPrefix(originalPath, "/api/v1/internal/notification/") {
+					newPath := strings.TrimPrefix(originalPath, "/api/v1/internal/notification")
+					c.Request.URL.Path = "/api/v1" + newPath
+					c.Request.Header.Set("X-Internal-Request", "true")
+				}
+				proxyToServiceWithTimeout("notification-service", 8085, getServiceTimeout("notification-service"), logger)(c)
+			})
+			internal.PATCH("/notification/*path", func(c *gin.Context) {
+				originalPath := c.Request.URL.Path
+				if strings.HasPrefix(originalPath, "/api/v1/internal/notification/") {
+					newPath := strings.TrimPrefix(originalPath, "/api/v1/internal/notification")
+					c.Request.URL.Path = "/api/v1" + newPath
+					c.Request.Header.Set("X-Internal-Request", "true")
+				}
+				proxyToServiceWithTimeout("notification-service", 8085, getServiceTimeout("notification-service"), logger)(c)
+			})
+			internal.DELETE("/notification/*path", func(c *gin.Context) {
+				originalPath := c.Request.URL.Path
+				if strings.HasPrefix(originalPath, "/api/v1/internal/notification/") {
+					newPath := strings.TrimPrefix(originalPath, "/api/v1/internal/notification")
+					c.Request.URL.Path = "/api/v1" + newPath
+					c.Request.Header.Set("X-Internal-Request", "true")
 				}
 				proxyToServiceWithTimeout("notification-service", 8085, getServiceTimeout("notification-service"), logger)(c)
 			})
 
 			// Internal portfolio API (for future service-to-service calls)
 			// Path rewrite: /api/v1/internal/portfolio/* -> /api/v1/portfolio/*
-			internal.Any("/portfolio/*path", func(c *gin.Context) {
+			// Add X-Internal-Request header to distinguish internal vs client requests
+			internal.GET("/portfolio/*path", func(c *gin.Context) {
 				originalPath := c.Request.URL.Path
 				if strings.HasPrefix(originalPath, "/api/v1/internal/portfolio/") {
 					newPath := strings.TrimPrefix(originalPath, "/api/v1/internal/portfolio")
 					c.Request.URL.Path = "/api/v1/portfolio" + newPath
+					c.Request.Header.Set("X-Internal-Request", "true")
+				}
+				proxyToServiceWithTimeout("portfolio-service", 8082, getServiceTimeout("portfolio-service"), logger)(c)
+			})
+			internal.POST("/portfolio/*path", func(c *gin.Context) {
+				originalPath := c.Request.URL.Path
+				if strings.HasPrefix(originalPath, "/api/v1/internal/portfolio/") {
+					newPath := strings.TrimPrefix(originalPath, "/api/v1/internal/portfolio")
+					c.Request.URL.Path = "/api/v1/portfolio" + newPath
+					c.Request.Header.Set("X-Internal-Request", "true")
+				}
+				proxyToServiceWithTimeout("portfolio-service", 8082, getServiceTimeout("portfolio-service"), logger)(c)
+			})
+			internal.PUT("/portfolio/*path", func(c *gin.Context) {
+				originalPath := c.Request.URL.Path
+				if strings.HasPrefix(originalPath, "/api/v1/internal/portfolio/") {
+					newPath := strings.TrimPrefix(originalPath, "/api/v1/internal/portfolio")
+					c.Request.URL.Path = "/api/v1/portfolio" + newPath
+					c.Request.Header.Set("X-Internal-Request", "true")
+				}
+				proxyToServiceWithTimeout("portfolio-service", 8082, getServiceTimeout("portfolio-service"), logger)(c)
+			})
+			internal.PATCH("/portfolio/*path", func(c *gin.Context) {
+				originalPath := c.Request.URL.Path
+				if strings.HasPrefix(originalPath, "/api/v1/internal/portfolio/") {
+					newPath := strings.TrimPrefix(originalPath, "/api/v1/internal/portfolio")
+					c.Request.URL.Path = "/api/v1/portfolio" + newPath
+					c.Request.Header.Set("X-Internal-Request", "true")
+				}
+				proxyToServiceWithTimeout("portfolio-service", 8082, getServiceTimeout("portfolio-service"), logger)(c)
+			})
+			internal.DELETE("/portfolio/*path", func(c *gin.Context) {
+				originalPath := c.Request.URL.Path
+				if strings.HasPrefix(originalPath, "/api/v1/internal/portfolio/") {
+					newPath := strings.TrimPrefix(originalPath, "/api/v1/internal/portfolio")
+					c.Request.URL.Path = "/api/v1/portfolio" + newPath
+					c.Request.Header.Set("X-Internal-Request", "true")
 				}
 				proxyToServiceWithTimeout("portfolio-service", 8082, getServiceTimeout("portfolio-service"), logger)(c)
 			})
 
 			// Internal file API (for other services to upload files)
-			// Path rewrite: /api/v1/internal/file/* -> /api/v1/internal/file/*
 			// Keep the path as-is since file-service expects /api/v1/internal/file/*
-			internal.Any("/file/*path", proxyToServiceWithTimeout("file-service", 8086, getServiceTimeout("file-service"), logger))
+			internal.GET("/file/*path", proxyToServiceWithTimeout("file-service", 8086, getServiceTimeout("file-service"), logger))
+			internal.POST("/file/*path", proxyToServiceWithTimeout("file-service", 8086, getServiceTimeout("file-service"), logger))
+			internal.PUT("/file/*path", proxyToServiceWithTimeout("file-service", 8086, getServiceTimeout("file-service"), logger))
+			internal.PATCH("/file/*path", proxyToServiceWithTimeout("file-service", 8086, getServiceTimeout("file-service"), logger))
+			internal.DELETE("/file/*path", proxyToServiceWithTimeout("file-service", 8086, getServiceTimeout("file-service"), logger))
 		}
 	}
 
 	// Also support /auth/* for convenience (forwards to /api/v1/auth/*)
-	router.Any("/auth/*path", func(c *gin.Context) {
+	// Only support GET and POST methods for auth endpoints
+	router.GET("/auth/*path", func(c *gin.Context) {
+		path := c.Param("path")
+		// Rewrite the path to include /api/v1 prefix
+		c.Request.URL.Path = "/api/v1/auth" + path
+		// Create a new handler and call it
+		proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger)(c)
+	})
+	router.POST("/auth/*path", func(c *gin.Context) {
 		path := c.Param("path")
 		// Rewrite the path to include /api/v1 prefix
 		c.Request.URL.Path = "/api/v1/auth" + path
