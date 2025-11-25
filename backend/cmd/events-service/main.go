@@ -104,7 +104,7 @@ func main() {
 	router.Use(middleware.CORSMiddleware(corsOrigins))
 
 	// Health check endpoint
-	router.GET("/events/health", func(c *gin.Context) {
+	router.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, response.Success(gin.H{"status": "ok", "service": "events"}))
 	})
 

@@ -122,43 +122,11 @@ func main() {
 	// API routes with /api/v1 prefix
 	api := router.Group("/api/v1")
 	{
-		// Public routes (no auth required)
-		public := api.Group("")
-		{
-			// Proxy to user-service for auth endpoints
-			public.Any("/auth/*path", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
-
-			// Public user routes → user-service
-			// Check username/email availability (for registration validation)
-			public.GET("/users/check-username", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
-			public.GET("/users/check-email", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
-			// GET /users/:id - view user profile (public)
-			public.GET("/users/:id", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
-			// GET /users/:id/summary - view user summary (public, lightweight profile for cards)
-			public.GET("/users/:id/summary", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
-
-			// Public portfolio routes → portfolio-service
-			// GET /portfolio/:id - view single project (public)
-			public.GET("/portfolio/:id", proxyToServiceWithTimeout("portfolio-service", 8082, getServiceTimeout("portfolio-service"), logger))
-			// GET /users/:id/portfolio - view user's portfolio (public)
-			public.GET("/users/:id/portfolio", proxyToServiceWithTimeout("portfolio-service", 8082, getServiceTimeout("portfolio-service"), logger))
-		}
-
-		// Public community routes (no auth required) → community-service
-		// These must be before protected routes to avoid auth requirement
-		public.GET("/community/posts", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
-		public.GET("/community/posts/trending", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
-		public.GET("/community/posts/:id", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
-		public.GET("/community/posts/:id/comments", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
-		// Public user posts
-		public.GET("/community/users/:id/posts", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
-
-		// Public events routes (no auth required) → events-service
-		public.GET("/events", proxyToServiceWithTimeout("events-service", 8084, getServiceTimeout("events-service"), logger))
-		public.GET("/events/:id", proxyToServiceWithTimeout("events-service", 8084, getServiceTimeout("events-service"), logger))
-		public.GET("/events/:id/comments", proxyToServiceWithTimeout("events-service", 8084, getServiceTimeout("events-service"), logger))
-
-		// Protected routes (require auth)
+		// ============================================
+		// PROTECTED ROUTES (require auth) - MUST BE REGISTERED FIRST
+		// ============================================
+		// This ensures that protected routes are matched before public routes
+		// when the same path is used for both public GET and protected POST/PUT/DELETE
 		protected := api.Group("")
 		protected.Use(middleware.GatewayAuthMiddleware(jwt))
 		{
@@ -167,11 +135,20 @@ func main() {
 			protected.Any("/notifications", proxyToServiceWithTimeout("notification-service", 8085, getServiceTimeout("notification-service"), logger))
 
 			// Current user routes → route based on path
-			// /users/me/portfolio* → portfolio-service
-			// /users/me/* (other) → user-service
+			// Handle /users/me (exact match) first
+			protected.Any("/users/me", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
+			// Handle /users/me/*path (with sub-path)
 			protected.Any("/users/me/*path", func(c *gin.Context) {
 				path := c.Param("path")
-				if strings.HasPrefix(path, "/portfolio") {
+				// path will be like "/portfolio" or "/saved" or "/avatar"
+				// Empty path should not happen here due to exact match above, but handle it anyway
+				if path == "" || path == "/" {
+					proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger)(c)
+					return
+				}
+				// Remove leading slash for prefix check
+				pathWithoutSlash := strings.TrimPrefix(path, "/")
+				if strings.HasPrefix(pathWithoutSlash, "portfolio") {
 					// Portfolio routes → portfolio-service
 					proxyToServiceWithTimeout("portfolio-service", 8082, getServiceTimeout("portfolio-service"), logger)(c)
 				} else {
@@ -179,7 +156,6 @@ func main() {
 					proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger)(c)
 				}
 			})
-			protected.Any("/users/me", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
 
 			// File routes → file-service
 			protected.Any("/files/*path", proxyToServiceWithTimeout("file-service", 8086, getServiceTimeout("file-service"), logger))
@@ -189,9 +165,21 @@ func main() {
 			protected.Any("/opportunities/*path", proxyToServiceWithTimeout("opp-service", 8083, getServiceTimeout("opp-service"), logger))
 			protected.Any("/opportunities", proxyToServiceWithTimeout("opp-service", 8083, getServiceTimeout("opp-service"), logger))
 
-			// Events routes → events-service
-			protected.Any("/events/*path", proxyToServiceWithTimeout("events-service", 8084, getServiceTimeout("events-service"), logger))
-			protected.Any("/events", proxyToServiceWithTimeout("events-service", 8084, getServiceTimeout("events-service"), logger))
+			// Events protected routes → events-service
+			// Create, update, delete events
+			protected.POST("/events", proxyToServiceWithTimeout("events-service", 8084, getServiceTimeout("events-service"), logger))
+			protected.PATCH("/events/:id", proxyToServiceWithTimeout("events-service", 8084, getServiceTimeout("events-service"), logger))
+			protected.DELETE("/events/:id", proxyToServiceWithTimeout("events-service", 8084, getServiceTimeout("events-service"), logger))
+			// Interest operations
+			protected.POST("/events/:id/interested", proxyToServiceWithTimeout("events-service", 8084, getServiceTimeout("events-service"), logger))
+			protected.DELETE("/events/:id/interested", proxyToServiceWithTimeout("events-service", 8084, getServiceTimeout("events-service"), logger))
+			// Going operations
+			protected.POST("/events/:id/going", proxyToServiceWithTimeout("events-service", 8084, getServiceTimeout("events-service"), logger))
+			protected.DELETE("/events/:id/going", proxyToServiceWithTimeout("events-service", 8084, getServiceTimeout("events-service"), logger))
+			// Comment operations (protected - create/update/delete)
+			protected.POST("/events/:id/comments", proxyToServiceWithTimeout("events-service", 8084, getServiceTimeout("events-service"), logger))
+			protected.PATCH("/events/comments/:id", proxyToServiceWithTimeout("events-service", 8084, getServiceTimeout("events-service"), logger))
+			protected.DELETE("/events/comments/:id", proxyToServiceWithTimeout("events-service", 8084, getServiceTimeout("events-service"), logger))
 
 			// Community protected routes → community-service
 			protected.POST("/community/posts", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
@@ -206,38 +194,92 @@ func main() {
 			protected.GET("/community/users/me/posts", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
 		}
 
-		// Internal API routes (for service-to-service communication)
+		// ============================================
+		// PUBLIC ROUTES (no auth required) - REGISTERED AFTER PROTECTED
+		// ============================================
+		// Only GET methods are public - POST/PUT/DELETE are handled by protected routes above
+		public := api.Group("")
+		{
+			// Proxy to user-service for auth endpoints (login, register, etc.)
+			public.Any("/auth/*path", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
+
+			// Public user routes → user-service (GET only)
+			// Check username/email availability (for registration validation)
+			public.GET("/users/check-username", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
+			public.GET("/users/check-email", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
+			// GET /users/:id - view user profile (public)
+			public.GET("/users/:id", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
+			// GET /users/:id/summary - view user summary (public, lightweight profile for cards)
+			public.GET("/users/:id/summary", proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger))
+
+			// Public portfolio routes → portfolio-service (GET only)
+			// GET /portfolio/:id - view single project (public)
+			public.GET("/portfolio/:id", proxyToServiceWithTimeout("portfolio-service", 8082, getServiceTimeout("portfolio-service"), logger))
+			// GET /users/:id/portfolio - view user's portfolio (public)
+			public.GET("/users/:id/portfolio", proxyToServiceWithTimeout("portfolio-service", 8082, getServiceTimeout("portfolio-service"), logger))
+
+			// Public community routes → community-service (GET only)
+			public.GET("/community/posts", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
+			public.GET("/community/posts/trending", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
+			public.GET("/community/posts/:id", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
+			public.GET("/community/posts/:id/comments", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
+			// Public user posts
+			public.GET("/community/users/:id/posts", proxyToServiceWithTimeout("community-service", 8087, getServiceTimeout("community-service"), logger))
+
+			// Public events routes → events-service (GET only)
+			public.GET("/events", proxyToServiceWithTimeout("events-service", 8084, getServiceTimeout("events-service"), logger))
+			public.GET("/events/:id", proxyToServiceWithTimeout("events-service", 8084, getServiceTimeout("events-service"), logger))
+			public.GET("/events/:id/comments", proxyToServiceWithTimeout("events-service", 8084, getServiceTimeout("events-service"), logger))
+		}
+
+		// ============================================
+		// INTERNAL API ROUTES (for service-to-service communication)
+		// ============================================
 		// These routes bypass Gateway auth but require internal authentication
 		// All internal traffic goes through Gateway for unified monitoring, rate limiting, and tracing
 		internal := api.Group("/internal")
 		internal.Use(middleware.InternalServiceMiddleware())
 		{
 			// Internal user API (for other services to check user profile visibility, etc.)
+			// Path rewrite: /api/v1/internal/user/users/:id -> /api/v1/users/:id
+			// Path rewrite: /api/v1/internal/user/users/:id/summary -> /api/v1/users/:id/summary
 			internal.Any("/user/*path", func(c *gin.Context) {
-				// Rewrite path: /api/v1/internal/user/users/:id -> /api/v1/users/:id
 				originalPath := c.Request.URL.Path
+				// Only rewrite if path starts with /api/v1/internal/user/
 				if strings.HasPrefix(originalPath, "/api/v1/internal/user/") {
-					newPath := strings.Replace(originalPath, "/api/v1/internal/user/", "/api/v1/", 1)
-					c.Request.URL.Path = newPath
+					// Remove /api/v1/internal/user prefix, keep the rest
+					// Example: /api/v1/internal/user/users/123 -> /api/v1/users/123
+					newPath := strings.TrimPrefix(originalPath, "/api/v1/internal/user")
+					c.Request.URL.Path = "/api/v1" + newPath
 				}
 				proxyToServiceWithTimeout("user-service", 8081, getServiceTimeout("user-service"), logger)(c)
 			})
 
 			// Internal notification API (for other services to create notifications)
+			// Path rewrite: /api/v1/internal/notification/notifications -> /api/v1/notifications
 			internal.Any("/notification/*path", func(c *gin.Context) {
-				// Rewrite path: /api/v1/internal/notification/notifications -> /api/v1/internal/notifications
 				originalPath := c.Request.URL.Path
 				if strings.HasPrefix(originalPath, "/api/v1/internal/notification/") {
-					newPath := strings.Replace(originalPath, "/api/v1/internal/notification/", "/api/v1/internal/", 1)
-					c.Request.URL.Path = newPath
+					// Remove /api/v1/internal/notification prefix, keep the rest
+					newPath := strings.TrimPrefix(originalPath, "/api/v1/internal/notification")
+					c.Request.URL.Path = "/api/v1" + newPath
 				}
 				proxyToServiceWithTimeout("notification-service", 8085, getServiceTimeout("notification-service"), logger)(c)
 			})
 
 			// Internal portfolio API (for future service-to-service calls)
-			internal.Any("/portfolio/*path", proxyToServiceWithTimeout("portfolio-service", 8082, getServiceTimeout("portfolio-service"), logger))
+			// Path rewrite: /api/v1/internal/portfolio/* -> /api/v1/portfolio/*
+			internal.Any("/portfolio/*path", func(c *gin.Context) {
+				originalPath := c.Request.URL.Path
+				if strings.HasPrefix(originalPath, "/api/v1/internal/portfolio/") {
+					newPath := strings.TrimPrefix(originalPath, "/api/v1/internal/portfolio")
+					c.Request.URL.Path = "/api/v1/portfolio" + newPath
+				}
+				proxyToServiceWithTimeout("portfolio-service", 8082, getServiceTimeout("portfolio-service"), logger)(c)
+			})
 
 			// Internal file API (for other services to upload files)
+			// Path rewrite: /api/v1/internal/file/* -> /api/v1/internal/file/*
 			// Keep the path as-is since file-service expects /api/v1/internal/file/*
 			internal.Any("/file/*path", proxyToServiceWithTimeout("file-service", 8086, getServiceTimeout("file-service"), logger))
 		}
