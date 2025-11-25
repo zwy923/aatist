@@ -145,3 +145,7 @@ coverage.xml
 .pytest_cache/
 reports/
 test_results/
+
+
+postman/
+.postman/
