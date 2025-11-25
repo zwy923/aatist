@@ -63,8 +63,8 @@ func (c *CommunityEventConsumer) handlePostCommented(evt postCommentedEvent) err
 	ctx := context.Background()
 	// Notify post author.
 	if evt.AuthorID != 0 && evt.AuthorID != evt.CommentAuthorID {
-		title := "你的帖子有新评论"
-		message := fmt.Sprintf("有新的评论：%s", evt.CommentSnippet)
+		title := "Your post has a new comment"
+		message := fmt.Sprintf("New comment: %s", evt.CommentSnippet)
 		data := model.NotificationData{
 			"post_id":           evt.PostID,
 			"comment_id":        evt.CommentID,
@@ -79,8 +79,8 @@ func (c *CommunityEventConsumer) handlePostCommented(evt postCommentedEvent) err
 		return nil
 	}
 
-	title := "有人在评论中提到了你"
-	message := fmt.Sprintf("提及内容：%s", evt.CommentSnippet)
+	title := "Someone mentioned you in a comment"
+	message := fmt.Sprintf("Mentioned content: %s", evt.CommentSnippet)
 	data := model.NotificationData{
 		"post_id":           evt.PostID,
 		"comment_id":        evt.CommentID,
@@ -198,8 +198,8 @@ func (m *likeAggregationManager) sendAggregated(authorID, postID int64, count in
 		return
 	}
 	ctx := context.Background()
-	title := "你的帖子收到新的点赞"
-	message := fmt.Sprintf("你的帖子新增了 %d 个点赞", count)
+	title := "Your post has a new like"
+	message := fmt.Sprintf("Your post has a new like: %d", count)
 	data := model.NotificationData{
 		"post_id":    postID,
 		"like_count": count,
