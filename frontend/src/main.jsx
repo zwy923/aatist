@@ -2,7 +2,10 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
-import App from "./App.jsx";
+import Landing from "./pages/Landing.jsx";
+import Login from "./pages/Login.jsx";
+import Register from "./pages/Register.jsx";
+import Dashboard from "./pages/Dashboard.jsx";
 import Verify from "./pages/Verify.jsx";
 import { UserProvider } from "./store/userStore.jsx";
 import "./styles/global.css";
@@ -46,7 +49,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     <UserProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<App />} />
+          <Route path="/" element={<Landing />} />
+          <Route path="/auth/login" element={<Login />} />
+          <Route path="/auth/register" element={<Register />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/verify" element={<Verify />} />
         </Routes>
       </BrowserRouter>

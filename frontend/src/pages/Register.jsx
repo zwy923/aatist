@@ -1,30 +1,25 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useState, useMemo } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import {
-  Alert,
   Box,
   Button,
+  TextField,
+  Typography,
+  Alert,
+  CircularProgress,
+  Container,
+  Stack,
+  Paper,
   Card,
   CardActionArea,
   Chip,
-  CircularProgress,
-  Collapse,
-  Dialog,
-  DialogContent,
   FormControl,
-  Grid,
-  IconButton,
   InputLabel,
   MenuItem,
   Select,
-  Stack,
-  Tab,
-  Tabs,
-  TextField,
-  Typography,
+  Grid,
 } from "@mui/material";
-import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import { authAPI } from "../services/api";
-import { useUser } from "../store/userStore.jsx";
 
 const createRegisterForm = () => ({
   name: "",
@@ -45,15 +40,13 @@ const roleConfigs = {
   student: {
     title: "Student maker",
     accent: "#5de0ff",
-    description:
-      "",
+    description: "Create & learn",
     badge: "Create & learn",
   },
   organization: {
     title: "Organization / partner",
     accent: "#ffb877",
-    description:
-      "",
+    description: "Launch opportunities",
     badge: "Launch opportunities",
   },
 };
@@ -91,8 +84,8 @@ const strongPasswordHint =
   "Use 10+ characters with uppercase, lowercase, a number, and a symbol.";
 const isStrongPassword = (password) => strongPasswordRegex.test(password);
 
-export default function LoginModal({ onClose, mode = "login" }) {
-  const [activeTab, setActiveTab] = useState(mode === "register" ? "register" : "login");
+export default function Register() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [registerSuccess, setRegisterSuccess] = useState(false);
@@ -100,30 +93,10 @@ export default function LoginModal({ onClose, mode = "login" }) {
   const [registerStage, setRegisterStage] = useState("choice");
   const [registerForm, setRegisterForm] = useState(createRegisterForm());
 
-  const { login } = useUser();
-
-  const isLogin = activeTab === "login";
-
-  useEffect(() => {
-    const nextTab = mode === "register" ? "register" : "login";
-    setActiveTab(nextTab);
-    setError("");
-    setRegisterSuccess(false);
-    if (nextTab === "register") {
-      setRegisterStage("choice");
-      setRegisterForm(createRegisterForm());
-    }
-  }, [mode]);
-
-  const handleTabChange = (_, value) => {
-    setActiveTab(value);
-    setError("");
-    setRegisterSuccess(false);
-    if (value === "register") {
-      setRegisterStage("choice");
-      setRegisterForm(createRegisterForm());
-    }
-  };
+  const selectedSchool = useMemo(
+    () => SCHOOL_OPTIONS.find((option) => option.value === registerForm.school),
+    [registerForm.school]
+  );
 
   const handleRoleSelect = (role) => {
     setRegisterForm((prev) => ({
@@ -145,38 +118,13 @@ export default function LoginModal({ onClose, mode = "login" }) {
     setRegisterForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const selectedSchool = useMemo(
-    () => SCHOOL_OPTIONS.find((option) => option.value === registerForm.school),
-    [registerForm.school]
-  );
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-    const form = e.currentTarget;
-
-    try {
-      const response = await authAPI.login(
-        form.email.value,
-        form.password.value
-      );
-      login(response.user, response.access_token);
-      onClose();
-    } catch (err) {
-      setError(err.response?.data?.detail || "Sign-in failed, please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleRegister = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
     if (!registerForm.role) {
-      setError("Please choose how you’d like to use Aatist.");
+      setError("Please choose how you'd like to use Aatist.");
       setLoading(false);
       return;
     }
@@ -264,6 +212,13 @@ export default function LoginModal({ onClose, mode = "login" }) {
       profile.contactTitle = registerForm.contactTitle.trim();
     }
 
+    // Ensure profile is not empty (profile is required)
+    if (Object.keys(profile).length === 0) {
+      setError("Profile information is required.");
+      setLoading(false);
+      return;
+    }
+
     const cleanProfile = Object.fromEntries(
       Object.entries(profile).filter(([, value]) => Boolean(value))
     );
@@ -274,14 +229,47 @@ export default function LoginModal({ onClose, mode = "login" }) {
         email: registerForm.email,
         password: registerForm.password,
         role: registerForm.role,
-        ...(Object.keys(cleanProfile).length ? { profile: cleanProfile } : {}),
+        profile: cleanProfile,
       });
       setRegisterSuccess(true);
       setRegisteredEmail(registerForm.email);
       setRegisterForm(createRegisterForm());
       setRegisterStage("choice");
     } catch (err) {
-      setError(err.response?.data?.detail || "Registration failed, try again.");
+      console.error("Registration error:", err); // Debug log
+      
+      let errorMessage = "Registration failed, try again.";
+      
+      // Check if we have a response object
+      if (err.response) {
+        const status = err.response.status;
+        const data = err.response.data;
+        
+        // Handle 409 Conflict (email/username already exists)
+        if (status === 409) {
+          errorMessage = data?.error?.message || 
+                        data?.message || 
+                        "This email is already registered. Please use a different email address.";
+        } 
+        // Handle other error responses
+        else if (data?.error?.message) {
+          errorMessage = data.error.message;
+        } else if (data?.message) {
+          errorMessage = data.message;
+        } else if (data?.error) {
+          errorMessage = typeof data.error === 'string' ? data.error : data.error.message || "An error occurred";
+        }
+      } 
+      // Handle network errors or other exceptions
+      else if (err.request) {
+        errorMessage = "Network error. Please check your connection and try again.";
+      } 
+      // Handle other errors
+      else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
       setRegisterSuccess(false);
     } finally {
       setLoading(false);
@@ -293,76 +281,10 @@ export default function LoginModal({ onClose, mode = "login" }) {
       ? "you@studio.com"
       : "firstname.lastname@studentmail.com";
 
-  const headerTitle = isLogin
-    ? "Sign in to Aatist"
-    : registerSuccess
-    ? "Verify your inbox"
-    : registerStage === "choice"
-    ? "How do you want to join?"
-    : registerForm.role === "organization"
-    ? "Tell us about your collective"
-    : "Tell us about your campus life";
-
-  const headerSubtitle = isLogin
-    ? "Access your studio, review briefs, and keep shipping."
-    : registerSuccess
-    ? `We just emailed ${registeredEmail || "you"} with the final verification step.`
-    : registerStage === "choice"
-    ? "Select whether you are joining as a student maker or as an organization that publishes opportunities."
-    : registerForm.role === "organization"
-    ? "Share the essentials so we can unlock partner tooling for you."
-    : "We partner with students across Finland—let us know where you study.";
-
-  const renderLoginForm = () => (
-    <Box component="form" onSubmit={handleLogin}>
-      <Stack spacing={3}>
-        <TextField
-          name="email"
-          type="email"
-          label="Email"
-          placeholder="you@aatist.fi"
-          fullWidth
-          required
-        />
-        <TextField
-          name="password"
-          type="password"
-          label="Password"
-          placeholder="Enter your password"
-          fullWidth
-          required
-        />
-        <Button
-          type="submit"
-          variant="contained"
-          size="large"
-          disabled={loading}
-          endIcon={
-            loading ? <CircularProgress size={18} color="inherit" /> : undefined
-          }
-        >
-          {loading ? "Signing in..." : "Sign in"}
-        </Button>
-        <Typography variant="body2" color="text.secondary" textAlign="center">
-          New here?{" "}
-          <Button
-            variant="text"
-            size="small"
-            onClick={() => handleTabChange(null, "register")}
-            sx={{ textTransform: "none", fontWeight: 600 }}
-          >
-            Create an account
-          </Button>
-        </Typography>
-      </Stack>
-    </Box>
-  );
-
   const renderRoleChoice = () => (
     <Stack spacing={3}>
       <Typography variant="body1" color="text.secondary">
-        Choose the path that matches how you collaborate with the campus
-        ecosystem.
+        Choose the path that matches how you collaborate with the campus ecosystem.
       </Typography>
       <Grid container spacing={2}>
         {Object.entries(roleConfigs).map(([role, config]) => (
@@ -402,7 +324,8 @@ export default function LoginModal({ onClose, mode = "login" }) {
       </Grid>
       <Button
         variant="text"
-        onClick={() => handleTabChange(null, "login")}
+        component={Link}
+        to="/auth/login"
         sx={{ alignSelf: "flex-start", textTransform: "none" }}
       >
         Prefer to sign in instead?
@@ -607,7 +530,13 @@ export default function LoginModal({ onClose, mode = "login" }) {
             variant="contained"
             size="large"
             disabled={loading}
-            sx={{ flexGrow: 1 }}
+            sx={{
+              flexGrow: 1,
+              background: "linear-gradient(135deg, #007bff 0%, #7f5dff 100%)",
+              "&:hover": {
+                background: "linear-gradient(135deg, #0066cc 0%, #6b4dd9 100%)",
+              },
+            }}
             endIcon={
               loading ? <CircularProgress size={18} color="inherit" /> : undefined
             }
@@ -617,14 +546,16 @@ export default function LoginModal({ onClose, mode = "login" }) {
         </Stack>
         <Typography variant="body2" color="text.secondary" textAlign="center">
           Already have access?{" "}
-          <Button
-            variant="text"
-            size="small"
-            onClick={() => handleTabChange(null, "login")}
-            sx={{ textTransform: "none", fontWeight: 600 }}
+          <Link
+            to="/auth/login"
+            style={{
+              color: "#5de0ff",
+              textDecoration: "none",
+              fontWeight: 600,
+            }}
           >
             Sign in instead
-          </Button>
+          </Link>
         </Typography>
       </Stack>
     </Box>
@@ -649,9 +580,13 @@ export default function LoginModal({ onClose, mode = "login" }) {
           <Button
             variant="contained"
             size="large"
-            onClick={() => {
-              setRegisterSuccess(false);
-              setActiveTab("login");
+            component={Link}
+            to="/auth/login"
+            sx={{
+              background: "linear-gradient(135deg, #007bff 0%, #7f5dff 100%)",
+              "&:hover": {
+                background: "linear-gradient(135deg, #0066cc 0%, #6b4dd9 100%)",
+              },
             }}
           >
             Back to sign in
@@ -667,87 +602,94 @@ export default function LoginModal({ onClose, mode = "login" }) {
     return renderRegisterForm();
   };
 
+  const headerTitle = registerSuccess
+    ? "Verify your inbox"
+    : registerStage === "choice"
+    ? "How do you want to join?"
+    : registerForm.role === "organization"
+    ? "Tell us about your collective"
+    : "Tell us about your campus life";
+
+  const headerSubtitle = registerSuccess
+    ? `We just emailed ${registeredEmail || "you"} with the final verification step.`
+    : registerStage === "choice"
+    ? "Select whether you are joining as a student maker or as an organization that publishes opportunities."
+    : registerForm.role === "organization"
+    ? "Share the essentials so we can unlock partner tooling for you."
+    : "We partner with students across Finland—let us know where you study.";
+
   return (
-    <Dialog
-      open
-      maxWidth="md"
-      fullWidth
-      keepMounted
-      onClose={onClose}
-      BackdropProps={{
-        sx: {
-          backdropFilter: "blur(14px)",
-          backgroundColor: "rgba(3, 5, 15, 0.85)",
-        },
+    <Box
+      sx={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "radial-gradient(ellipse at top left, #101820, #050505)",
+        padding: 2,
       }}
     >
-      <DialogContent
-        sx={{
-          position: "relative",
-          overflow: "hidden",
-          px: { xs: 3, md: 6 },
-          py: { xs: 3, md: 5 },
-        }}
-      >
-        <Box
+      <Container maxWidth="md">
+        <Paper
+          elevation={0}
           sx={{
-            position: "absolute",
-            inset: 0,
-            pointerEvents: "none",
-            background:
-              "radial-gradient(circle at 20% 20%, rgba(93,224,255,0.15), transparent 45%)",
-          }}
-        />
-        <IconButton
-          onClick={onClose}
-          sx={{
-            position: "absolute",
-            top: 12,
-            right: 12,
-            zIndex: 1,
+            padding: { xs: 3, md: 5 },
+            background: "rgba(7, 12, 30, 0.96)",
+            borderRadius: 3,
+            border: "1px solid rgba(93, 224, 255, 0.25)",
+            position: "relative",
+            overflow: "hidden",
+            "&::before": {
+              content: '""',
+              position: "absolute",
+              inset: 0,
+              pointerEvents: "none",
+              background:
+                "radial-gradient(circle at 20% 20%, rgba(93,224,255,0.15), transparent 45%)",
+            },
           }}
         >
-          <CloseRoundedIcon />
-        </IconButton>
-        <Stack spacing={3} sx={{ position: "relative" }}>
-          <Stack spacing={1}>
-            <Chip
-              label={isLogin ? "Continue building" : "Join the network"}
-              color="primary"
-              variant="outlined"
-              sx={{ width: "fit-content" }}
-            />
-            <Typography variant="h4" fontWeight={700}>
-              {headerTitle}
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              {headerSubtitle}
-            </Typography>
+          <Stack spacing={3} sx={{ position: "relative" }}>
+            <Stack spacing={1}>
+              <Chip
+                label={registerSuccess ? "Join the network" : "Continue building"}
+                color="primary"
+                variant="outlined"
+                sx={{ width: "fit-content" }}
+              />
+              <Typography variant="h4" fontWeight={700}>
+                {headerTitle}
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                {headerSubtitle}
+              </Typography>
+            </Stack>
+
+            {error && (
+              <Alert severity="error" variant="outlined">
+                {error}
+              </Alert>
+            )}
+
+            {renderRegisterContent()}
+
+            <Button
+              component={Link}
+              to="/"
+              variant="text"
+              size="small"
+              sx={{
+                alignSelf: "center",
+                textTransform: "none",
+                color: "text.secondary",
+              }}
+            >
+              Back to home
+            </Button>
           </Stack>
-
-          <Tabs
-            value={activeTab}
-            onChange={handleTabChange}
-            textColor="primary"
-            indicatorColor="primary"
-            sx={{
-              width: "fit-content",
-              "& .MuiTab-root": { textTransform: "none", fontWeight: 600 },
-            }}
-          >
-            <Tab label="Sign in" value="login" />
-            <Tab label="Join Aatist" value="register" />
-          </Tabs>
-
-          <Collapse in={Boolean(error)}>
-            <Alert severity="error" variant="outlined">
-              {error}
-            </Alert>
-          </Collapse>
-
-          {isLogin ? renderLoginForm() : renderRegisterContent()}
-        </Stack>
-      </DialogContent>
-    </Dialog>
+        </Paper>
+      </Container>
+    </Box>
   );
 }
+

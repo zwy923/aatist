@@ -524,7 +524,7 @@ func proxyToServiceWithTimeout(serviceName string, port int, timeout time.Durati
 		json.NewEncoder(rw).Encode(response.Error(err))
 	}
 
-	// Customize ModifyResponse to filter hop-by-hop headers from response
+	// Customize ModifyResponse to filter hop-by-hop headers and CORS headers from response
 	proxy.ModifyResponse = func(resp *http.Response) error {
 		// Remove hop-by-hop headers from response
 		for key := range resp.Header {
@@ -532,6 +532,21 @@ func proxyToServiceWithTimeout(serviceName string, port int, timeout time.Durati
 				resp.Header.Del(key)
 			}
 		}
+
+		// Remove CORS headers from backend service response
+		// Gateway handles CORS, so we don't want duplicate CORS headers
+		corsHeaders := []string{
+			"Access-Control-Allow-Origin",
+			"Access-Control-Allow-Credentials",
+			"Access-Control-Allow-Headers",
+			"Access-Control-Allow-Methods",
+			"Access-Control-Max-Age",
+			"Access-Control-Expose-Headers",
+		}
+		for _, header := range corsHeaders {
+			resp.Header.Del(header)
+		}
+
 		return nil
 	}
 
