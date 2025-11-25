@@ -1,0 +1,17 @@
+# Dockerfile for events-service
+FROM golang:1.22-alpine AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN go build -o events-service ./cmd/events-service
+
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates
+WORKDIR /app
+COPY --from=builder /app/events-service .
+COPY --from=builder /app/configs ./configs
+COPY --from=builder /app/migrations ./migrations
+ENV SERVICE_NAME=events-service
+CMD ["./events-service"]
+

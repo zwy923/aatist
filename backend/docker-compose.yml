@@ -210,6 +210,52 @@ services:
       - ./configs:/app/configs
       - ./migrations:/app/migrations
 
+  opp-service:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.opp-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+    environment:
+      - SERVICE_NAME=opp-service
+      - CONFIG_PATH=/app/configs/config.yaml
+      - POSTGRES_DSN=postgres://aatn:aatn@postgres:5432/aatn?sslmode=disable
+      - HTTP_PORT=8083
+      - APP_ENV=dev
+      - MIGRATIONS_DIR=/app/migrations
+      - GATEWAY_URL=http://gateway:8080
+    ports:
+      - "8083:8083"
+    volumes:
+      - ./configs:/app/configs
+      - ./migrations:/app/migrations
+
+  events-service:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.events-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+    environment:
+      - SERVICE_NAME=events-service
+      - CONFIG_PATH=/app/configs/config.yaml
+      - POSTGRES_DSN=postgres://aatn:aatn@postgres:5432/aatn?sslmode=disable
+      - HTTP_PORT=8084
+      - APP_ENV=dev
+      - MIGRATIONS_DIR=/app/migrations
+      - GATEWAY_URL=http://gateway:8080
+    ports:
+      - "8084:8084"
+    volumes:
+      - ./configs:/app/configs
+      - ./migrations:/app/migrations
+
   gateway:
     build:
       context: .
@@ -232,6 +278,10 @@ services:
       file-service:
         condition: service_started
       community-service:
+        condition: service_started
+      opp-service:
+        condition: service_started
+      events-service:
         condition: service_started
     # Gateway must be started before services that depend on it for internal calls
     environment:
