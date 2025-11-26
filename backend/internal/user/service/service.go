@@ -14,14 +14,22 @@ type Tokens struct {
 
 // AuthService defines the interface for authentication operations
 type RegisterInput struct {
-	Email     string
-	Password  string
-	Name      string
-	IP        string
-	Role      model.Role
-	StudentID *string
-	School    *string
-	Faculty   *string
+	Email                  string
+	Password               string
+	Name                   string
+	IP                     string
+	Role                   model.Role
+	// Student/Alumni fields
+	StudentID              *string
+	School                 *string
+	Faculty                *string
+	Major                  *string
+	// Organization fields
+	OrganizationName       *string
+	OrganizationBio        *string
+	ContactTitle           *string
+	IsAffiliatedWithSchool *bool
+	OrgSize                *int
 }
 
 // AuthService defines the interface for authentication operations
@@ -44,9 +52,6 @@ type AuthService interface {
 	// CheckEmailExists checks if an email is already registered
 	CheckEmailExists(ctx context.Context, email string) (bool, error)
 
-	// CheckUsernameExists checks if a username (nickname) is already taken
-	CheckUsernameExists(ctx context.Context, username string) (bool, error)
-
 	// ChangePassword changes user's password (requires current password verification)
 	ChangePassword(ctx context.Context, userID int64, currentPassword, newPassword string) error
 }
@@ -55,7 +60,6 @@ type AuthService interface {
 type UserSummary struct {
 	ID        int64   `json:"id"`
 	Name      string  `json:"name"`
-	Nickname  *string `json:"nickname,omitempty"`
 	AvatarURL *string `json:"avatar_url,omitempty"`
 	Role      string  `json:"role"`
 	School    *string `json:"school,omitempty"`

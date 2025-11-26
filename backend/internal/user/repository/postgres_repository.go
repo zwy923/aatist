@@ -12,25 +12,33 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-const userSelectColumns = `id, email, password_hash, name, nickname, avatar_url, role,
-	student_id, school, faculty, major, weekly_hours, emotional_status, weekly_availability,
-	skills, bio, profile_visibility,
-	is_verified_email, oauth_provider, oauth_subject, last_login_at, failed_attempts, locked_until,
-	created_at, updated_at`
+const userSelectColumns = `id, email, password_hash, name, avatar_url, role,
+	bio, profile_visibility, portfolio_visibility,
+	is_verified_email, role_verified, oauth_provider, oauth_subject, last_login_at, failed_attempts, locked_until,
+	created_at, updated_at,
+	student_id, school, faculty, major, weekly_hours, weekly_availability, skills,
+	organization_name, organization_bio, contact_title, is_affiliated_with_school, org_size`
 
 var profileUpdatableColumns = []string{
+	// Common fields
 	"name",
-	"nickname",
+	"bio",
+	"profile_visibility",
+	// Student/Alumni fields
 	"student_id",
 	"school",
 	"faculty",
 	"major",
 	"weekly_hours",
-	"emotional_status",
 	"weekly_availability",
 	"skills",
-	"bio",
-	"profile_visibility",
+	"portfolio_visibility",
+	// Organization fields
+	"organization_name",
+	"organization_bio",
+	"contact_title",
+	"is_affiliated_with_school",
+	"org_size",
 }
 
 // postgresRepository implements UserRepository using PostgreSQL
@@ -90,19 +98,6 @@ func (r *postgresRepository) ExistsByEmail(ctx context.Context, email string) (b
 	return exists, nil
 }
 
-// ExistsByNickname checks if a nickname is already taken (case-insensitive)
-func (r *postgresRepository) ExistsByNickname(ctx context.Context, nickname string) (bool, error) {
-	var exists bool
-	query := `SELECT EXISTS(SELECT 1 FROM users WHERE LOWER(nickname) = LOWER($1))`
-
-	err := r.db.GetContext(ctx, &exists, query, nickname)
-	if err != nil {
-		return false, fmt.Errorf("failed to check nickname existence: %w", err)
-	}
-
-	return exists, nil
-}
-
 // UpdatePassword updates user's password hash
 func (r *postgresRepository) UpdatePassword(ctx context.Context, userID int64, passwordHash string) error {
 	query := `UPDATE users SET password_hash = $1, updated_at = $2 WHERE id = $3`
@@ -126,9 +121,12 @@ func (r *postgresRepository) UpdatePassword(ctx context.Context, userID int64, p
 
 // CreateUser creates a new user
 func (r *postgresRepository) CreateUser(ctx context.Context, user *model.User) error {
-	query := `INSERT INTO users (email, password_hash, name, role, student_id, school, faculty, profile_visibility, 
-		is_verified_email, oauth_provider, oauth_subject, failed_attempts, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+	query := `INSERT INTO users (email, password_hash, name, role, bio, profile_visibility, portfolio_visibility,
+		is_verified_email, role_verified, oauth_provider, oauth_subject, failed_attempts,
+		student_id, school, faculty, major, weekly_hours, weekly_availability, skills,
+		organization_name, organization_bio, contact_title, is_affiliated_with_school, org_size,
+		created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
 		RETURNING id`
 
 	now := time.Now()
@@ -140,14 +138,28 @@ func (r *postgresRepository) CreateUser(ctx context.Context, user *model.User) e
 		user.PasswordHash,
 		user.Name,
 		user.Role,
-		user.StudentID,
-		user.School,
-		user.Faculty,
-		user.ProfileVisibility.String(), // Convert to string for DB
+		user.Bio,
+		user.ProfileVisibility.String(),
+		user.PortfolioVisibility.String(),
 		user.IsVerifiedEmail,
+		user.RoleVerified,
 		user.OAuthProvider,
 		user.OAuthSubject,
 		user.FailedAttempts,
+		// Student/Alumni fields
+		user.StudentID,
+		user.School,
+		user.Faculty,
+		user.Major,
+		user.WeeklyHours,
+		user.WeeklyAvailability,
+		user.Skills,
+		// Organization fields
+		user.OrganizationName,
+		user.OrganizationBio,
+		user.ContactTitle,
+		user.IsAffiliatedWithSchool,
+		user.OrgSize,
 		user.CreatedAt,
 		user.UpdatedAt,
 	).Scan(&user.ID)

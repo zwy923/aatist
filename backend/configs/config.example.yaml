@@ -32,3 +32,10 @@ email:
   sendgrid_api_key: "SG.xxxxx"
   from_email: "no-reply@aatist.fi"
   frontend_url: "http://localhost:5173"
+  # Auto-verified school email domains (only for student/alumni roles)
+  # Students with these email domains will be automatically verified upon registration
+  auto_verified_domains:
+    - "@aalto.fi"
+    # Add more school domains here in the future
+    # - "@helsinki.fi"
+    # - "@tuni.fi"

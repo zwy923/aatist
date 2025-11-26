@@ -51,6 +51,7 @@ type authService struct {
 	redis                *cache.Redis
 	logger               *log.Logger
 	emailVerificationSvc *EmailVerificationService
+	autoVerifiedDomains  []string // School email domains that auto-verify student/alumni accounts
 }
 
 // NewAuthService creates a new authentication service
@@ -60,9 +61,14 @@ func NewAuthService(
 	redis *cache.Redis,
 	logger *log.Logger,
 	emailVerificationSvc *EmailVerificationService,
+	autoVerifiedDomains []string,
 ) AuthService {
 	if emailVerificationSvc == nil {
 		emailVerificationSvc = NewEmailVerificationService(userRepo, redis, logger)
+	}
+	// Default to @aalto.fi if no domains provided
+	if len(autoVerifiedDomains) == 0 {
+		autoVerifiedDomains = []string{"@aalto.fi"}
 	}
 	return &authService{
 		userRepo:             userRepo,
@@ -70,7 +76,26 @@ func NewAuthService(
 		redis:                redis,
 		logger:               logger,
 		emailVerificationSvc: emailVerificationSvc,
+		autoVerifiedDomains:  autoVerifiedDomains,
 	}
+}
+
+// isAutoVerifiedEmail checks if an email should be automatically verified
+// Only student/alumni roles with school email domains are auto-verified
+func (s *authService) isAutoVerifiedEmail(email string, role model.Role) bool {
+	// Only auto-verify student and alumni roles
+	if !role.IsStudentRole() {
+		return false
+	}
+
+	normalizedEmail := strings.ToLower(strings.TrimSpace(email))
+	for _, domain := range s.autoVerifiedDomains {
+		normalizedDomain := strings.ToLower(strings.TrimSpace(domain))
+		if strings.HasSuffix(normalizedEmail, normalizedDomain) {
+			return true
+		}
+	}
+	return false
 }
 
 // Register registers a new user
@@ -78,6 +103,10 @@ func (s *authService) Register(ctx context.Context, input RegisterInput) (*model
 	// Input validation
 	if err := s.validateEmail(input.Email); err != nil {
 		return nil, nil, errs.NewAppError(err, 400, "invalid email format")
+	}
+	// Password is required for non-OAuth registration
+	if input.Password == "" {
+		return nil, nil, errs.NewAppError(errs.ErrInvalidInput, 400, "password is required")
 	}
 	if err := s.validatePassword(input.Password); err != nil {
 		return nil, nil, errs.NewAppError(err, 400, "password does not meet requirements")
@@ -106,11 +135,16 @@ func (s *authService) Register(ctx context.Context, input RegisterInput) (*model
 		return nil, nil, errs.NewAppError(errs.ErrEmailExists, 409, "email already registered")
 	}
 
-	// Hash password
-	passwordHash, err := bcrypt.GenerateFromPassword([]byte(input.Password), 12)
-	if err != nil {
-		s.logger.Error("Failed to hash password", zap.Error(err))
-		return nil, nil, fmt.Errorf("failed to hash password: %w", err)
+	// Hash password (OAuth users may not have password)
+	var passwordHashPtr *string
+	if input.Password != "" {
+		hashed, err := bcrypt.GenerateFromPassword([]byte(input.Password), 12)
+		if err != nil {
+			s.logger.Error("Failed to hash password", zap.Error(err))
+			return nil, nil, fmt.Errorf("failed to hash password: %w", err)
+		}
+		hashStr := string(hashed)
+		passwordHashPtr = &hashStr
 	}
 
 	// Determine role (default to student)
@@ -119,21 +153,42 @@ func (s *authService) Register(ctx context.Context, input RegisterInput) (*model
 		role = model.RoleStudent
 	}
 
-	// Auto-verify @aalto.fi emails
-	isVerified := strings.HasSuffix(normalizedEmail, "@aalto.fi")
+	// Check if email is from verified school domain (for role_verified)
+	// All users still need email verification, but school emails get role_verified = true
+	roleVerified := s.isAutoVerifiedEmail(normalizedEmail, role)
+	if roleVerified {
+		s.logger.Info("School email detected, setting role_verified",
+			zap.String("email", normalizedEmail),
+			zap.String("role", role.String()),
+		)
+	}
 
 	// Create user (store email in lowercase)
+	// All users need email verification (is_verified_email = false initially)
 	user := &model.User{
 		Email:             normalizedEmail,
-		PasswordHash:      string(passwordHash),
+		PasswordHash:      passwordHashPtr,
 		Name:              input.Name,
 		Role:              role,
-		StudentID:         input.StudentID,
-		School:            input.School,
-		Faculty:           input.Faculty,
 		ProfileVisibility: model.VisibilityPublic, // Default to public
-		IsVerifiedEmail:   isVerified,
+		PortfolioVisibility: model.PortfolioVisibilityPublic, // Default to public
+		IsVerifiedEmail:   false, // All users need email verification
+		RoleVerified:      roleVerified, // True if email is from verified school domain
 		FailedAttempts:    0,
+		// Student/Alumni fields
+		StudentID:          input.StudentID,
+		School:             input.School,
+		Faculty:            input.Faculty,
+		Major:              input.Major,
+		// Organization fields
+		OrganizationName:       input.OrganizationName,
+		OrganizationBio:        input.OrganizationBio,
+		ContactTitle:           input.ContactTitle,
+		IsAffiliatedWithSchool: false,
+		OrgSize:                input.OrgSize,
+	}
+	if input.IsAffiliatedWithSchool != nil {
+		user.IsAffiliatedWithSchool = *input.IsAffiliatedWithSchool
 	}
 
 	if err := s.userRepo.CreateUser(ctx, user); err != nil {
@@ -172,12 +227,15 @@ func (s *authService) Register(ctx context.Context, input RegisterInput) (*model
 	s.logger.Info("User registered successfully",
 		zap.Int64("user_id", user.ID),
 		zap.String("email", user.Email),
+		zap.String("role", user.Role.String()),
+		zap.Bool("email_verified", user.IsVerifiedEmail),
+		zap.Bool("role_verified", user.RoleVerified),
 		zap.String("ip", input.IP),
 	)
 	metrics.RegisterSuccessTotal.Inc()
 
-	// Note: Email verification will be handled asynchronously via MQ
-	// The MQ message will be published by the handler after successful registration
+	// Note: Email verification email will be sent asynchronously via MQ for all users
+	// School email domains (e.g., @aalto.fi) get role_verified = true, but still need email verification
 
 	return user, tokens, nil
 }
@@ -229,8 +287,14 @@ func (s *authService) Login(ctx context.Context, email, password, ip string) (*m
 		return nil, nil, errs.NewAppError(errs.ErrAccountLocked, 423, "account is locked")
 	}
 
-	// Verify password
-	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
+	// Verify password (OAuth users may not have password)
+	if user.PasswordHash == nil || *user.PasswordHash == "" {
+		s.handleFailedLogin(ctx, user, ip)
+		s.logger.Warn("Login failed: user has no password (OAuth only)", zap.Int64("user_id", user.ID), zap.String("ip", ip))
+		metrics.LoginFailureTotal.Inc()
+		return nil, nil, errs.NewAppError(errs.ErrInvalidCredentials, 401, "invalid email or password")
+	}
+	err = bcrypt.CompareHashAndPassword([]byte(*user.PasswordHash), []byte(password))
 	if err != nil {
 		s.handleFailedLogin(ctx, user, ip)
 		s.logger.Warn("Login failed: invalid password", zap.Int64("user_id", user.ID), zap.String("ip", ip))
@@ -454,19 +518,6 @@ func (s *authService) CheckEmailExists(ctx context.Context, email string) (bool,
 	return s.userRepo.ExistsByEmail(ctx, normalizedEmail)
 }
 
-// CheckUsernameExists checks if a username (nickname) is already taken
-func (s *authService) CheckUsernameExists(ctx context.Context, username string) (bool, error) {
-	username = strings.TrimSpace(username)
-	if username == "" {
-		return false, errs.NewAppError(errs.ErrInvalidInput, 400, "username is required")
-	}
-	if len(username) > 100 {
-		return false, errs.NewAppError(errs.ErrInvalidInput, 400, "username must be at most 100 characters")
-	}
-
-	return s.userRepo.ExistsByNickname(ctx, username)
-}
-
 // ChangePassword changes user's password (requires current password verification)
 func (s *authService) ChangePassword(ctx context.Context, userID int64, currentPassword, newPassword string) error {
 	// Validate new password
@@ -480,13 +531,18 @@ func (s *authService) ChangePassword(ctx context.Context, userID int64, currentP
 		return err
 	}
 
+	// Check if user has a password (OAuth users may not have password)
+	if user.PasswordHash == nil || *user.PasswordHash == "" {
+		return errs.NewAppError(errs.ErrInvalidInput, 400, "user does not have a password set")
+	}
+
 	// Verify current password
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(currentPassword)); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(*user.PasswordHash), []byte(currentPassword)); err != nil {
 		return errs.NewAppError(errs.ErrInvalidCredentials, 401, "current password is incorrect")
 	}
 
 	// Check that new password is different from current
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(newPassword)); err == nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(*user.PasswordHash), []byte(newPassword)); err == nil {
 		return errs.NewAppError(errs.ErrInvalidInput, 400, "new password must be different from current password")
 	}
 

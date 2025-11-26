@@ -23,9 +23,6 @@ type UserRepository interface {
 	// ExistsByEmail checks if an email is already registered
 	ExistsByEmail(ctx context.Context, email string) (bool, error)
 
-	// ExistsByNickname checks if a nickname is already taken
-	ExistsByNickname(ctx context.Context, nickname string) (bool, error)
-
 	// UpdateProfile updates profile-related fields
 	UpdateProfile(ctx context.Context, update ProfileUpdate) (*model.User, error)
 

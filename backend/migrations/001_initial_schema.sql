@@ -5,27 +5,19 @@
 CREATE TABLE IF NOT EXISTS users (
     id BIGSERIAL PRIMARY KEY,
     email VARCHAR(255) NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
+    password_hash VARCHAR(255) DEFAULT NULL, -- OAuth users may not have password
     name VARCHAR(100) NOT NULL,
-    nickname VARCHAR(100) DEFAULT NULL,
     avatar_url TEXT DEFAULT NULL,
-    role VARCHAR(20) NOT NULL DEFAULT 'student' CHECK (role IN ('student', 'company', 'admin')),
-    student_id VARCHAR(255),
-    school VARCHAR(255),
-    faculty VARCHAR(255),
-    major VARCHAR(255) DEFAULT NULL,
-    -- Skills (JSONB with Skill + Level structure)
-    skills JSONB NOT NULL DEFAULT '[]'::jsonb,
+    role VARCHAR(20) NOT NULL DEFAULT 'student' CHECK (role IN ('student', 'alumni', 'org_person', 'org_team')),
     bio TEXT DEFAULT NULL,
-    -- Availability fields
-    weekly_hours INTEGER,
-    emotional_status VARCHAR(50) DEFAULT NULL,
-    weekly_availability JSONB NOT NULL DEFAULT '[]'::jsonb,
-    -- Profile visibility
+    -- Profile visibility (all roles)
     profile_visibility VARCHAR(20) NOT NULL DEFAULT 'public' 
         CHECK (profile_visibility IN ('public', 'aalto_only', 'private')),
-    -- Email verification (token stored in Redis, only status in DB)
+    -- Email verification
     is_verified_email BOOLEAN NOT NULL DEFAULT FALSE,
+    -- Role verification: automatically true for school email domains (e.g., @aalto.fi)
+    -- This indicates the user has a verified school email, but still needs email verification
+    role_verified BOOLEAN NOT NULL DEFAULT FALSE,
     -- OAuth (provider + subject for unique identity)
     oauth_provider VARCHAR(50),
     oauth_subject VARCHAR(255),
@@ -35,7 +27,23 @@ CREATE TABLE IF NOT EXISTS users (
     locked_until TIMESTAMP WITH TIME ZONE,
     -- Timestamps
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    -- Student/Alumni specific fields
+    student_id VARCHAR(255),
+    school VARCHAR(255),
+    faculty VARCHAR(255),
+    major VARCHAR(255),
+    skills JSONB NOT NULL DEFAULT '[]'::jsonb,
+    weekly_hours INTEGER,
+    weekly_availability JSONB NOT NULL DEFAULT '[]'::jsonb,
+    portfolio_visibility VARCHAR(20) NOT NULL DEFAULT 'public'
+        CHECK (portfolio_visibility IN ('public', 'aalto_only', 'private')),
+    -- Organization specific fields (org_person, org_team)
+    organization_name VARCHAR(255),
+    organization_bio TEXT,
+    contact_title VARCHAR(100),
+    is_affiliated_with_school BOOLEAN NOT NULL DEFAULT FALSE,
+    org_size INTEGER
 );
 
 -- Create indexes for users table
@@ -47,10 +55,15 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_ci ON users (LOWER(email));
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 -- Profile visibility for visibility queries
 CREATE INDEX IF NOT EXISTS idx_users_profile_visibility ON users(profile_visibility);
+-- Portfolio visibility for portfolio queries
+CREATE INDEX IF NOT EXISTS idx_users_portfolio_visibility ON users(portfolio_visibility);
 -- School, faculty, major for public profile searches
 CREATE INDEX IF NOT EXISTS idx_users_school ON users(school) WHERE school IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_users_faculty ON users(faculty) WHERE faculty IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_users_major ON users(major) WHERE major IS NOT NULL;
+-- Organization fields for org searches
+CREATE INDEX IF NOT EXISTS idx_users_organization_name ON users(organization_name) WHERE organization_name IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_users_is_affiliated_with_school ON users(is_affiliated_with_school);
 -- OAuth provider and subject for OAuth lookups
 CREATE INDEX IF NOT EXISTS idx_users_oauth_provider_subject ON users(oauth_provider, oauth_subject) 
     WHERE oauth_provider IS NOT NULL AND oauth_subject IS NOT NULL;

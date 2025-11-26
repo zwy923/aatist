@@ -82,8 +82,15 @@ func (h *AuthHandler) RegisterHandler(c *gin.Context) {
 	ctx := c.Request.Context()
 	role := h.normalizeRole(req.Role)
 
-	var studentIDPtr, schoolPtr, facultyPtr *string
+	// Prepare student/alumni fields
+	var studentIDPtr, schoolPtr, facultyPtr, majorPtr *string
+	// Prepare organization fields
+	var orgNamePtr, orgBioPtr, contactTitlePtr *string
+	var isAffiliatedPtr *bool
+	var orgSizePtr *int
+
 	if req.Profile != nil {
+		// Student/Alumni fields
 		if v := strings.TrimSpace(req.Profile.StudentID); v != "" {
 			value := v
 			studentIDPtr = &value
@@ -96,17 +103,46 @@ func (h *AuthHandler) RegisterHandler(c *gin.Context) {
 			value := v
 			facultyPtr = &value
 		}
+		if v := strings.TrimSpace(req.Profile.Major); v != "" {
+			value := v
+			majorPtr = &value
+		}
+		// Organization fields
+		if v := strings.TrimSpace(req.Profile.OrganizationName); v != "" {
+			value := v
+			orgNamePtr = &value
+		}
+		if v := strings.TrimSpace(req.Profile.OrganizationBio); v != "" {
+			value := v
+			orgBioPtr = &value
+		}
+		if v := strings.TrimSpace(req.Profile.ContactTitle); v != "" {
+			value := v
+			contactTitlePtr = &value
+		}
+		if req.Profile.IsAffiliatedWithSchool {
+			isAffiliatedPtr = &req.Profile.IsAffiliatedWithSchool
+		}
+		if req.Profile.OrgSize != nil {
+			orgSizePtr = req.Profile.OrgSize
+		}
 	}
 
 	input := service.RegisterInput{
-		Email:     req.Email,
-		Password:  req.Password,
-		Name:      req.Name,
-		IP:        ip,
-		Role:      role,
-		StudentID: studentIDPtr,
-		School:    schoolPtr,
-		Faculty:   facultyPtr,
+		Email:                  req.Email,
+		Password:               req.Password,
+		Name:                   req.Name,
+		IP:                     ip,
+		Role:                   role,
+		StudentID:              studentIDPtr,
+		School:                 schoolPtr,
+		Faculty:                facultyPtr,
+		Major:                  majorPtr,
+		OrganizationName:       orgNamePtr,
+		OrganizationBio:        orgBioPtr,
+		ContactTitle:           contactTitlePtr,
+		IsAffiliatedWithSchool: isAffiliatedPtr,
+		OrgSize:                orgSizePtr,
 	}
 
 	user, tokens, err := h.authService.Register(ctx, input)
@@ -115,7 +151,8 @@ func (h *AuthHandler) RegisterHandler(c *gin.Context) {
 		return
 	}
 
-	// Generate verification token and publish to MQ asynchronously
+	// Send verification email to all users (all users need email verification)
+	// School email domains (e.g., @aalto.fi) get role_verified = true, but still need email verification
 	if h.emailVerifSvc != nil && h.mq != nil {
 		token, err := h.emailVerifSvc.GenerateVerificationToken(ctx, user.ID, user.Email)
 		if err != nil {
@@ -134,6 +171,13 @@ func (h *AuthHandler) RegisterHandler(c *gin.Context) {
 				// Non-critical, continue with registration
 			}
 		}
+	}
+
+	if user.RoleVerified {
+		h.logger.Info("User registered with verified school email (role_verified=true)",
+			zap.Int64("user_id", user.ID),
+			zap.String("email", user.Email),
+		)
 	}
 
 	h.respondSuccess(c, http.StatusCreated, user, tokens)
@@ -459,10 +503,12 @@ func (h *AuthHandler) handleServiceError(c *gin.Context, err error) {
 
 func (h *AuthHandler) normalizeRole(role string) model.Role {
 	switch strings.ToLower(strings.TrimSpace(role)) {
-	case "company", "organization":
-		return model.RoleCompany
-	case "admin":
-		return model.RoleAdmin
+	case "alumni":
+		return model.RoleAlumni
+	case "org_person", "org-person", "organization_person":
+		return model.RoleOrgPerson
+	case "org_team", "org-team", "organization_team", "organization":
+		return model.RoleOrgTeam
 	default:
 		return model.RoleStudent
 	}
@@ -481,24 +527,32 @@ func (h *AuthHandler) getClientIP(c *gin.Context) string {
 
 func mapUserToResponse(user *model.User) UserResponse {
 	resp := UserResponse{
-		ID:                 user.ID,
-		Email:              user.Email,
-		Name:               user.Name,
-		Nickname:           user.Nickname,
-		AvatarURL:          user.AvatarURL,
-		Role:               user.Role.String(),
+		ID:                user.ID,
+		Email:             user.Email,
+		Name:              user.Name,
+		AvatarURL:         user.AvatarURL,
+		Role:              user.Role.String(),
+		Bio:               user.Bio,
+		ProfileVisibility: user.ProfileVisibility.String(),
+		IsVerifiedEmail:   user.IsVerifiedEmail,
+		RoleVerified:      user.RoleVerified,
+		OAuthProvider:      user.OAuthProvider,
+		CreatedAt:          user.CreatedAt.Format(time.RFC3339),
+		// Student/Alumni fields
 		StudentID:          user.StudentID,
 		School:             user.School,
 		Faculty:            user.Faculty,
 		Major:              user.Major,
 		WeeklyHours:        user.WeeklyHours,
-		EmotionalStatus:    user.EmotionalStatus,
 		WeeklyAvailability: user.WeeklyAvailability,
 		Skills:             user.Skills,
-		Bio:                user.Bio,
-		IsVerifiedEmail:    user.IsVerifiedEmail,
-		OAuthProvider:      user.OAuthProvider,
-		CreatedAt:          user.CreatedAt.Format(time.RFC3339),
+		PortfolioVisibility: user.PortfolioVisibility.String(),
+		// Organization fields
+		OrganizationName:       user.OrganizationName,
+		OrganizationBio:        user.OrganizationBio,
+		ContactTitle:           user.ContactTitle,
+		IsAffiliatedWithSchool: user.IsAffiliatedWithSchool,
+		OrgSize:                user.OrgSize,
 	}
 
 	if user.LastLoginAt != nil {
@@ -576,7 +630,6 @@ func (h *AuthHandler) GetAvailabilityHandler(c *gin.Context) {
 
 	c.JSON(http.StatusOK, response.Success(gin.H{
 		"weekly_hours":        user.WeeklyHours,
-		"emotional_status":    user.EmotionalStatus,
 		"weekly_availability": user.WeeklyAvailability,
 	}))
 }
@@ -591,7 +644,6 @@ func (h *AuthHandler) UpdateAvailabilityHandler(c *gin.Context) {
 
 	var req struct {
 		WeeklyHours        *int                        `json:"weekly_hours"`
-		EmotionalStatus    *string                     `json:"emotional_status"`
 		WeeklyAvailability *[]model.WeeklyAvailability `json:"weekly_availability"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -600,8 +652,7 @@ func (h *AuthHandler) UpdateAvailabilityHandler(c *gin.Context) {
 	}
 
 	input := service.UpdateProfileInput{
-		WeeklyHours:     req.WeeklyHours,
-		EmotionalStatus: req.EmotionalStatus,
+		WeeklyHours: req.WeeklyHours,
 	}
 	if req.WeeklyAvailability != nil {
 		wa := model.WeeklyAvailabilityArray(*req.WeeklyAvailability)
@@ -616,7 +667,6 @@ func (h *AuthHandler) UpdateAvailabilityHandler(c *gin.Context) {
 
 	c.JSON(http.StatusOK, response.Success(gin.H{
 		"weekly_hours":        user.WeeklyHours,
-		"emotional_status":    user.EmotionalStatus,
 		"weekly_availability": user.WeeklyAvailability,
 	}))
 }
@@ -721,40 +771,37 @@ func (h *AuthHandler) UnsaveItemHandler(c *gin.Context) {
 
 // mapUserToPublicResponse maps user to public response (excludes sensitive fields)
 func mapUserToPublicResponse(user *model.User) gin.H {
-	return gin.H{
-		"id":                  user.ID,
-		"name":                user.Name,
-		"nickname":            user.Nickname,
-		"avatar_url":          user.AvatarURL,
-		"role":                user.Role.String(),
-		"school":              user.School,
-		"faculty":             user.Faculty,
-		"major":               user.Major,
-		"weekly_hours":        user.WeeklyHours,
-		"emotional_status":    user.EmotionalStatus,
-		"weekly_availability": user.WeeklyAvailability,
-		"skills":              user.Skills,
-		"bio":                 user.Bio,
-		"profile_visibility":  user.ProfileVisibility.String(),
-		"created_at":          user.CreatedAt.Format(time.RFC3339),
-	}
-}
-
-// CheckUsernameHandler checks if a username (nickname) is already taken
-func (h *AuthHandler) CheckUsernameHandler(c *gin.Context) {
-	username := c.Query("username")
-	if username == "" {
-		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "username query parameter is required")
-		return
+	resp := gin.H{
+		"id":                 user.ID,
+		"name":               user.Name,
+		"avatar_url":         user.AvatarURL,
+		"role":               user.Role.String(),
+		"bio":                user.Bio,
+		"profile_visibility": user.ProfileVisibility.String(),
+		"created_at":         user.CreatedAt.Format(time.RFC3339),
 	}
 
-	exists, err := h.authService.CheckUsernameExists(c.Request.Context(), username)
-	if err != nil {
-		h.handleServiceError(c, err)
-		return
+	// Add student/alumni fields if applicable
+	if user.Role.IsStudentRole() {
+		resp["school"] = user.School
+		resp["faculty"] = user.Faculty
+		resp["major"] = user.Major
+		resp["weekly_hours"] = user.WeeklyHours
+		resp["weekly_availability"] = user.WeeklyAvailability
+		resp["skills"] = user.Skills
+		resp["portfolio_visibility"] = user.PortfolioVisibility.String()
 	}
 
-	c.JSON(http.StatusOK, response.Success(CheckExistsResponse{Exists: exists}))
+	// Add organization fields if applicable
+	if user.Role.IsOrgRole() {
+		resp["organization_name"] = user.OrganizationName
+		resp["organization_bio"] = user.OrganizationBio
+		resp["contact_title"] = user.ContactTitle
+		resp["is_affiliated_with_school"] = user.IsAffiliatedWithSchool
+		resp["org_size"] = user.OrgSize
+	}
+
+	return resp
 }
 
 // CheckEmailHandler checks if an email is already registered

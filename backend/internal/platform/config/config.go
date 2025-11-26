@@ -42,9 +42,10 @@ type MQConfig struct {
 
 // EmailConfig holds email provider configuration
 type EmailConfig struct {
-	SendGridAPIKey string `yaml:"sendgrid_api_key"`
-	FromEmail      string `yaml:"from_email"`
-	FrontendURL    string `yaml:"frontend_url"`
+	SendGridAPIKey      string   `yaml:"sendgrid_api_key"`
+	FromEmail           string   `yaml:"from_email"`
+	FrontendURL         string   `yaml:"frontend_url"`
+	AutoVerifiedDomains []string `yaml:"auto_verified_domains"` // School email domains that auto-verify student/alumni accounts
 }
 
 // S3Config holds S3 configuration

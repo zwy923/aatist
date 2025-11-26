@@ -21,19 +21,26 @@ import (
 
 // UpdateProfileInput represents profile fields that can be updated.
 type UpdateProfileInput struct {
-	Name               *string
-	Nickname           *string
-	AvatarURL          *string
+	// Common fields
+	Name              *string
+	AvatarURL         *string
+	Bio               *string
+	ProfileVisibility *model.ProfileVisibility
+	// Student/Alumni fields
 	StudentID          *string
 	School             *string
 	Faculty            *string
 	Major              *string
 	WeeklyHours        *int
-	EmotionalStatus    *string
 	WeeklyAvailability *model.WeeklyAvailabilityArray
-	Bio                *string
-	ProfileVisibility  *model.ProfileVisibility
 	Skills             *[]model.Skill
+	PortfolioVisibility *model.PortfolioVisibility
+	// Organization fields
+	OrganizationName       *string
+	OrganizationBio         *string
+	ContactTitle            *string
+	IsAffiliatedWithSchool *bool
+	OrgSize                 *int
 }
 
 type ProfileService interface {
@@ -105,7 +112,6 @@ func (s *profileService) GetUserSummary(ctx context.Context, userID int64) (*Use
 	return &UserSummary{
 		ID:        user.ID,
 		Name:      user.Name,
-		Nickname:  user.Nickname,
 		AvatarURL: user.AvatarURL,
 		Role:      user.Role.String(),
 		School:    user.School,
@@ -118,46 +124,75 @@ func (s *profileService) UpdateProfile(ctx context.Context, userID int64, input 
 		return nil, errs.NewAppError(errors.New("avatar update forbidden"), http.StatusBadRequest, "avatar_url is not directly editable")
 	}
 
+	// Get current user to check role
+	user, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
 	fields := make(map[string]interface{})
 
+	// Common fields (all roles)
 	if input.Name != nil {
 		fields["name"] = valueOrNil(normalizeOptionalStringWithLimit(input.Name, 100))
-	}
-	if input.Nickname != nil {
-		fields["nickname"] = valueOrNil(normalizeOptionalStringWithLimit(input.Nickname, 100))
-	}
-	if input.StudentID != nil {
-		fields["student_id"] = valueOrNil(normalizeOptionalStringWithLimit(input.StudentID, 64))
-	}
-	if input.School != nil {
-		fields["school"] = valueOrNil(normalizeOptionalStringWithLimit(input.School, 255))
-	}
-	if input.Faculty != nil {
-		fields["faculty"] = valueOrNil(normalizeOptionalStringWithLimit(input.Faculty, 255))
-	}
-	if input.Major != nil {
-		fields["major"] = valueOrNil(normalizeMajor(input.Major))
 	}
 	if input.Bio != nil {
 		fields["bio"] = valueOrNil(normalizeOptionalStringWithLimit(input.Bio, maxBioLength))
 	}
-	if input.Skills != nil {
-		normalizedSkills := sanitizeSkillsWithLevel(*input.Skills)
-		skills := model.Skills(normalizedSkills)
-		fields["skills"] = skills
-	}
-	if input.WeeklyHours != nil {
-		fields["weekly_hours"] = *input.WeeklyHours
-	}
-	if input.EmotionalStatus != nil {
-		fields["emotional_status"] = valueOrNil(normalizeOptionalStringWithLimit(input.EmotionalStatus, 50))
-	}
-	if input.WeeklyAvailability != nil {
-		fields["weekly_availability"] = *input.WeeklyAvailability
-	}
 	if input.ProfileVisibility != nil {
 		if input.ProfileVisibility.IsValid() {
 			fields["profile_visibility"] = input.ProfileVisibility.String()
+		}
+	}
+
+	// Student/Alumni fields (only for student/alumni roles)
+	if user.Role.IsStudentRole() {
+		if input.StudentID != nil {
+			fields["student_id"] = valueOrNil(normalizeOptionalStringWithLimit(input.StudentID, 64))
+		}
+		if input.School != nil {
+			fields["school"] = valueOrNil(normalizeOptionalStringWithLimit(input.School, 255))
+		}
+		if input.Faculty != nil {
+			fields["faculty"] = valueOrNil(normalizeOptionalStringWithLimit(input.Faculty, 255))
+		}
+		if input.Major != nil {
+			fields["major"] = valueOrNil(normalizeMajor(input.Major))
+		}
+		if input.Skills != nil {
+			normalizedSkills := sanitizeSkillsWithLevel(*input.Skills)
+			skills := model.Skills(normalizedSkills)
+			fields["skills"] = skills
+		}
+		if input.WeeklyHours != nil {
+			fields["weekly_hours"] = *input.WeeklyHours
+		}
+		if input.WeeklyAvailability != nil {
+			fields["weekly_availability"] = *input.WeeklyAvailability
+		}
+		if input.PortfolioVisibility != nil {
+			if input.PortfolioVisibility.IsValid() {
+				fields["portfolio_visibility"] = input.PortfolioVisibility.String()
+			}
+		}
+	}
+
+	// Organization fields (only for org roles)
+	if user.Role.IsOrgRole() {
+		if input.OrganizationName != nil {
+			fields["organization_name"] = valueOrNil(normalizeOptionalStringWithLimit(input.OrganizationName, 255))
+		}
+		if input.OrganizationBio != nil {
+			fields["organization_bio"] = valueOrNil(normalizeOptionalStringWithLimit(input.OrganizationBio, maxBioLength))
+		}
+		if input.ContactTitle != nil {
+			fields["contact_title"] = valueOrNil(normalizeOptionalStringWithLimit(input.ContactTitle, 100))
+		}
+		if input.IsAffiliatedWithSchool != nil {
+			fields["is_affiliated_with_school"] = *input.IsAffiliatedWithSchool
+		}
+		if input.OrgSize != nil {
+			fields["org_size"] = *input.OrgSize
 		}
 	}
 

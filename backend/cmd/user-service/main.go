@@ -79,8 +79,18 @@ func main() {
 	// Initialize password reset service
 	passwordResetSvc := service.NewPasswordResetService(userRepo, redis, logger)
 
-	// Initialize service
-	authService := service.NewAuthService(userRepo, jwt, redis, logger, emailVerifSvc)
+	// Initialize service with auto-verified email domains from config
+	autoVerifiedDomains := cfg.Email.AutoVerifiedDomains
+	if len(autoVerifiedDomains) == 0 {
+		// Default to @aalto.fi if not configured
+		autoVerifiedDomains = []string{"@aalto.fi"}
+		logger.Info("No auto-verified domains configured, using default: @aalto.fi")
+	} else {
+		logger.Info("Auto-verified email domains configured",
+			zap.Strings("domains", autoVerifiedDomains),
+		)
+	}
+	authService := service.NewAuthService(userRepo, jwt, redis, logger, emailVerifSvc, autoVerifiedDomains)
 	avatarURLPrefix := cfg.S3.PublicURL
 	if avatarURLPrefix == "" {
 		avatarURLPrefix = "http://localhost:9000/files" // Default file service public URL
@@ -124,8 +134,7 @@ func main() {
 		// Public user routes
 		users := api.Group("/users")
 		{
-			// Check username/email availability (for registration validation)
-			users.GET("/check-username", authHandler.CheckUsernameHandler)
+			// Check email availability (for registration validation)
 			users.GET("/check-email", authHandler.CheckEmailHandler)
 
 			// Get user by ID

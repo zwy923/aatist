@@ -7,13 +7,19 @@ import (
 	"github.com/aalto-talent-network/backend/internal/user/service"
 )
 
-// RegisterRequest represents registration request
+// RegisterProfile represents profile data during registration
 type RegisterProfile struct {
-	StudentID        string `json:"studentId"`
-	School           string `json:"school"`
-	Faculty          string `json:"faculty"`
-	OrganizationName string `json:"organizationName"`
-	ContactTitle     string `json:"contactTitle"`
+	// Student/Alumni fields
+	StudentID string `json:"studentId,omitempty"`
+	School    string `json:"school,omitempty"`
+	Faculty   string `json:"faculty,omitempty"`
+	Major     string `json:"major,omitempty"`
+	// Organization fields
+	OrganizationName string `json:"organizationName,omitempty"`
+	OrganizationBio  string `json:"organizationBio,omitempty"`
+	ContactTitle     string `json:"contactTitle,omitempty"`
+	IsAffiliatedWithSchool bool `json:"isAffiliatedWithSchool,omitempty"`
+	OrgSize          *int   `json:"orgSize,omitempty"`
 }
 
 type RegisterRequest struct {
@@ -37,25 +43,34 @@ type RefreshTokenRequest struct {
 
 // UserResponse represents user information in response
 type UserResponse struct {
-	ID                 int64                         `json:"id"`
-	Email              string                        `json:"email"`
-	Name               string                        `json:"name"`
-	Nickname           *string                       `json:"nickname,omitempty"`
-	AvatarURL          *string                       `json:"avatar_url,omitempty"`
-	Role               string                        `json:"role"`
-	StudentID          *string                       `json:"student_id,omitempty"`
-	School             *string                       `json:"school,omitempty"`
-	Faculty            *string                       `json:"faculty,omitempty"`
-	Major              *string                       `json:"major,omitempty"`
-	WeeklyHours        *int                          `json:"weekly_hours,omitempty"`
-	EmotionalStatus    *string                       `json:"emotional_status,omitempty"`
-	WeeklyAvailability model.WeeklyAvailabilityArray `json:"weekly_availability,omitempty"`
-	Skills             model.Skills                  `json:"skills,omitempty"`
-	Bio                *string                       `json:"bio,omitempty"`
-	IsVerifiedEmail    bool                          `json:"is_verified_email"`
-	OAuthProvider      *string                       `json:"oauth_provider,omitempty"`
-	LastLoginAt        *string                       `json:"last_login_at,omitempty"`
-	CreatedAt          string                        `json:"created_at"`
+	// Common fields
+	ID                int64   `json:"id"`
+	Email             string  `json:"email"`
+	Name              string  `json:"name"`
+	AvatarURL         *string `json:"avatar_url,omitempty"`
+	Role              string  `json:"role"`
+	Bio               *string `json:"bio,omitempty"`
+	ProfileVisibility string  `json:"profile_visibility"`
+	IsVerifiedEmail   bool    `json:"is_verified_email"`
+	RoleVerified      bool    `json:"role_verified"` // True if email is from verified school domain
+	OAuthProvider     *string `json:"oauth_provider,omitempty"`
+	LastLoginAt       *string `json:"last_login_at,omitempty"`
+	CreatedAt         string  `json:"created_at"`
+	// Student/Alumni fields
+	StudentID          *string                         `json:"student_id,omitempty"`
+	School             *string                         `json:"school,omitempty"`
+	Faculty            *string                         `json:"faculty,omitempty"`
+	Major              *string                         `json:"major,omitempty"`
+	WeeklyHours        *int                            `json:"weekly_hours,omitempty"`
+	WeeklyAvailability model.WeeklyAvailabilityArray   `json:"weekly_availability,omitempty"`
+	Skills             model.Skills                    `json:"skills,omitempty"`
+	PortfolioVisibility string                         `json:"portfolio_visibility,omitempty"`
+	// Organization fields
+	OrganizationName      *string `json:"organization_name,omitempty"`
+	OrganizationBio       *string `json:"organization_bio,omitempty"`
+	ContactTitle          *string `json:"contact_title,omitempty"`
+	IsAffiliatedWithSchool bool  `json:"is_affiliated_with_school,omitempty"`
+	OrgSize               *int   `json:"org_size,omitempty"`
 }
 
 // AuthResponse represents authentication response
@@ -101,19 +116,26 @@ type SkillInput struct {
 
 // UpdateProfileRequest represents PATCH /users/me payload.
 type UpdateProfileRequest struct {
-	Name               *string                     `json:"name" binding:"omitempty,max=100"`
-	Nickname           *string                     `json:"nickname" binding:"omitempty,max=100"`
-	AvatarURL          *string                     `json:"avatar_url"`
-	StudentID          *string                     `json:"student_id" binding:"omitempty,max=64"`
-	School             *string                     `json:"school" binding:"omitempty,max=255"`
-	Faculty            *string                     `json:"faculty" binding:"omitempty,max=255"`
-	Major              *string                     `json:"major" binding:"omitempty,max=255"`
-	WeeklyHours        *int                        `json:"weekly_hours" binding:"omitempty,min=0,max=168"`
-	EmotionalStatus    *string                     `json:"emotional_status" binding:"omitempty,max=50"`
-	WeeklyAvailability *[]model.WeeklyAvailability `json:"weekly_availability"`
-	Bio                *string                     `json:"bio" binding:"omitempty,max=2000"`
-	ProfileVisibility  *string                     `json:"profile_visibility" binding:"omitempty,oneof=public aalto_only private"`
-	Skills             *[]SkillInput               `json:"skills"`
+	// Common fields
+	Name              *string `json:"name" binding:"omitempty,max=100"`
+	AvatarURL         *string `json:"avatar_url"`
+	Bio               *string `json:"bio" binding:"omitempty,max=2000"`
+	ProfileVisibility *string `json:"profile_visibility" binding:"omitempty,oneof=public aalto_only private"`
+	// Student/Alumni fields
+	StudentID          *string                       `json:"student_id" binding:"omitempty,max=64"`
+	School             *string                       `json:"school" binding:"omitempty,max=255"`
+	Faculty            *string                       `json:"faculty" binding:"omitempty,max=255"`
+	Major              *string                       `json:"major" binding:"omitempty,max=255"`
+	WeeklyHours        *int                          `json:"weekly_hours" binding:"omitempty,min=0,max=168"`
+	WeeklyAvailability *[]model.WeeklyAvailability   `json:"weekly_availability"`
+	Skills             *[]SkillInput                 `json:"skills"`
+	PortfolioVisibility *string                      `json:"portfolio_visibility" binding:"omitempty,oneof=public aalto_only private"`
+	// Organization fields
+	OrganizationName      *string `json:"organization_name" binding:"omitempty,max=255"`
+	OrganizationBio       *string `json:"organization_bio" binding:"omitempty,max=2000"`
+	ContactTitle          *string `json:"contact_title" binding:"omitempty,max=100"`
+	IsAffiliatedWithSchool *bool  `json:"is_affiliated_with_school"`
+	OrgSize               *int    `json:"org_size" binding:"omitempty,min=1"`
 }
 
 // ProjectInput is the request representation of a project entry.
@@ -132,16 +154,19 @@ func (r UpdateProfileRequest) Validate() error {
 
 func (r UpdateProfileRequest) ToServiceInput() service.UpdateProfileInput {
 	input := service.UpdateProfileInput{
-		Name:            r.Name,
-		Nickname:        r.Nickname,
-		AvatarURL:       r.AvatarURL,
-		StudentID:       r.StudentID,
-		School:          r.School,
-		Faculty:         r.Faculty,
-		Major:           r.Major,
-		WeeklyHours:     r.WeeklyHours,
-		EmotionalStatus: r.EmotionalStatus,
-		Bio:             r.Bio,
+		Name:       r.Name,
+		AvatarURL:  r.AvatarURL,
+		StudentID:  r.StudentID,
+		School:     r.School,
+		Faculty:    r.Faculty,
+		Major:      r.Major,
+		WeeklyHours: r.WeeklyHours,
+		Bio:        r.Bio,
+		OrganizationName:      r.OrganizationName,
+		OrganizationBio:      r.OrganizationBio,
+		ContactTitle:          r.ContactTitle,
+		IsAffiliatedWithSchool: r.IsAffiliatedWithSchool,
+		OrgSize:               r.OrgSize,
 	}
 
 	if r.WeeklyAvailability != nil {
@@ -153,6 +178,13 @@ func (r UpdateProfileRequest) ToServiceInput() service.UpdateProfileInput {
 		vis := model.ProfileVisibility(*r.ProfileVisibility)
 		if vis.IsValid() {
 			input.ProfileVisibility = &vis
+		}
+	}
+
+	if r.PortfolioVisibility != nil {
+		portVis := model.PortfolioVisibility(*r.PortfolioVisibility)
+		if portVis.IsValid() {
+			input.PortfolioVisibility = &portVis
 		}
 	}
 
