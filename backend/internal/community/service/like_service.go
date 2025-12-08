@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/aalto-talent-network/backend/internal/community/repository"
-	"github.com/aalto-talent-network/backend/internal/platform/log"
+	"github.com/aatist/backend/internal/community/repository"
+	"github.com/aatist/backend/internal/platform/log"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )

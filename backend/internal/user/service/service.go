@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	"github.com/aalto-talent-network/backend/internal/user/model"
+	"github.com/aatist/backend/internal/user/model"
 )
 
 // Tokens represents authentication tokens

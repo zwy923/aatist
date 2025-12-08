@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/aalto-talent-network/backend/internal/opportunity/model"
+	"github.com/aatist/backend/internal/opportunity/model"
 )
 
 // OpportunityListSort represents sort options for listing opportunities

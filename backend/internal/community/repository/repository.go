@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"github.com/aalto-talent-network/backend/internal/community/model"
+	"github.com/aatist/backend/internal/community/model"
 )
 
 // PostListSort controls ordering for list queries.

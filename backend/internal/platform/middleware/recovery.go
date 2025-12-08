@@ -4,9 +4,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/aalto-talent-network/backend/internal/platform/log"
-	"github.com/aalto-talent-network/backend/pkg/errs"
-	"github.com/aalto-talent-network/backend/pkg/response"
+	"github.com/aatist/backend/internal/platform/log"	
+	"github.com/aatist/backend/pkg/errs"
+	"github.com/aatist/backend/pkg/response"
 	"go.uber.org/zap"
 )
 

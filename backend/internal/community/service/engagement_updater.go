@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/aalto-talent-network/backend/internal/platform/log"
+	"github.com/aatist/backend/internal/platform/log"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )

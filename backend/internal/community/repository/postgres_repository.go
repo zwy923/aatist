@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/aalto-talent-network/backend/internal/community/model"
-	"github.com/aalto-talent-network/backend/pkg/errs"
+	"github.com/aatist/backend/internal/community/model"
+	"github.com/aatist/backend/pkg/errs"
 	"github.com/jmoiron/sqlx"
 )
 

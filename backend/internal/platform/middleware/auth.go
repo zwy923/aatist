@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/aalto-talent-network/backend/internal/platform/auth"
-	"github.com/aalto-talent-network/backend/pkg/errs"
+	"github.com/aatist/backend/internal/platform/auth"
+	"github.com/aatist/backend/pkg/errs"
 )
 
 // AuthMiddleware validates JWT access token and injects user info into context

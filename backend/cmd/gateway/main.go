@@ -13,12 +13,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/aalto-talent-network/backend/internal/platform/auth"
-	"github.com/aalto-talent-network/backend/internal/platform/cache"
-	"github.com/aalto-talent-network/backend/internal/platform/config"
-	"github.com/aalto-talent-network/backend/internal/platform/log"
-	"github.com/aalto-talent-network/backend/internal/platform/middleware"
-	"github.com/aalto-talent-network/backend/pkg/response"
+	"github.com/aatist/backend/internal/platform/auth"
+	"github.com/aatist/backend/internal/platform/cache"
+	"github.com/aatist/backend/internal/platform/config"
+	"github.com/aatist/backend/internal/platform/log"
+	"github.com/aatist/backend/internal/platform/middleware"
+	"github.com/aatist/backend/pkg/response"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aalto-talent-network/backend/internal/portfolio/model"
-	"github.com/aalto-talent-network/backend/pkg/errs"
+	"github.com/aatist/backend/internal/portfolio/model"
+	"github.com/aatist/backend/pkg/errs"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -124,6 +124,3 @@ func (r *postgresProjectRepository) Delete(ctx context.Context, id int64, userID
 
 	return nil
 }
-
-
-

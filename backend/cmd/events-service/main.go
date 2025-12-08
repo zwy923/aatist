@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/aalto-talent-network/backend/internal/event/handler"
-	"github.com/aalto-talent-network/backend/internal/event/repository"
-	"github.com/aalto-talent-network/backend/internal/event/service"
-	"github.com/aalto-talent-network/backend/internal/platform/app"
-	"github.com/aalto-talent-network/backend/internal/platform/middleware"
+	"github.com/aatist/backend/internal/event/handler"
+	"github.com/aatist/backend/internal/event/repository"
+	"github.com/aatist/backend/internal/event/service"
+	"github.com/aatist/backend/internal/platform/app"
+	"github.com/aatist/backend/internal/platform/middleware"
 	"go.uber.org/zap"
 )
 

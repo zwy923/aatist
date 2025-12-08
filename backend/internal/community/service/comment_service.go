@@ -5,9 +5,9 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/aalto-talent-network/backend/internal/community/model"
-	"github.com/aalto-talent-network/backend/internal/community/repository"
-	"github.com/aalto-talent-network/backend/internal/platform/log"
+	"github.com/aatist/backend/internal/community/model"
+	"github.com/aatist/backend/internal/community/repository"
+	"github.com/aatist/backend/internal/platform/log"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )

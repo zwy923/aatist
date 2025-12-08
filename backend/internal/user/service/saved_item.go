@@ -9,8 +9,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/aalto-talent-network/backend/internal/user/model"
-	"github.com/aalto-talent-network/backend/internal/user/repository"
+	"github.com/aatist/backend/internal/user/model"
+	"github.com/aatist/backend/internal/user/repository"
 )
 
 // ============================================================================

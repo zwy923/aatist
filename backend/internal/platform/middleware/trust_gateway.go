@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/aalto-talent-network/backend/pkg/errs"
-	"github.com/aalto-talent-network/backend/pkg/response"
+	"github.com/aatist/backend/pkg/errs"
+	"github.com/aatist/backend/pkg/response"
 )
 
 // TrustGatewayMiddleware extracts user identity from headers set by Gateway

@@ -1,4 +1,4 @@
-module github.com/aalto-talent-network/backend
+module github.com/aatist/backend
 
 go 1.22
 

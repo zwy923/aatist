@@ -5,11 +5,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/aalto-talent-network/backend/internal/platform/cache"
-	"github.com/aalto-talent-network/backend/internal/platform/config"
-	"github.com/aalto-talent-network/backend/internal/platform/db"
-	"github.com/aalto-talent-network/backend/internal/platform/log"
-	"github.com/aalto-talent-network/backend/internal/platform/mq"
+	"github.com/aatist/backend/internal/platform/cache"
+	"github.com/aatist/backend/internal/platform/config"
+	"github.com/aatist/backend/internal/platform/db"
+	"github.com/aatist/backend/internal/platform/log"
+	"github.com/aatist/backend/internal/platform/mq"
 	"go.uber.org/zap"
 )
 

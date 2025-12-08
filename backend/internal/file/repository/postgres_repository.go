@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/aalto-talent-network/backend/internal/file/model"
-	"github.com/aalto-talent-network/backend/pkg/errs"
+	"github.com/aatist/backend/internal/file/model"
+	"github.com/aatist/backend/pkg/errs"
 	"github.com/jmoiron/sqlx"
 )
 

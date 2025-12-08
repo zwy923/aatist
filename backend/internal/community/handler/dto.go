@@ -3,7 +3,7 @@ package handler
 import (
 	"strings"
 
-	"github.com/aalto-talent-network/backend/internal/community/model"
+	"github.com/aatist/backend/internal/community/model"
 )
 
 type listPostsQuery struct {

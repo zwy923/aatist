@@ -10,12 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aalto-talent-network/backend/internal/platform/cache"
-	"github.com/aalto-talent-network/backend/internal/platform/log"
-	"github.com/aalto-talent-network/backend/internal/platform/metrics"
-	"github.com/aalto-talent-network/backend/internal/user/model"
-	"github.com/aalto-talent-network/backend/internal/user/repository"
-	"github.com/aalto-talent-network/backend/pkg/errs"
+	"github.com/aatist/backend/internal/platform/cache"
+	"github.com/aatist/backend/internal/platform/log"
+	"github.com/aatist/backend/internal/platform/metrics"
+	"github.com/aatist/backend/internal/user/model"
+	"github.com/aatist/backend/internal/user/repository"
+	"github.com/aatist/backend/pkg/errs"
 	"go.uber.org/zap"
 )
 

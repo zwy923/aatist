@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aalto-talent-network/backend/internal/event/model"
-	"github.com/aalto-talent-network/backend/internal/event/repository"
-	"github.com/aalto-talent-network/backend/pkg/errs"
+	"github.com/aatist/backend/internal/event/model"
+	"github.com/aatist/backend/internal/event/repository"
+	"github.com/aatist/backend/pkg/errs"
 )
 
 // EventService defines the interface for event operations

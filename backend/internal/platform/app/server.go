@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/aalto-talent-network/backend/internal/platform/log"
+	"github.com/aatist/backend/internal/platform/log"
 	"go.uber.org/zap"
 )
 

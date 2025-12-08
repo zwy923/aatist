@@ -8,12 +8,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aalto-talent-network/backend/internal/platform/log"
-	"github.com/aalto-talent-network/backend/internal/platform/middleware"
-	"github.com/aalto-talent-network/backend/internal/user/model"
-	"github.com/aalto-talent-network/backend/internal/user/service"
-	"github.com/aalto-talent-network/backend/pkg/errs"
-	"github.com/aalto-talent-network/backend/pkg/response"
+	"github.com/aatist/backend/internal/platform/log"
+	"github.com/aatist/backend/internal/platform/middleware"
+	"github.com/aatist/backend/internal/user/model"
+	"github.com/aatist/backend/internal/user/service"
+	"github.com/aatist/backend/pkg/errs"
+	"github.com/aatist/backend/pkg/response"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )

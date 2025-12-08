@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/aalto-talent-network/backend/internal/platform/cache"
-	"github.com/aalto-talent-network/backend/pkg/errs"
+	"github.com/aatist/backend/internal/platform/cache"
+	"github.com/aatist/backend/pkg/errs"
 )
 
 // RateLimitMiddleware creates a rate limiting middleware

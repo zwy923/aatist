@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/aalto-talent-network/backend/internal/user/model"
+	"github.com/aatist/backend/internal/user/model"
 )
 
 // UserRepository defines the interface for user data operations

@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"github.com/aalto-talent-network/backend/internal/event/model"
+	"github.com/aatist/backend/internal/event/model"
 )
 
 // EventListSort represents sort options for listing events

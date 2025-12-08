@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"github.com/aalto-talent-network/backend/internal/file/model"
+	"github.com/aatist/backend/internal/file/model"
 )
 
 // FileRepository defines the interface for file data operations

@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/aalto-talent-network/backend/internal/user/model"
+	"github.com/aatist/backend/internal/user/model"
 )
 
 // RequireRole checks if the user has one of the required roles

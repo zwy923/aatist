@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"github.com/aalto-talent-network/backend/internal/portfolio/model"
+	"github.com/aatist/backend/internal/portfolio/model"
 )
 
 // ProjectRepository defines the interface for portfolio project operations
@@ -23,6 +23,9 @@ type ProjectRepository interface {
 	// Delete deletes a project
 	Delete(ctx context.Context, id int64, userID int64) error
 }
+
+
+
 
 
 

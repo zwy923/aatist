@@ -3,8 +3,8 @@ package handler
 import (
 	"strings"
 
-	"github.com/aalto-talent-network/backend/internal/user/model"
-	"github.com/aalto-talent-network/backend/internal/user/service"
+	"github.com/aatist/backend/internal/user/model"
+	"github.com/aatist/backend/internal/user/service"
 )
 
 // RegisterProfile represents profile data during registration

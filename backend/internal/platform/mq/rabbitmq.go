@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/aalto-talent-network/backend/internal/platform/log"
+	"github.com/aatist/backend/internal/platform/log"
 	"github.com/google/uuid"
 	"github.com/streadway/amqp"
 	"go.uber.org/zap"

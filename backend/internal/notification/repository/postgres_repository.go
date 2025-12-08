@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aalto-talent-network/backend/internal/notification/model"
+	"github.com/aatist/backend/internal/notification/model"
 	"github.com/jmoiron/sqlx"
 )
 

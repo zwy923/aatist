@@ -1,7 +1,7 @@
 package response
 
 import (
-	"github.com/aalto-talent-network/backend/pkg/errs"
+	"github.com/aatist/backend/pkg/errs"
 )
 
 // Response represents a unified API response
