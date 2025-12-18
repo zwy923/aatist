@@ -84,8 +84,10 @@ func main() {
 	commentSvc := service.NewCommentService(commentRepo, postRepo, redisCmd, eventPublisher, trendingMgr, engagementUpdater, logger)
 	likeSvc := service.NewLikeService(likeRepo, postRepo, redisCmd, eventPublisher, trendingMgr, engagementUpdater, logger)
 
-	// Initialize handler
-	communityHandler := handler.NewCommunityHandler(postSvc, commentSvc, likeSvc, logger)
+	// Initialize handlers
+	postHandler := handler.NewPostHandler(postSvc, logger)
+	commentHandler := handler.NewCommentHandler(commentSvc, logger)
+	likeHandler := handler.NewLikeHandler(likeSvc, logger)
 
 	// Setup Gin router
 	router := app.NewDefaultRouter(logger, "community")
@@ -94,34 +96,42 @@ func main() {
 	api := router.Group("/api/v1")
 	community := api.Group("/community")
 	{
-		community.GET("/posts", communityHandler.GetPostsHandler)
-		community.GET("/posts/trending", communityHandler.GetTrendingPostsHandler)
-		community.GET("/posts/:id", communityHandler.GetPostDetailHandler)
-		community.GET("/posts/:id/comments", communityHandler.ListCommentsHandler)
+		// Public post routes
+		community.GET("/posts", postHandler.GetPostsHandler)
+		community.GET("/posts/trending", postHandler.GetTrendingPostsHandler)
+		community.GET("/posts/:id", postHandler.GetPostDetailHandler)
+		community.GET("/posts/:id/comments", commentHandler.ListCommentsHandler)
 
 		// Public user posts
-		community.GET("/users/:id/posts", communityHandler.GetUserPostsHandler)
+		community.GET("/users/:id/posts", postHandler.GetUserPostsHandler)
 	}
 
+	// Protected routes
 	protected := community.Group("")
 	protected.Use(middleware.RequireGatewayAuth())
 	{
-		protected.POST("/posts", communityHandler.CreatePostHandler)
-		protected.PUT("/posts/:id", communityHandler.UpdatePostHandler)
-		protected.DELETE("/posts/:id", communityHandler.DeletePostHandler)
-		protected.POST("/posts/:id/like", communityHandler.LikePostHandler)
-		protected.DELETE("/posts/:id/like", communityHandler.UnlikePostHandler)
-		protected.POST("/posts/:id/comments", communityHandler.CreateCommentHandler)
+		// Post routes
+		protected.POST("/posts", postHandler.CreatePostHandler)
+		protected.PUT("/posts/:id", postHandler.UpdatePostHandler)
+		protected.DELETE("/posts/:id", postHandler.DeletePostHandler)
+
+		// Like routes
+		protected.POST("/posts/:id/like", likeHandler.LikePostHandler)
+		protected.DELETE("/posts/:id/like", likeHandler.UnlikePostHandler)
+
+		// Comment routes
+		protected.POST("/posts/:id/comments", commentHandler.CreateCommentHandler)
 
 		// Current user's posts
-		protected.GET("/users/me/posts", communityHandler.GetMyPostsHandler)
+		protected.GET("/users/me/posts", postHandler.GetMyPostsHandler)
 	}
 
+	// Comment management routes
 	commentRoutes := api.Group("/community/comments")
 	commentRoutes.Use(middleware.RequireGatewayAuth())
 	{
-		commentRoutes.PUT("/:id", communityHandler.UpdateCommentHandler)
-		commentRoutes.DELETE("/:id", communityHandler.DeleteCommentHandler)
+		commentRoutes.PUT("/:id", commentHandler.UpdateCommentHandler)
+		commentRoutes.DELETE("/:id", commentHandler.DeleteCommentHandler)
 	}
 
 	// Start HTTP server with graceful shutdown
