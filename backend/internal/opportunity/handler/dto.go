@@ -86,3 +86,8 @@ type ListOpportunitiesResponse struct {
 	Limit int                    `json:"limit"`
 	Total int64                  `json:"total"`
 }
+
+// MessageResponse represents a simple message response
+type MessageResponse struct {
+	Message string `json:"message"`
+}

@@ -52,6 +52,61 @@ func (h *OpportunityHandler) handleServiceError(c *gin.Context, err error) {
 	h.respondError(c, http.StatusInternalServerError, err, "internal server error")
 }
 
+// parsePaginationParams parses page and limit query parameters with defaults
+func (h *OpportunityHandler) parsePaginationParams(c *gin.Context) (page, limit int) {
+	page = 1
+	if pageStr := c.Query("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	limit = 20
+	if limitStr := c.Query("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			limit = l
+		}
+	}
+
+	return page, limit
+}
+
+// parseDateParam parses a date string from query parameter
+// Returns nil if the parameter is empty or invalid (with error logged)
+func (h *OpportunityHandler) parseDateParam(c *gin.Context, paramName string) *time.Time {
+	dateStr := c.Query(paramName)
+	if dateStr == "" {
+		return nil
+	}
+
+	date, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		h.logger.Warn("Invalid date parameter",
+			zap.String("param", paramName),
+			zap.String("value", dateStr),
+			zap.Error(err),
+		)
+		return nil
+	}
+
+	return &date
+}
+
+// checkOwnership checks if the user is the owner of the opportunity
+// Returns the opportunity if found, or an error if not found or not owner
+func (h *OpportunityHandler) checkOwnership(c *gin.Context, opportunityID, userID int64) (*model.Opportunity, error) {
+	opp, err := h.oppService.GetByID(c.Request.Context(), opportunityID)
+	if err != nil {
+		return nil, err
+	}
+
+	if opp.CreatedBy != userID {
+		return nil, errs.NewAppError(errs.ErrForbidden, http.StatusForbidden, "only creator can perform this action").WithCode(errs.CodeForbidden)
+	}
+
+	return opp, nil
+}
+
 // toOpportunityResponse converts model.Opportunity to OpportunityResponse
 func (h *OpportunityHandler) toOpportunityResponse(opp *model.Opportunity, isFavorite *bool) *OpportunityResponse {
 	resp := &OpportunityResponse{
@@ -104,16 +159,8 @@ func (h *OpportunityHandler) ListOpportunitiesHandler(c *gin.Context) {
 			filter.BudgetMax = &budgetMax
 		}
 	}
-	if startDateFromStr := c.Query("start_date_from"); startDateFromStr != "" {
-		if startDateFrom, err := time.Parse("2006-01-02", startDateFromStr); err == nil {
-			filter.StartDateFrom = &startDateFrom
-		}
-	}
-	if startDateToStr := c.Query("start_date_to"); startDateToStr != "" {
-		if startDateTo, err := time.Parse("2006-01-02", startDateToStr); err == nil {
-			filter.StartDateTo = &startDateTo
-		}
-	}
+	filter.StartDateFrom = h.parseDateParam(c, "start_date_from")
+	filter.StartDateTo = h.parseDateParam(c, "start_date_to")
 	if languages := c.QueryArray("language"); len(languages) > 0 {
 		filter.Languages = languages
 	}
@@ -139,24 +186,7 @@ func (h *OpportunityHandler) ListOpportunitiesHandler(c *gin.Context) {
 	}
 
 	// Pagination
-	if pageStr := c.Query("page"); pageStr != "" {
-		if page, err := strconv.Atoi(pageStr); err == nil && page > 0 {
-			filter.Page = page
-		} else {
-			filter.Page = 1
-		}
-	} else {
-		filter.Page = 1
-	}
-	if limitStr := c.Query("limit"); limitStr != "" {
-		if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 {
-			filter.Limit = limit
-		} else {
-			filter.Limit = 20
-		}
-	} else {
-		filter.Limit = 20
-	}
+	filter.Page, filter.Limit = h.parsePaginationParams(c)
 
 	result, err := h.oppService.List(c.Request.Context(), filter)
 	if err != nil {
@@ -271,6 +301,13 @@ func (h *OpportunityHandler) UpdateOpportunityHandler(c *gin.Context) {
 		return
 	}
 
+	// Check ownership before proceeding
+	_, err = h.checkOwnership(c, uriReq.ID, userID)
+	if err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+
 	var req UpdateOpportunityRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, err.Error())
@@ -317,12 +354,19 @@ func (h *OpportunityHandler) DeleteOpportunityHandler(c *gin.Context) {
 		return
 	}
 
+	// Check ownership before proceeding
+	_, err = h.checkOwnership(c, req.ID, userID)
+	if err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+
 	if err := h.oppService.Delete(c.Request.Context(), req.ID, userID); err != nil {
 		h.handleServiceError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, response.Success(gin.H{"message": "opportunity deleted successfully"}))
+	c.JSON(http.StatusOK, response.Success(&MessageResponse{Message: "opportunity deleted successfully"}))
 }
 
 // SaveOpportunityHandler handles POST /opportunities/:id/favorite
@@ -347,7 +391,7 @@ func (h *OpportunityHandler) SaveOpportunityHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, response.Success(gin.H{"message": "opportunity saved successfully"}))
+	c.JSON(http.StatusOK, response.Success(&MessageResponse{Message: "opportunity saved successfully"}))
 }
 
 // UnsaveOpportunityHandler handles DELETE /opportunities/:id/favorite
@@ -372,7 +416,7 @@ func (h *OpportunityHandler) UnsaveOpportunityHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, response.Success(gin.H{"message": "opportunity unsaved successfully"}))
+	c.JSON(http.StatusOK, response.Success(&MessageResponse{Message: "opportunity unsaved successfully"}))
 }
 
 // CreateApplicationHandler handles POST /opportunities/:id/apply
@@ -433,19 +477,7 @@ func (h *OpportunityHandler) ListMyApplicationsHandler(c *gin.Context) {
 		return
 	}
 
-	page := 1
-	if pageStr := c.Query("page"); pageStr != "" {
-		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
-			page = p
-		}
-	}
-
-	limit := 20
-	if limitStr := c.Query("limit"); limitStr != "" {
-		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
-			limit = l
-		}
-	}
+	page, limit := h.parsePaginationParams(c)
 
 	applications, err := h.applicationService.ListByUserID(c.Request.Context(), userID, page, limit)
 	if err != nil {
@@ -487,19 +519,7 @@ func (h *OpportunityHandler) ListOpportunityApplicationsHandler(c *gin.Context) 
 		return
 	}
 
-	page := 1
-	if pageStr := c.Query("page"); pageStr != "" {
-		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
-			page = p
-		}
-	}
-
-	limit := 20
-	if limitStr := c.Query("limit"); limitStr != "" {
-		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
-			limit = l
-		}
-	}
+	page, limit := h.parsePaginationParams(c)
 
 	applications, err := h.applicationService.ListByOpportunityID(c.Request.Context(), uriReq.ID, userID, page, limit)
 	if err != nil {
