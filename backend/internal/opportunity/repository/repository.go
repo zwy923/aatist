@@ -53,8 +53,20 @@ type OpportunityRepository interface {
 	// Delete deletes an opportunity (soft delete by setting status to closed)
 	Delete(ctx context.Context, id int64, userID int64) error
 
-	// ListByUserID lists opportunities created by a user
-	ListByUserID(ctx context.Context, userID int64, limit, offset int) ([]*model.Opportunity, error)
+	// ListByUserID lists opportunities created by a user with status filter
+	ListByUserID(ctx context.Context, userID int64, status *string, limit, offset int) ([]*model.Opportunity, error)
+
+	// UpdateStatus updates the status of an opportunity
+	UpdateStatus(ctx context.Context, id int64, userID int64, status model.OpportunityStatus) error
+
+	// GetStats returns statistics for an opportunity
+	GetStats(ctx context.Context, id int64, userID int64) (*OpportunityStats, error)
+}
+
+// OpportunityStats represents statistics for an opportunity
+type OpportunityStats struct {
+	ApplicationCount int64 `json:"application_count"`
+	// Add more stats if needed (e.g., view_count)
 }
 
 // Note: Favorites/saved items are now handled by user-service's saved_items table
@@ -74,8 +86,8 @@ type OpportunityApplicationRepository interface {
 	// FindByUserAndOpportunity finds an application by user and opportunity
 	FindByUserAndOpportunity(ctx context.Context, userID, opportunityID int64) (*model.OpportunityApplication, error)
 
-	// ListByUserID lists all applications by a user
-	ListByUserID(ctx context.Context, userID int64, limit, offset int) ([]*model.OpportunityApplication, error)
+	// ListByUserID lists all applications by a user with status filter
+	ListByUserID(ctx context.Context, userID int64, status *string, limit, offset int) ([]*model.OpportunityApplication, error)
 
 	// ListByOpportunityID lists all applications for an opportunity
 	ListByOpportunityID(ctx context.Context, opportunityID int64, limit, offset int) ([]*model.OpportunityApplication, error)

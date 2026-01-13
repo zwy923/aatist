@@ -84,6 +84,11 @@ func main() {
 			// Delete opportunity
 			protected.DELETE("/:id", oppHandler.DeleteOpportunityHandler)
 
+			// Recruiter-side management
+			protected.GET("/me", oppHandler.ListMyOpportunitiesHandler)
+			protected.PATCH("/:id/status", oppHandler.UpdateOpportunityStatusHandler)
+			protected.GET("/:id/stats", oppHandler.GetOpportunityStatsHandler)
+
 			// Save/unsave operations (uses user-service's saved items API)
 			protected.POST("/:id/favorite", oppHandler.SaveOpportunityHandler)
 			protected.DELETE("/:id/favorite", oppHandler.UnsaveOpportunityHandler)

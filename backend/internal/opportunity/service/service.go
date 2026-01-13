@@ -27,8 +27,14 @@ type OpportunityService interface {
 	// Delete deletes an opportunity (soft delete)
 	Delete(ctx context.Context, opportunityID, userID int64) error
 
-	// ListByUserID lists opportunities created by a user
-	ListByUserID(ctx context.Context, userID int64, page, limit int) ([]*model.Opportunity, error)
+	// ListByUserID lists opportunities created by a user with status filter
+	ListByUserID(ctx context.Context, userID int64, status *string, page, limit int) ([]*model.Opportunity, error)
+
+	// UpdateStatus updates the status of an opportunity
+	UpdateStatus(ctx context.Context, opportunityID, userID int64, status model.OpportunityStatus) error
+
+	// GetStats returns statistics for an opportunity
+	GetStats(ctx context.Context, opportunityID, userID int64) (*repository.OpportunityStats, error)
 }
 
 // SavedItemClient is now used instead of FavoriteService
@@ -42,8 +48,8 @@ type ApplicationService interface {
 	// GetApplication gets an application by ID
 	GetApplication(ctx context.Context, id int64) (*model.OpportunityApplication, error)
 
-	// ListByUserID lists all applications by a user
-	ListByUserID(ctx context.Context, userID int64, page, limit int) ([]*model.OpportunityApplication, error)
+	// ListByUserID lists all applications by a user with status filter
+	ListByUserID(ctx context.Context, userID int64, status *string, page, limit int) ([]*model.OpportunityApplication, error)
 
 	// ListByOpportunityID lists all applications for an opportunity (for opportunity creator)
 	ListByOpportunityID(ctx context.Context, opportunityID, userID int64, page, limit int) ([]*model.OpportunityApplication, error)
@@ -277,7 +283,7 @@ func (s *opportunityService) Delete(ctx context.Context, opportunityID, userID i
 	return s.oppRepo.Delete(ctx, opportunityID, userID)
 }
 
-func (s *opportunityService) ListByUserID(ctx context.Context, userID int64, page, limit int) ([]*model.Opportunity, error) {
+func (s *opportunityService) ListByUserID(ctx context.Context, userID int64, status *string, page, limit int) ([]*model.Opportunity, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 20
 	}
@@ -286,7 +292,18 @@ func (s *opportunityService) ListByUserID(ctx context.Context, userID int64, pag
 		offset = 0
 	}
 
-	return s.oppRepo.ListByUserID(ctx, userID, limit, offset)
+	return s.oppRepo.ListByUserID(ctx, userID, status, limit, offset)
+}
+
+func (s *opportunityService) UpdateStatus(ctx context.Context, opportunityID, userID int64, status model.OpportunityStatus) error {
+	if !status.IsValid() {
+		return errs.NewAppError(errs.ErrInvalidInput, 400, "invalid status").WithCode(errs.CodeInvalidInput)
+	}
+	return s.oppRepo.UpdateStatus(ctx, opportunityID, userID, status)
+}
+
+func (s *opportunityService) GetStats(ctx context.Context, opportunityID, userID int64) (*repository.OpportunityStats, error) {
+	return s.oppRepo.GetStats(ctx, opportunityID, userID)
 }
 
 // applicationService implements ApplicationService
@@ -339,7 +356,7 @@ func (s *applicationService) GetApplication(ctx context.Context, id int64) (*mod
 	return s.appRepo.FindByID(ctx, id)
 }
 
-func (s *applicationService) ListByUserID(ctx context.Context, userID int64, page, limit int) ([]*model.OpportunityApplication, error) {
+func (s *applicationService) ListByUserID(ctx context.Context, userID int64, status *string, page, limit int) ([]*model.OpportunityApplication, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 20
 	}
@@ -348,7 +365,7 @@ func (s *applicationService) ListByUserID(ctx context.Context, userID int64, pag
 		offset = 0
 	}
 
-	return s.appRepo.ListByUserID(ctx, userID, limit, offset)
+	return s.appRepo.ListByUserID(ctx, userID, status, limit, offset)
 }
 
 func (s *applicationService) ListByOpportunityID(ctx context.Context, opportunityID, userID int64, page, limit int) ([]*model.OpportunityApplication, error) {

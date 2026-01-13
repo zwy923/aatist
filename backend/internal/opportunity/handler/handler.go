@@ -469,7 +469,87 @@ func (h *OpportunityHandler) CreateApplicationHandler(c *gin.Context) {
 	c.JSON(http.StatusCreated, response.Success(resp))
 }
 
-// ListMyApplicationsHandler handles GET /opportunities/applications
+// ListMyOpportunitiesHandler handles GET /opportunities/me
+func (h *OpportunityHandler) ListMyOpportunitiesHandler(c *gin.Context) {
+	userID, err := middleware.GetUserID(c)
+	if err != nil {
+		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
+		return
+	}
+
+	status := c.Query("status")
+	var statusPtr *string
+	if status != "" {
+		statusPtr = &status
+	}
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	opportunities, err := h.oppService.ListByUserID(c.Request.Context(), userID, statusPtr, page, limit)
+	if err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, response.Success(opportunities))
+}
+
+// UpdateOpportunityStatusHandler handles PATCH /opportunities/:id/status
+func (h *OpportunityHandler) UpdateOpportunityStatusHandler(c *gin.Context) {
+	userID, err := middleware.GetUserID(c)
+	if err != nil {
+		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
+		return
+	}
+
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "invalid opportunity id")
+		return
+	}
+
+	var req struct {
+		Status string `json:"status" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, err.Error())
+		return
+	}
+
+	err = h.oppService.UpdateStatus(c.Request.Context(), id, userID, model.OpportunityStatus(req.Status))
+	if err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, response.Success(nil))
+}
+
+// GetOpportunityStatsHandler handles GET /opportunities/:id/stats
+func (h *OpportunityHandler) GetOpportunityStatsHandler(c *gin.Context) {
+	userID, err := middleware.GetUserID(c)
+	if err != nil {
+		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
+		return
+	}
+
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "invalid opportunity id")
+		return
+	}
+
+	stats, err := h.oppService.GetStats(c.Request.Context(), id, userID)
+	if err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, response.Success(stats))
+}
+
+// ListMyApplicationsHandler handles GET /users/me/applications
 func (h *OpportunityHandler) ListMyApplicationsHandler(c *gin.Context) {
 	userID, err := middleware.GetUserID(c)
 	if err != nil {
@@ -477,9 +557,16 @@ func (h *OpportunityHandler) ListMyApplicationsHandler(c *gin.Context) {
 		return
 	}
 
-	page, limit := h.parsePaginationParams(c)
+	status := c.Query("status")
+	var statusPtr *string
+	if status != "" {
+		statusPtr = &status
+	}
 
-	applications, err := h.applicationService.ListByUserID(c.Request.Context(), userID, page, limit)
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	applications, err := h.applicationService.ListByUserID(c.Request.Context(), userID, statusPtr, page, limit)
 	if err != nil {
 		h.handleServiceError(c, err)
 		return

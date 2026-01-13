@@ -46,6 +46,11 @@ type UserRepository interface {
 
 	// LockAccount locks an account until the specified time
 	LockAccount(ctx context.Context, userID int64, until *time.Time) error
+
+	// Metadata search
+	SearchSkills(ctx context.Context, query string, limit int) ([]model.SkillMetadata, error)
+	SearchCourses(ctx context.Context, query string, limit int) ([]model.CourseMetadata, error)
+	SearchTags(ctx context.Context, tagType string, query string, limit int) ([]model.TagMetadata, error)
 }
 
 // SavedItemRepository defines the interface for saved items operations

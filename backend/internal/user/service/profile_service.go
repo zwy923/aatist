@@ -27,20 +27,20 @@ type UpdateProfileInput struct {
 	Bio               *string
 	ProfileVisibility *model.ProfileVisibility
 	// Student/Alumni fields
-	StudentID          *string
-	School             *string
-	Faculty            *string
-	Major              *string
-	WeeklyHours        *int
-	WeeklyAvailability *model.WeeklyAvailabilityArray
-	Skills             *[]model.Skill
+	StudentID           *string
+	School              *string
+	Faculty             *string
+	Major               *string
+	WeeklyHours         *int
+	WeeklyAvailability  *model.WeeklyAvailabilityArray
+	Skills              *[]model.Skill
 	PortfolioVisibility *model.PortfolioVisibility
 	// Organization fields
 	OrganizationName       *string
-	OrganizationBio         *string
-	ContactTitle            *string
+	OrganizationBio        *string
+	ContactTitle           *string
 	IsAffiliatedWithSchool *bool
-	OrgSize                 *int
+	OrgSize                *int
 }
 
 type ProfileService interface {
@@ -51,6 +51,18 @@ type ProfileService interface {
 	EnsureProfileUpdateRateLimit(ctx context.Context, userID int64) error
 	EnsureAvatarUploadRateLimit(ctx context.Context, userID int64) error
 	FilterSkillsByPrefix(ctx context.Context, userID int64, prefix string) ([]model.Skill, error)
+	SearchSkills(ctx context.Context, query string, limit int) ([]model.SkillMetadata, error)
+	SearchCourses(ctx context.Context, query string, limit int) ([]model.CourseMetadata, error)
+	SearchTags(ctx context.Context, tagType string, query string, limit int) ([]model.TagMetadata, error)
+
+	// User skills/courses maintenance
+	AddUserSkill(ctx context.Context, userID int64, skill model.Skill) (*model.User, error)
+	RemoveUserSkill(ctx context.Context, userID int64, skillName string) (*model.User, error)
+	AddUserCourse(ctx context.Context, userID int64, course model.Course) (*model.User, error)
+	RemoveUserCourse(ctx context.Context, userID int64, courseCode string) (*model.User, error)
+	// Courses are currently not in the user model, I'll add them to the model first if needed,
+	// but the request says POST /users/me/courses.
+	// Looking at model.User, it doesn't have Courses. I should add it.
 }
 
 type profileService struct {
@@ -288,6 +300,118 @@ func (s *profileService) FilterSkillsByPrefix(ctx context.Context, userID int64,
 		return strings.ToLower(matches[i].Name) < strings.ToLower(matches[j].Name)
 	})
 	return matches, nil
+}
+
+func (s *profileService) SearchSkills(ctx context.Context, query string, limit int) ([]model.SkillMetadata, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	return s.userRepo.SearchSkills(ctx, query, limit)
+}
+
+func (s *profileService) SearchCourses(ctx context.Context, query string, limit int) ([]model.CourseMetadata, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	return s.userRepo.SearchCourses(ctx, query, limit)
+}
+
+func (s *profileService) SearchTags(ctx context.Context, tagType string, query string, limit int) ([]model.TagMetadata, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	return s.userRepo.SearchTags(ctx, tagType, query, limit)
+}
+
+func (s *profileService) AddUserSkill(ctx context.Context, userID int64, skill model.Skill) (*model.User, error) {
+	user, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if skill already exists
+	for _, s := range user.Skills {
+		if strings.EqualFold(s.Name, skill.Name) {
+			return user, nil // Already exists
+		}
+	}
+
+	user.Skills = append(user.Skills, skill)
+	return s.userRepo.UpdateProfile(ctx, repository.ProfileUpdate{
+		UserID: userID,
+		Fields: map[string]interface{}{"skills": user.Skills},
+	})
+}
+
+func (s *profileService) RemoveUserSkill(ctx context.Context, userID int64, skillName string) (*model.User, error) {
+	user, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	newSkills := make(model.Skills, 0, len(user.Skills))
+	found := false
+	for _, s := range user.Skills {
+		if strings.EqualFold(s.Name, skillName) {
+			found = true
+			continue
+		}
+		newSkills = append(newSkills, s)
+	}
+
+	if !found {
+		return user, nil
+	}
+
+	return s.userRepo.UpdateProfile(ctx, repository.ProfileUpdate{
+		UserID: userID,
+		Fields: map[string]interface{}{"skills": newSkills},
+	})
+}
+
+func (s *profileService) AddUserCourse(ctx context.Context, userID int64, course model.Course) (*model.User, error) {
+	user, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, c := range user.Courses {
+		if strings.EqualFold(c.Code, course.Code) {
+			return user, nil
+		}
+	}
+
+	user.Courses = append(user.Courses, course)
+	return s.userRepo.UpdateProfile(ctx, repository.ProfileUpdate{
+		UserID: userID,
+		Fields: map[string]interface{}{"courses": user.Courses},
+	})
+}
+
+func (s *profileService) RemoveUserCourse(ctx context.Context, userID int64, courseCode string) (*model.User, error) {
+	user, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	newCourses := make(model.Courses, 0, len(user.Courses))
+	found := false
+	for _, c := range user.Courses {
+		if strings.EqualFold(c.Code, courseCode) {
+			found = true
+			continue
+		}
+		newCourses = append(newCourses, c)
+	}
+
+	if !found {
+		return user, nil
+	}
+
+	return s.userRepo.UpdateProfile(ctx, repository.ProfileUpdate{
+		UserID: userID,
+		Fields: map[string]interface{}{"courses": newCourses},
+	})
 }
 
 func (s *profileService) enforceRateLimit(ctx context.Context, cfg rateLimitConfig, userID int64) error {

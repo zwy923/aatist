@@ -144,6 +144,11 @@ func main() {
 			users.GET("/:id/summary", authHandler.GetUserSummaryHandler)
 		}
 
+		// Metadata routes
+		api.GET("/skills", authHandler.SearchSkillsHandler)
+		api.GET("/courses", authHandler.SearchCoursesHandler)
+		api.GET("/tags", authHandler.SearchTagsHandler)
+
 		// Protected user routes (require auth via Gateway)
 		protectedUsers := api.Group("/users")
 		protectedUsers.Use(middleware.RequireGatewayAuth()) // Trust Gateway auth
@@ -163,6 +168,14 @@ func main() {
 			protectedUsers.GET("/me/saved", authHandler.GetSavedItemsHandler)
 			protectedUsers.POST("/me/saved", authHandler.SaveItemHandler)
 			protectedUsers.DELETE("/me/saved", authHandler.UnsaveItemHandler)
+
+			// Skills maintenance
+			protectedUsers.POST("/me/skills", authHandler.AddUserSkillHandler)
+			protectedUsers.DELETE("/me/skills/:name", authHandler.RemoveUserSkillHandler)
+
+			// Courses maintenance
+			protectedUsers.POST("/me/courses", authHandler.AddUserCourseHandler)
+			protectedUsers.DELETE("/me/courses/:code", authHandler.RemoveUserCourseHandler)
 		}
 	}
 

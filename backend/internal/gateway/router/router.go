@@ -101,6 +101,10 @@ func registerProtectedRoutes(group *gin.RouterGroup, getTimeout func(string) tim
 				{"DELETE", "/users/me/saved"},     // Support query params deletion
 				{"DELETE", "/users/me/saved/:id"}, // Changed to require ID
 				{"GET", "/users/me/applications"}, // Proxy to opp-service
+				{"POST", "/users/me/skills"},
+				{"DELETE", "/users/me/skills/:name"},
+				{"POST", "/users/me/courses"},
+				{"DELETE", "/users/me/courses/:code"},
 			},
 		},
 		{
@@ -128,11 +132,15 @@ func registerProtectedRoutes(group *gin.RouterGroup, getTimeout func(string) tim
 				{"GET", "/opportunities"},
 				{"GET", "/opportunities/:id"},
 				{"POST", "/opportunities"},
-				{"PATCH", "/opportunities/:id"}, // Changed PUT to PATCH
+				{"PATCH", "/opportunities/:id"},
 				{"DELETE", "/opportunities/:id"},
-				{"POST", "/opportunities/:id/applications"},
+				{"POST", "/opportunities/:id/favorite"},
+				{"DELETE", "/opportunities/:id/favorite"},
+				{"POST", "/opportunities/:id/apply"},
+				{"GET", "/opportunities/me"},
+				{"PATCH", "/opportunities/:id/status"},
+				{"GET", "/opportunities/:id/stats"},
 				{"GET", "/opportunities/:id/applications"},
-				// Application management
 				{"GET", "/applications/:id"},
 				{"PATCH", "/applications/:id"},
 				{"DELETE", "/applications/:id"},
@@ -190,6 +198,10 @@ func registerPublicRoutes(group *gin.RouterGroup, getTimeout func(string) time.D
 				// Dashboard stats
 				{"GET", "/stats/overview"},
 				{"GET", "/skills/popular"},
+				// Metadata search
+				{"GET", "/skills"},
+				{"GET", "/courses"},
+				{"GET", "/tags"},
 			},
 		},
 		{

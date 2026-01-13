@@ -316,7 +316,7 @@ func (r *postgresOpportunityRepository) Delete(ctx context.Context, id int64, us
 	return nil
 }
 
-func (r *postgresOpportunityRepository) ListByUserID(ctx context.Context, userID int64, limit, offset int) ([]*model.Opportunity, error) {
+func (r *postgresOpportunityRepository) ListByUserID(ctx context.Context, userID int64, status *string, limit, offset int) ([]*model.Opportunity, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 20
 	}
@@ -324,16 +324,69 @@ func (r *postgresOpportunityRepository) ListByUserID(ctx context.Context, userID
 		offset = 0
 	}
 
-	query := fmt.Sprintf(`SELECT %s FROM opportunities 
-		WHERE created_by = $1 
-		ORDER BY created_at DESC 
-		LIMIT $2 OFFSET $3`, opportunitySelectColumns)
+	var (
+		args    []interface{}
+		builder strings.Builder
+	)
+
+	builder.WriteString(fmt.Sprintf("SELECT %s FROM opportunities WHERE created_by = $1", opportunitySelectColumns))
+	args = append(args, userID)
+
+	if status != nil && *status != "" {
+		args = append(args, *status)
+		builder.WriteString(fmt.Sprintf(" AND status = $%d", len(args)))
+	}
+
+	builder.WriteString(" ORDER BY created_at DESC")
+
+	args = append(args, limit)
+	builder.WriteString(fmt.Sprintf(" LIMIT $%d", len(args)))
+
+	args = append(args, offset)
+	builder.WriteString(fmt.Sprintf(" OFFSET $%d", len(args)))
 
 	var opportunities []*model.Opportunity
-	if err := r.db.SelectContext(ctx, &opportunities, query, userID, limit, offset); err != nil {
+	if err := r.db.SelectContext(ctx, &opportunities, builder.String(), args...); err != nil {
 		return nil, fmt.Errorf("failed to list user opportunities: %w", err)
 	}
 	return opportunities, nil
+}
+
+func (r *postgresOpportunityRepository) UpdateStatus(ctx context.Context, id int64, userID int64, status model.OpportunityStatus) error {
+	query := `UPDATE opportunities SET status = $1, updated_at = $2 WHERE id = $3 AND created_by = $4`
+	result, err := r.db.ExecContext(ctx, query, status, time.Now(), id, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update opportunity status: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to fetch rows affected: %w", err)
+	}
+	if rows == 0 {
+		return errs.ErrNotFound
+	}
+	return nil
+}
+
+func (r *postgresOpportunityRepository) GetStats(ctx context.Context, id int64, userID int64) (*OpportunityStats, error) {
+	// Verify ownership first
+	var exists bool
+	err := r.db.GetContext(ctx, &exists, "SELECT EXISTS(SELECT 1 FROM opportunities WHERE id = $1 AND created_by = $2)", id, userID)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, errs.ErrNotFound
+	}
+
+	var stats OpportunityStats
+	query := `SELECT COUNT(*) FROM opportunity_applications WHERE opportunity_id = $1`
+	err = r.db.GetContext(ctx, &stats.ApplicationCount, query, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get opportunity stats: %w", err)
+	}
+
+	return &stats, nil
 }
 
 // OpportunityApplicationRepository implementation
@@ -418,7 +471,7 @@ func (r *postgresOpportunityApplicationRepository) FindByUserAndOpportunity(ctx 
 	return &app, nil
 }
 
-func (r *postgresOpportunityApplicationRepository) ListByUserID(ctx context.Context, userID int64, limit, offset int) ([]*model.OpportunityApplication, error) {
+func (r *postgresOpportunityApplicationRepository) ListByUserID(ctx context.Context, userID int64, status *string, limit, offset int) ([]*model.OpportunityApplication, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 20
 	}
@@ -426,14 +479,29 @@ func (r *postgresOpportunityApplicationRepository) ListByUserID(ctx context.Cont
 		offset = 0
 	}
 
-	query := `SELECT id, user_id, opportunity_id, message, cv_url, portfolio_url, status, created_at, updated_at
-		FROM opportunity_applications 
-		WHERE user_id = $1 
-		ORDER BY created_at DESC 
-		LIMIT $2 OFFSET $3`
+	var (
+		args    []interface{}
+		builder strings.Builder
+	)
+
+	builder.WriteString("SELECT id, user_id, opportunity_id, message, cv_url, portfolio_url, status, created_at, updated_at FROM opportunity_applications WHERE user_id = $1")
+	args = append(args, userID)
+
+	if status != nil && *status != "" {
+		args = append(args, *status)
+		builder.WriteString(fmt.Sprintf(" AND status = $%d", len(args)))
+	}
+
+	builder.WriteString(" ORDER BY created_at DESC")
+
+	args = append(args, limit)
+	builder.WriteString(fmt.Sprintf(" LIMIT $%d", len(args)))
+
+	args = append(args, offset)
+	builder.WriteString(fmt.Sprintf(" OFFSET $%d", len(args)))
 
 	var applications []*model.OpportunityApplication
-	if err := r.db.SelectContext(ctx, &applications, query, userID, limit, offset); err != nil {
+	if err := r.db.SelectContext(ctx, &applications, builder.String(), args...); err != nil {
 		return nil, fmt.Errorf("failed to list user applications: %w", err)
 	}
 	return applications, nil

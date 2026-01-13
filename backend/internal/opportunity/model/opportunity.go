@@ -8,13 +8,18 @@ import (
 type OpportunityStatus string
 
 const (
+	StatusDraft     OpportunityStatus = "draft"
+	StatusPublished OpportunityStatus = "published"
+	StatusClosed    OpportunityStatus = "closed"
+	StatusArchived  OpportunityStatus = "archived"
+
+	// Legacy support
 	StatusActive OpportunityStatus = "active"
-	StatusClosed OpportunityStatus = "closed"
 )
 
 // IsValid checks if status is valid
 func (s OpportunityStatus) IsValid() bool {
-	return s == StatusActive || s == StatusClosed
+	return s == StatusDraft || s == StatusPublished || s == StatusClosed || s == StatusArchived || s == StatusActive
 }
 
 // String returns string representation of status

@@ -1,6 +1,9 @@
 package model
 
 import (
+	"database/sql/driver"
+	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 )
@@ -139,6 +142,7 @@ type User struct {
 	Faculty             *string                 `db:"faculty" json:"faculty,omitempty"`
 	Major               *string                 `db:"major" json:"major,omitempty"`
 	Skills              Skills                  `db:"skills" json:"skills,omitempty"`
+	Courses             Courses                 `db:"courses" json:"courses,omitempty"`
 	WeeklyHours         *int                    `db:"weekly_hours" json:"weekly_hours,omitempty"`
 	WeeklyAvailability  WeeklyAvailabilityArray `db:"weekly_availability" json:"weekly_availability,omitempty"`
 	PortfolioVisibility PortfolioVisibility     `db:"portfolio_visibility" json:"portfolio_visibility"`
@@ -156,4 +160,73 @@ func (u *User) IsLocked() bool {
 		return false
 	}
 	return u.LockedUntil.After(time.Now())
+}
+
+// Course represents a course taken by a user
+type Course struct {
+	Code string `json:"code"`
+	Name string `json:"name"`
+}
+
+// Courses is a JSONB-backed slice of Course
+type Courses []Course
+
+func (c Courses) Value() (driver.Value, error) {
+	if len(c) == 0 {
+		return []byte("[]"), nil
+	}
+	b, err := json.Marshal(c)
+	if err != nil {
+		return nil, err
+	}
+	return string(b), nil
+}
+
+func (c *Courses) Scan(value interface{}) error {
+	if value == nil {
+		*c = nil
+		return nil
+	}
+
+	bytes, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("invalid type for Courses: %T", value)
+	}
+
+	if len(bytes) == 0 {
+		*c = nil
+		return nil
+	}
+
+	var temp []Course
+	if err := json.Unmarshal(bytes, &temp); err != nil {
+		return err
+	}
+	*c = temp
+	return nil
+}
+
+// SkillMetadata represents a skill in the global skills table
+type SkillMetadata struct {
+	ID        int64     `db:"id" json:"id"`
+	Name      string    `db:"name" json:"name"`
+	Category  *string   `db:"category" json:"category,omitempty"`
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+}
+
+// CourseMetadata represents a course in the global courses table
+type CourseMetadata struct {
+	ID        int64     `db:"id" json:"id"`
+	Code      string    `db:"code" json:"code"`
+	Name      string    `db:"name" json:"name"`
+	School    *string   `db:"school" json:"school,omitempty"`
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+}
+
+// TagMetadata represents a tag in the global tags table
+type TagMetadata struct {
+	ID        int64     `db:"id" json:"id"`
+	Name      string    `db:"name" json:"name"`
+	Type      string    `db:"type" json:"type"`
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
 }

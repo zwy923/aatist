@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -458,6 +459,150 @@ func (h *AuthHandler) UploadAvatarHandler(c *gin.Context) {
 	}))
 }
 
+// AddUserSkillHandler handles POST /users/me/skills
+func (h *AuthHandler) AddUserSkillHandler(c *gin.Context) {
+	userID, err := middleware.GetUserID(c)
+	if err != nil {
+		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
+		return
+	}
+
+	var req SkillInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, err.Error())
+		return
+	}
+
+	skill := model.Skill{
+		Name:  strings.TrimSpace(req.Name),
+		Level: strings.ToLower(strings.TrimSpace(req.Level)),
+	}
+
+	user, err := h.profileSvc.AddUserSkill(c.Request.Context(), userID, skill)
+	if err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, response.Success(mapUserToResponse(user)))
+}
+
+// RemoveUserSkillHandler handles DELETE /users/me/skills/:name
+func (h *AuthHandler) RemoveUserSkillHandler(c *gin.Context) {
+	userID, err := middleware.GetUserID(c)
+	if err != nil {
+		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
+		return
+	}
+
+	skillName := c.Param("name")
+	if skillName == "" {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "skill name is required")
+		return
+	}
+
+	user, err := h.profileSvc.RemoveUserSkill(c.Request.Context(), userID, skillName)
+	if err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, response.Success(mapUserToResponse(user)))
+}
+
+// AddUserCourseHandler handles POST /users/me/courses
+func (h *AuthHandler) AddUserCourseHandler(c *gin.Context) {
+	userID, err := middleware.GetUserID(c)
+	if err != nil {
+		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
+		return
+	}
+
+	var req model.Course
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, err.Error())
+		return
+	}
+
+	user, err := h.profileSvc.AddUserCourse(c.Request.Context(), userID, req)
+	if err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, response.Success(mapUserToResponse(user)))
+}
+
+// RemoveUserCourseHandler handles DELETE /users/me/courses/:code
+func (h *AuthHandler) RemoveUserCourseHandler(c *gin.Context) {
+	userID, err := middleware.GetUserID(c)
+	if err != nil {
+		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
+		return
+	}
+
+	courseCode := c.Param("code")
+	if courseCode == "" {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "course code is required")
+		return
+	}
+
+	user, err := h.profileSvc.RemoveUserCourse(c.Request.Context(), userID, courseCode)
+	if err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, response.Success(mapUserToResponse(user)))
+}
+
+// SearchSkillsHandler handles GET /skills
+func (h *AuthHandler) SearchSkillsHandler(c *gin.Context) {
+	query := c.Query("q")
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	skills, err := h.profileSvc.SearchSkills(c.Request.Context(), query, limit)
+	if err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, response.Success(skills))
+}
+
+// SearchCoursesHandler handles GET /courses
+func (h *AuthHandler) SearchCoursesHandler(c *gin.Context) {
+	query := c.Query("q")
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	courses, err := h.profileSvc.SearchCourses(c.Request.Context(), query, limit)
+	if err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, response.Success(courses))
+}
+
+// SearchTagsHandler handles GET /tags
+func (h *AuthHandler) SearchTagsHandler(c *gin.Context) {
+	tagType := c.Query("type")
+	if tagType == "" {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "tag type is required")
+		return
+	}
+	query := c.Query("q")
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	tags, err := h.profileSvc.SearchTags(c.Request.Context(), tagType, query, limit)
+	if err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, response.Success(tags))
+}
+
 // Helper methods
 
 func (h *AuthHandler) respondSuccess(c *gin.Context, statusCode int, user *model.User, tokens *service.Tokens) {
@@ -536,16 +681,16 @@ func mapUserToResponse(user *model.User) UserResponse {
 		ProfileVisibility: user.ProfileVisibility.String(),
 		IsVerifiedEmail:   user.IsVerifiedEmail,
 		RoleVerified:      user.RoleVerified,
-		OAuthProvider:      user.OAuthProvider,
-		CreatedAt:          user.CreatedAt.Format(time.RFC3339),
+		OAuthProvider:     user.OAuthProvider,
+		CreatedAt:         user.CreatedAt.Format(time.RFC3339),
 		// Student/Alumni fields
-		StudentID:          user.StudentID,
-		School:             user.School,
-		Faculty:            user.Faculty,
-		Major:              user.Major,
-		WeeklyHours:        user.WeeklyHours,
-		WeeklyAvailability: user.WeeklyAvailability,
-		Skills:             user.Skills,
+		StudentID:           user.StudentID,
+		School:              user.School,
+		Faculty:             user.Faculty,
+		Major:               user.Major,
+		WeeklyHours:         user.WeeklyHours,
+		WeeklyAvailability:  user.WeeklyAvailability,
+		Skills:              user.Skills,
 		PortfolioVisibility: user.PortfolioVisibility.String(),
 		// Organization fields
 		OrganizationName:       user.OrganizationName,

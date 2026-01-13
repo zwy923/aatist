@@ -16,7 +16,7 @@ const userSelectColumns = `id, email, password_hash, name, avatar_url, role,
 	bio, profile_visibility, portfolio_visibility,
 	is_verified_email, role_verified, oauth_provider, oauth_subject, last_login_at, failed_attempts, locked_until,
 	created_at, updated_at,
-	student_id, school, faculty, major, weekly_hours, weekly_availability, skills,
+	student_id, school, faculty, major, weekly_hours, weekly_availability, skills, courses,
 	organization_name, organization_bio, contact_title, is_affiliated_with_school, org_size`
 
 var profileUpdatableColumns = []string{
@@ -32,6 +32,7 @@ var profileUpdatableColumns = []string{
 	"weekly_hours",
 	"weekly_availability",
 	"skills",
+	"courses",
 	"portfolio_visibility",
 	// Organization fields
 	"organization_name",
@@ -123,7 +124,7 @@ func (r *postgresRepository) UpdatePassword(ctx context.Context, userID int64, p
 func (r *postgresRepository) CreateUser(ctx context.Context, user *model.User) error {
 	query := `INSERT INTO users (email, password_hash, name, role, bio, profile_visibility, portfolio_visibility,
 		is_verified_email, role_verified, oauth_provider, oauth_subject, failed_attempts,
-		student_id, school, faculty, major, weekly_hours, weekly_availability, skills,
+		student_id, school, faculty, major, weekly_hours, weekly_availability, skills, courses,
 		organization_name, organization_bio, contact_title, is_affiliated_with_school, org_size,
 		created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
@@ -154,6 +155,7 @@ func (r *postgresRepository) CreateUser(ctx context.Context, user *model.User) e
 		user.WeeklyHours,
 		user.WeeklyAvailability,
 		user.Skills,
+		user.Courses,
 		// Organization fields
 		user.OrganizationName,
 		user.OrganizationBio,
@@ -224,6 +226,38 @@ func (r *postgresRepository) LockAccount(ctx context.Context, userID int64, unti
 	}
 
 	return nil
+}
+
+func (r *postgresRepository) SearchSkills(ctx context.Context, query string, limit int) ([]model.SkillMetadata, error) {
+	var skills []model.SkillMetadata
+	sqlQuery := `SELECT id, name, category, created_at FROM skills WHERE name ILIKE $1 ORDER BY name ASC LIMIT $2`
+	err := r.db.SelectContext(ctx, &skills, sqlQuery, "%"+query+"%", limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search skills: %w", err)
+	}
+	return skills, nil
+}
+
+func (r *postgresRepository) SearchCourses(ctx context.Context, query string, limit int) ([]model.CourseMetadata, error) {
+	var courses []model.CourseMetadata
+	sqlQuery := `SELECT id, code, name, school, created_at FROM courses 
+		WHERE name ILIKE $1 OR code ILIKE $1 ORDER BY code ASC LIMIT $2`
+	err := r.db.SelectContext(ctx, &courses, sqlQuery, "%"+query+"%", limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search courses: %w", err)
+	}
+	return courses, nil
+}
+
+func (r *postgresRepository) SearchTags(ctx context.Context, tagType string, query string, limit int) ([]model.TagMetadata, error) {
+	var tags []model.TagMetadata
+	sqlQuery := `SELECT id, name, type, created_at FROM tags 
+		WHERE type = $1 AND name ILIKE $2 ORDER BY name ASC LIMIT $3`
+	err := r.db.SelectContext(ctx, &tags, sqlQuery, tagType, "%"+query+"%", limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search tags: %w", err)
+	}
+	return tags, nil
 }
 func (r *postgresRepository) UpdateProfile(ctx context.Context, update ProfileUpdate) (*model.User, error) {
 	if len(update.Fields) == 0 {
