@@ -80,12 +80,10 @@ func registerProtectedRoutes(group *gin.RouterGroup, getTimeout func(string) tim
 			Name: "notification-service", Port: 8085,
 			Routes: []RouteDef{
 				{"GET", "/notifications"},
-				{"GET", "/notifications/*path"},
-				{"POST", "/notifications"},
-				{"POST", "/notifications/*path"},
-				{"PUT", "/notifications/*path"},
-				{"PATCH", "/notifications/*path"},
-				{"DELETE", "/notifications/*path"},
+				{"GET", "/notifications/:id"},
+				// POST /notifications removed from public/protected, should be internal only
+				{"PATCH", "/notifications/:id/read"},
+				{"DELETE", "/notifications/:id"},
 			},
 		},
 		{
@@ -99,7 +97,8 @@ func registerProtectedRoutes(group *gin.RouterGroup, getTimeout func(string) tim
 				{"PATCH", "/users/me/availability"},
 				{"GET", "/users/me/saved"},
 				{"POST", "/users/me/saved"},
-				{"DELETE", "/users/me/saved"},
+				{"DELETE", "/users/me/saved/:id"}, // Changed to require ID
+				{"GET", "/users/me/applications"}, // Proxy to opp-service
 			},
 		},
 		{
@@ -107,7 +106,7 @@ func registerProtectedRoutes(group *gin.RouterGroup, getTimeout func(string) tim
 			Routes: []RouteDef{
 				{"GET", "/users/me/portfolio"},
 				{"POST", "/users/me/portfolio"},
-				{"PUT", "/users/me/portfolio/:id"},
+				{"PATCH", "/users/me/portfolio/:id"}, // Changed PUT to PATCH
 				{"DELETE", "/users/me/portfolio/:id"},
 			},
 		},
@@ -115,22 +114,26 @@ func registerProtectedRoutes(group *gin.RouterGroup, getTimeout func(string) tim
 			Name: "file-service", Port: 8086,
 			Routes: []RouteDef{
 				{"GET", "/files"},
-				{"GET", "/files/*path"},
+				{"GET", "/files/:id"},
+				{"GET", "/files/:id/download"}, // Added download route
 				{"POST", "/files"},
-				{"POST", "/files/*path"},
-				{"DELETE", "/files/*path"},
+				{"DELETE", "/files/:id"},
 			},
 		},
 		{
 			Name: "opp-service", Port: 8083,
 			Routes: []RouteDef{
 				{"GET", "/opportunities"},
-				{"GET", "/opportunities/*path"},
+				{"GET", "/opportunities/:id"},
 				{"POST", "/opportunities"},
-				{"POST", "/opportunities/*path"},
-				{"PUT", "/opportunities/*path"},
-				{"PATCH", "/opportunities/*path"},
-				{"DELETE", "/opportunities/*path"},
+				{"PATCH", "/opportunities/:id"}, // Changed PUT to PATCH
+				{"DELETE", "/opportunities/:id"},
+				{"POST", "/opportunities/:id/applications"},
+				{"GET", "/opportunities/:id/applications"},
+				// Application management
+				{"GET", "/applications/:id"},
+				{"PATCH", "/applications/:id"},
+				{"DELETE", "/applications/:id"},
 			},
 		},
 		{
@@ -152,12 +155,12 @@ func registerProtectedRoutes(group *gin.RouterGroup, getTimeout func(string) tim
 			Name: "community-service", Port: 8087,
 			Routes: []RouteDef{
 				{"POST", "/community/posts"},
-				{"PUT", "/community/posts/:id"},
+				{"PATCH", "/community/posts/:id"}, // Changed PUT to PATCH
 				{"DELETE", "/community/posts/:id"},
 				{"POST", "/community/posts/:id/like"},
 				{"DELETE", "/community/posts/:id/like"},
 				{"POST", "/community/posts/:id/comments"},
-				{"PUT", "/community/comments/:id"},
+				{"PATCH", "/community/comments/:id"}, // Changed PUT to PATCH
 				{"DELETE", "/community/comments/:id"},
 				{"GET", "/community/users/me/posts"},
 			},
@@ -181,6 +184,10 @@ func registerPublicRoutes(group *gin.RouterGroup, getTimeout func(string) time.D
 				{"GET", "/users/check-email"},
 				{"GET", "/users/:id"},
 				{"GET", "/users/:id/summary"},
+				{"GET", "/talents"}, // Search talents
+				// Dashboard stats
+				{"GET", "/stats/overview"},
+				{"GET", "/skills/popular"},
 			},
 		},
 		{
