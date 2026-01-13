@@ -42,9 +42,8 @@ These routes are accessible without authentication.
 | Method | Path | Description |
 | :--- | :--- | :--- |
 | `GET` | `/community/posts` | List posts (See [Filters](#community-filters)) |
-| `GET` | `/community/posts/trending` | List trending posts |
 | `GET` | `/community/posts/:id` | Get specific post (Includes `likedByMe`, `likeCount`) |
-| `GET` | `/community/posts/:id/comments` | Get comments for a post |
+| `GET` | `/community/posts/:id/comments` | Get comments for a post (Supports pagination) |
 | `GET` | `/community/users/:id/posts` | Get posts by specific user |
 
 ### Events Service
@@ -52,7 +51,7 @@ These routes are accessible without authentication.
 | :--- | :--- | :--- |
 | `GET` | `/events` | List events (See [Filters](#event-filters)) |
 | `GET` | `/events/:id` | Get specific event (Includes `interestedByMe`, `goingByMe`) |
-| `GET` | `/events/:id/comments` | Get comments for an event |
+| `GET` | `/events/:id/comments` | Get comments for an event (Supports pagination) |
 
 ### Opportunity Service
 | Method | Path | Description |
@@ -166,7 +165,7 @@ Base Path: `/api/v1/internal`
 ## Additional Documentation
 
 ### Standard Response Format
-All list endpoints support pagination and return the following structure:
+All list endpoints (including comments) support pagination and return the following structure:
 ```json
 {
   "items": [],
@@ -174,6 +173,18 @@ All list endpoints support pagination and return the following structure:
   "pageSize": 20,
   "total": 123,
   "hasNext": true
+}
+```
+
+### Stats Overview Response
+Endpoint: `GET /stats/overview`
+Response:
+```json
+{
+  "activeStudents": 1250,
+  "openOpportunities": 45,
+  "ongoingProjects": 12,
+  "upcomingEvents": 8
 }
 ```
 

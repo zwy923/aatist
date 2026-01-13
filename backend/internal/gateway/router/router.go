@@ -203,7 +203,6 @@ func registerPublicRoutes(group *gin.RouterGroup, getTimeout func(string) time.D
 			Name: "community-service", Port: 8087,
 			Routes: []RouteDef{
 				{"GET", "/community/posts"},
-				{"GET", "/community/posts/trending"},
 				{"GET", "/community/posts/:id"},
 				{"GET", "/community/posts/:id/comments"},
 				{"GET", "/community/users/:id/posts"},
