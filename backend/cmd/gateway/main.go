@@ -47,21 +47,15 @@ func main() {
 		zap.Int("port", cfg.App.HTTPPort),
 	)
 
-	// Initialize Redis (for rate limiting, etc.)
-	redis, err := cache.NewRedis(cfg.Redis.Addr, cfg.Redis.DB)
-	if err != nil {
-		logger.Warn("Failed to initialize Redis - Gateway will continue without rate limiting",
-			zap.String("redis_addr", cfg.Redis.Addr),
-			zap.Error(err),
-		)
-		redis = nil
-	} else {
-		defer redis.Close()
-		logger.Info("Connected to Redis", zap.String("addr", cfg.Redis.Addr))
-	}
-
 	// Initialize JWT
 	jwt := auth.NewJWT(cfg.JWT.Secret, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL)
+
+	// Initialize Redis
+	redisClient, err := cache.NewRedis(cfg.Redis.Addr, cfg.Redis.DB)
+	if err != nil {
+		logger.Fatal("Failed to initialize Redis", zap.Error(err))
+	}
+	defer redisClient.Close()
 
 	// Setup Gin router
 	if cfg.App.Env == "production" || cfg.App.Env == "prod" {
@@ -90,7 +84,7 @@ func main() {
 	})
 
 	// Register all routes
-	router.RegisterRoutes(r, cfg, logger, jwt)
+	router.RegisterRoutes(r, cfg, logger, jwt, redisClient)
 
 	// Create HTTP server
 	srv := &http.Server{

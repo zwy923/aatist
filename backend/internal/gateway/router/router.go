@@ -5,7 +5,9 @@ import (
 
 	gatewayMiddleware "github.com/aatist/backend/internal/gateway/middleware"
 	"github.com/aatist/backend/internal/gateway/proxy"
+	"github.com/aatist/backend/internal/gateway/websocket"
 	"github.com/aatist/backend/internal/platform/auth"
+	"github.com/aatist/backend/internal/platform/cache"
 	"github.com/aatist/backend/internal/platform/config"
 	"github.com/aatist/backend/internal/platform/log"
 	"github.com/aatist/backend/internal/platform/middleware"
@@ -13,7 +15,7 @@ import (
 )
 
 // RegisterRoutes registers all routes for the gateway
-func RegisterRoutes(router *gin.Engine, cfg *config.Config, logger *log.Logger, jwt *auth.JWT) {
+func RegisterRoutes(router *gin.Engine, cfg *config.Config, logger *log.Logger, jwt *auth.JWT, redis *cache.Redis) {
 	// Helper function to get service timeout
 	getServiceTimeout := func(serviceName string) time.Duration {
 		if timeout, ok := cfg.Gateway.ServiceTimeouts[serviceName]; ok {
@@ -21,6 +23,9 @@ func RegisterRoutes(router *gin.Engine, cfg *config.Config, logger *log.Logger, 
 		}
 		return cfg.Gateway.ServiceTimeout
 	}
+
+	// Initialize WebSocket manager
+	wsManager := websocket.NewManager(redis, logger)
 
 	// API routes with /api/v1 prefix
 	api := router.Group("/api/v1")
@@ -30,6 +35,9 @@ func RegisterRoutes(router *gin.Engine, cfg *config.Config, logger *log.Logger, 
 	// ============================================
 	protected := api.Group("")
 	protected.Use(middleware.GatewayAuthMiddleware(jwt))
+
+	// WebSocket route
+	protected.GET("/ws", wsManager.HandleWebSocket)
 
 	registerProtectedRoutes(protected, getServiceTimeout, logger)
 
