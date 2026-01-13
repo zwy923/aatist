@@ -82,6 +82,7 @@ func registerProtectedRoutes(group *gin.RouterGroup, getTimeout func(string) tim
 				{"GET", "/notifications"},
 				{"GET", "/notifications/:id"},
 				// POST /notifications removed from public/protected, should be internal only
+				{"PATCH", "/notifications/read-all"}, // Bulk read
 				{"PATCH", "/notifications/:id/read"},
 				{"DELETE", "/notifications/:id"},
 			},
@@ -97,6 +98,7 @@ func registerProtectedRoutes(group *gin.RouterGroup, getTimeout func(string) tim
 				{"PATCH", "/users/me/availability"},
 				{"GET", "/users/me/saved"},
 				{"POST", "/users/me/saved"},
+				{"DELETE", "/users/me/saved"},     // Support query params deletion
 				{"DELETE", "/users/me/saved/:id"}, // Changed to require ID
 				{"GET", "/users/me/applications"}, // Proxy to opp-service
 			},

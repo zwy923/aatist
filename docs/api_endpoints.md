@@ -2,6 +2,12 @@
 
 Base URL: `/api/v1`
 
+## Authentication & Security
+- **Access Token TTL**: 15 minutes.
+- **Refresh Token TTL**: 30 days (Rotation enabled).
+- **Logout**: Invalidates the Refresh Token. Access Token remains valid until expiry (short TTL).
+- **SSO**: Supports Google and LinkedIn via OAuth.
+
 ## Public Routes
 These routes are accessible without authentication.
 
@@ -11,7 +17,7 @@ These routes are accessible without authentication.
 | `POST` | `/auth/register` | Register a new user |
 | `POST` | `/auth/login` | Login with email/password |
 | `POST` | `/auth/refresh` | Refresh access token |
-| `POST` | `/auth/logout` | Logout (invalidate token) |
+| `POST` | `/auth/logout` | Logout (Invalidates Refresh Token) |
 | `GET` | `/auth/oauth/:provider` | Initiate OAuth flow (google, linkedin) |
 | `GET` | `/auth/oauth/:provider/callback` | OAuth callback |
 
@@ -21,7 +27,7 @@ These routes are accessible without authentication.
 | `GET` | `/users/check-username` | Check if username is available |
 | `GET` | `/users/check-email` | Check if email is registered |
 | `GET` | `/users/:id` | Get public user profile |
-| `GET` | `/users/:id/summary` | Get user profile summary |
+| `GET` | `/users/:id/summary` | Get user profile summary (Includes `onlineStatus`, `lastSeenAt`) |
 | `GET` | `/talents` | Search/Filter talents (See [Filters](#talent-search-filters)) |
 | `GET` | `/stats/overview` | Get dashboard statistics |
 | `GET` | `/skills/popular` | Get popular skills |
@@ -37,7 +43,7 @@ These routes are accessible without authentication.
 | :--- | :--- | :--- |
 | `GET` | `/community/posts` | List posts (See [Filters](#community-filters)) |
 | `GET` | `/community/posts/trending` | List trending posts |
-| `GET` | `/community/posts/:id` | Get specific post |
+| `GET` | `/community/posts/:id` | Get specific post (Includes `likedByMe`, `likeCount`) |
 | `GET` | `/community/posts/:id/comments` | Get comments for a post |
 | `GET` | `/community/users/:id/posts` | Get posts by specific user |
 
@@ -45,14 +51,14 @@ These routes are accessible without authentication.
 | Method | Path | Description |
 | :--- | :--- | :--- |
 | `GET` | `/events` | List events (See [Filters](#event-filters)) |
-| `GET` | `/events/:id` | Get specific event |
+| `GET` | `/events/:id` | Get specific event (Includes `interestedByMe`, `goingByMe`) |
 | `GET` | `/events/:id/comments` | Get comments for an event |
 
 ### Opportunity Service
 | Method | Path | Description |
 | :--- | :--- | :--- |
 | `GET` | `/opportunities` | List opportunities (See [Filters](#opportunity-filters)) |
-| `GET` | `/opportunities/:id` | Get opportunity details |
+| `GET` | `/opportunities/:id` | Get opportunity details (Includes `savedByMe`) |
 
 ---
 
@@ -67,7 +73,7 @@ These routes require a valid JWT token in the `Authorization` header (`Bearer <t
 ### User Service (Current User)
 | Method | Path | Description |
 | :--- | :--- | :--- |
-| `GET` | `/users/me` | Get current user's profile |
+| `GET` | `/users/me` | Get current user's profile (Alias: `GET /auth/me`) |
 | `PATCH` | `/users/me` | Update current user's profile |
 | `POST` | `/users/me/avatar` | Upload/Update avatar |
 | `PATCH` | `/users/me/password` | Change password |
@@ -76,6 +82,7 @@ These routes require a valid JWT token in the `Authorization` header (`Bearer <t
 | `GET` | `/users/me/saved` | Get saved items (Supports `type` filter, pagination) |
 | `POST` | `/users/me/saved` | Save an item (See [Saved Items Body](#saved-items-body)) |
 | `DELETE` | `/users/me/saved/:id` | Remove saved item (by saved ID) |
+| `DELETE` | `/users/me/saved` | Remove saved item (by `type` & `targetId` query params) |
 | `GET` | `/users/me/applications` | Get my job applications |
 
 ### Portfolio Service
@@ -89,8 +96,9 @@ These routes require a valid JWT token in the `Authorization` header (`Bearer <t
 ### Notification Service
 | Method | Path | Description |
 | :--- | :--- | :--- |
-| `GET` | `/notifications` | List notifications |
+| `GET` | `/notifications` | List notifications (Query: `unread=true`) |
 | `GET` | `/notifications/:id` | Get notification details |
+| `PATCH` | `/notifications/read-all` | Mark ALL notifications as read |
 | `PATCH` | `/notifications/:id/read` | Mark notification as read |
 | `DELETE` | `/notifications/:id` | Delete notification |
 
@@ -169,18 +177,30 @@ All list endpoints support pagination and return the following structure:
 }
 ```
 
+### Online Status
+User objects (in summary or details) include:
+- `onlineStatus`: `online` | `offline` | `away`
+- `lastSeenAt`: Timestamp (ISO 8601)
+*Source: Real-time WebSocket presence + Redis TTL.*
+
+### Interaction Fields
+Resource objects include interaction state for the current user:
+- **Posts**: `likedByMe` (bool), `likeCount` (int), `commentCount` (int)
+- **Events**: `interestedByMe` (bool), `goingByMe` (bool)
+- **Opportunities**: `savedByMe` (bool)
+
 ### Talent Search Filters
 Endpoint: `GET /talents`
-Query Parameters:
+Query Parameters (camelCase):
 - `q`: Fuzzy search by name, skill, or field.
-- `skills`: Comma-separated list of skills (e.g., `React,Python`).
+- `skills`: List of skills (e.g., `skills=React&skills=Python` or `skills=React,Python`).
 - `school`: Filter by school name.
 - `availabilityMin`: Minimum weekly hours.
 - `availabilityMax`: Maximum weekly hours.
 - `online`: `true` to filter by online status.
 - `page`: Page number (default 1).
 - `pageSize`: Items per page (default 20).
-- `sort`: Sort field (e.g., `created_at`, `name`).
+- `sort`: Sort field (e.g., `createdAt`, `name`).
 
 ### Opportunity Filters
 Endpoint: `GET /opportunities`
