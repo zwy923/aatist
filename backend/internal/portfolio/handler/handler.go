@@ -76,7 +76,10 @@ func (h *PortfolioHandler) GetUserPortfolioHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, response.Success(projects))
+	c.JSON(http.StatusOK, response.Success(gin.H{
+		"projects": projects,
+		"items":    projects,
+	}))
 }
 
 // GetMyPortfolioHandler returns all projects for the authenticated user
@@ -93,7 +96,10 @@ func (h *PortfolioHandler) GetMyPortfolioHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, response.Success(projects))
+	c.JSON(http.StatusOK, response.Success(gin.H{
+		"projects": projects,
+		"items":    projects,
+	}))
 }
 
 // CreateProjectHandler creates a new project
@@ -106,6 +112,7 @@ func (h *PortfolioHandler) CreateProjectHandler(c *gin.Context) {
 
 	var req struct {
 		Title         string   `json:"title" binding:"required"`
+		ClientName    *string  `json:"client_name"`
 		Description   *string  `json:"description"`
 		Year          *int     `json:"year"`
 		Tags          []string `json:"tags"`
@@ -119,6 +126,7 @@ func (h *PortfolioHandler) CreateProjectHandler(c *gin.Context) {
 
 	project := &model.Project{
 		Title:         req.Title,
+		ClientName:    req.ClientName,
 		Description:   req.Description,
 		Year:          req.Year,
 		Tags:          model.StringArray(req.Tags),
@@ -152,6 +160,7 @@ func (h *PortfolioHandler) UpdateProjectHandler(c *gin.Context) {
 
 	var req struct {
 		Title         string   `json:"title" binding:"required"`
+		ClientName    *string  `json:"client_name"`
 		Description   *string  `json:"description"`
 		Year          *int     `json:"year"`
 		Tags          []string `json:"tags"`
@@ -166,6 +175,7 @@ func (h *PortfolioHandler) UpdateProjectHandler(c *gin.Context) {
 	project := &model.Project{
 		ID:            uriReq.ID,
 		Title:         req.Title,
+		ClientName:    req.ClientName,
 		Description:   req.Description,
 		Year:          req.Year,
 		Tags:          model.StringArray(req.Tags),

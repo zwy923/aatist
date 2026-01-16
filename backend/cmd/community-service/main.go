@@ -43,11 +43,6 @@ func main() {
 	}
 	defer postgres.Close()
 
-	// Run database migrations
-	if err := app.RunMigrations(postgres, logger); err != nil {
-		logger.Fatal("failed to run migrations", zap.Error(err))
-	}
-
 	// Initialize Redis (optional)
 	var redisClient *cache.Redis
 	var redisCmd redis.Cmdable
@@ -80,7 +75,7 @@ func main() {
 	engagementUpdater := service.NewEngagementUpdater(redisCmd, trendingMgr, logger)
 
 	// Initialize services
-	postSvc := service.NewPostService(postRepo, redisCmd, eventPublisher, trendingMgr, engagementUpdater, logger)
+	postSvc := service.NewPostService(postRepo, likeRepo, redisCmd, eventPublisher, trendingMgr, engagementUpdater, logger)
 	commentSvc := service.NewCommentService(commentRepo, postRepo, redisCmd, eventPublisher, trendingMgr, engagementUpdater, logger)
 	likeSvc := service.NewLikeService(likeRepo, postRepo, redisCmd, eventPublisher, trendingMgr, engagementUpdater, logger)
 

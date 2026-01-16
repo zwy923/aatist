@@ -41,11 +41,6 @@ func main() {
 	}
 	defer postgres.Close()
 
-	// Run database migrations
-	if err := app.RunMigrations(postgres, logger); err != nil {
-		logger.Fatal("Failed to run migrations", zap.Error(err))
-	}
-
 	// Initialize repositories
 	oppRepo := repository.NewPostgresOpportunityRepository(postgres.GetDB())
 	appRepo := repository.NewPostgresOpportunityApplicationRepository(postgres.GetDB())
@@ -95,10 +90,17 @@ func main() {
 
 			// Application operations
 			protected.POST("/:id/apply", oppHandler.CreateApplicationHandler)
-			// List my applications
+			// List my applications (legacy path)
 			protected.GET("/applications", oppHandler.ListMyApplicationsHandler)
 			// List applications for an opportunity (only creator can view)
 			protected.GET("/:id/applications", oppHandler.ListOpportunityApplicationsHandler)
+		}
+
+		// User-related protected routes in opp-service
+		userProtected := api.Group("/users")
+		userProtected.Use(middleware.RequireGatewayAuth())
+		{
+			userProtected.GET("/me/applications", oppHandler.ListMyApplicationsHandler)
 		}
 	}
 

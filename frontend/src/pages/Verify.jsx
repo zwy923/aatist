@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { authAPI } from "../services/api";
+import { authApi } from "../features/auth/api/auth";
 import "./Verify.css";
 
 const STATUS = {
@@ -35,19 +35,19 @@ export default function Verify() {
     setMessage("正在验证邮箱链接…");
     setHint("请稍候，这通常只需要几秒钟。");
 
-    authAPI
+    authApi
       .verifyEmail(token)
       .then((res) => {
         setStatus(STATUS.SUCCESS);
-        setMessage(res.message || "邮箱验证成功！欢迎回到 Aatist。");
+        setMessage(res.data?.message || "邮箱验证成功！欢迎回到 Aatist。");
         setHint("我们会自动跳转到登录页面，或点击下方按钮立即登录。");
       })
       .catch((err) => {
         setStatus(STATUS.ERROR);
         setMessage(
           err.response?.data?.message ||
-            err.response?.data?.detail ||
-            "验证失败：链接无效或已过期。"
+          err.response?.data?.detail ||
+          "验证失败：链接无效或已过期。"
         );
         setHint("请重新请求验证邮件，或联系支持团队获取帮助。");
       });
@@ -87,9 +87,8 @@ export default function Verify() {
           <div className="verify-spinner" aria-label="Loading" />
         ) : (
           <div
-            className={`verify-icon ${
-              status === STATUS.SUCCESS ? "success" : "error"
-            }`}
+            className={`verify-icon ${status === STATUS.SUCCESS ? "success" : "error"
+              }`}
           >
             {iconContent}
           </div>

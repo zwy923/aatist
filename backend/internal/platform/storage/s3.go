@@ -80,6 +80,24 @@ func NewS3(cfg S3Config) (*S3, error) {
 		}
 	}
 
+	// Set public read policy for the bucket
+	policy := fmt.Sprintf(`{
+		"Version": "2012-10-17",
+		"Statement": [
+			{
+				"Effect": "Allow",
+				"Principal": {"AWS": ["*"]},
+				"Action": ["s3:GetObject"],
+				"Resource": ["arn:aws:s3:::%s/*"]
+			}
+		]
+	}`, cfg.Bucket)
+
+	if err := client.SetBucketPolicy(ctx, cfg.Bucket, policy); err != nil {
+		// Log but don't fail if we can't set policy (might be using a provider that doesn't support it)
+		fmt.Printf("Warning: failed to set bucket policy: %v\n", err)
+	}
+
 	baseURL := cfg.PublicURL
 	if baseURL == "" {
 		scheme := "https"

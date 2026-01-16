@@ -11,38 +11,26 @@ import {
   Stack,
   Paper,
 } from "@mui/material";
-import { authAPI } from "../services/api";
-import { useUser } from "../store/userStore.jsx";
+import { useAuth } from "../features/auth/hooks/useAuth";
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login } = useUser();
-  const [loading, setLoading] = useState(false);
+  const { login, loading } = useAuth();
   const [error, setError] = useState("");
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
-    setLoading(true);
 
     const form = e.currentTarget;
     const email = form.email.value;
     const password = form.password.value;
 
-    try {
-      const response = await authAPI.login(email, password);
-      // response格式: { user, access_token, refresh_token }
-      login(response.user, response.access_token, response.refresh_token);
+    const result = await login({ email, password });
+    if (result.success) {
       navigate("/dashboard");
-    } catch (err) {
-      const errorMessage =
-        err.response?.data?.error?.message ||
-        err.response?.data?.message ||
-        err.message ||
-        "Sign-in failed, please try again.";
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
+    } else {
+      setError(result.error || "Sign-in failed, please try again.");
     }
   };
 

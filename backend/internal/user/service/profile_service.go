@@ -88,7 +88,17 @@ func NewProfileService(
 	redis *cache.Redis,
 	logger *log.Logger,
 	avatarURLPrefix string,
-) ProfileService {
+) (ProfileService, error) {
+	if userRepo == nil {
+		return nil, fmt.Errorf("userRepo is required")
+	}
+	if fileClient == nil {
+		return nil, fmt.Errorf("fileClient is required")
+	}
+	if logger == nil {
+		return nil, fmt.Errorf("logger is required")
+	}
+
 	if avatarURLPrefix != "" {
 		avatarURLPrefix = strings.TrimRight(avatarURLPrefix, "/")
 	}
@@ -108,7 +118,7 @@ func NewProfileService(
 			Limit:     3,
 			Window:    time.Minute,
 		},
-	}
+	}, nil
 }
 
 func (s *profileService) GetProfile(ctx context.Context, userID int64) (*model.User, error) {
@@ -220,18 +230,19 @@ func (s *profileService) UpdateProfile(ctx context.Context, userID int64, input 
 
 func (s *profileService) UploadAvatar(ctx context.Context, userID int64, reader io.Reader, size int64, contentType, filename string) (*model.User, error) {
 	if s.fileClient == nil {
-		return nil, fmt.Errorf("file service client not configured")
+		panic("fileClient is nil in UploadAvatar")
 	}
 	if size <= 0 {
 		return nil, fmt.Errorf("invalid file size")
 	}
 
-	if _, err := s.userRepo.FindByID(ctx, userID); err != nil {
+	user, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
 		return nil, err
 	}
 
 	// Upload file via file-service
-	fileResp, err := s.fileClient.UploadFile(ctx, userID, "avatar", reader, size, contentType, filename)
+	fileResp, err := s.fileClient.UploadFile(ctx, userID, user.Role.String(), user.Email, "avatar", reader, size, contentType, filename)
 	if err != nil {
 		metrics.AvatarUploadFailureTotal.Inc()
 		if s.logger != nil {
@@ -275,6 +286,12 @@ func (s *profileService) EnsureProfileUpdateRateLimit(ctx context.Context, userI
 }
 
 func (s *profileService) EnsureAvatarUploadRateLimit(ctx context.Context, userID int64) error {
+	if s.redis == nil {
+		// If you want to catch this as a panic for debugging:
+		// panic("redis is nil in EnsureAvatarUploadRateLimit")
+		s.logger.Warn("redis is nil, skipping rate limit", zap.Int64("user_id", userID))
+		return nil
+	}
 	return s.enforceRateLimit(ctx, s.avatarUploadLimit, userID)
 }
 

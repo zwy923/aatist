@@ -6,8 +6,12 @@ import Landing from "./pages/Landing.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
+import Profile from "./pages/Profile.jsx";
 import Verify from "./pages/Verify.jsx";
-import { UserProvider } from "./store/userStore.jsx";
+import OpportunitiesPage from "./pages/Opportunities.jsx";
+import OpportunityDetailPage from "./pages/OpportunityDetail.jsx";
+import CommunityPage from "./pages/Community.jsx";
+
 import "./styles/global.css";
 
 const theme = createTheme({
@@ -46,17 +50,19 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <ThemeProvider theme={theme}>
       <CssBaseline />
-    <UserProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/auth/login" element={<Login />} />
           <Route path="/auth/register" element={<Register />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/profile" element={<Profile />} />
           <Route path="/verify" element={<Verify />} />
+          <Route path="/opportunities" element={<OpportunitiesPage />} />
+          <Route path="/opportunities/:id" element={<OpportunityDetailPage />} />
+          <Route path="/community" element={<CommunityPage />} />
         </Routes>
       </BrowserRouter>
-    </UserProvider>
     </ThemeProvider>
   </React.StrictMode>
 );

@@ -12,4 +12,8 @@ type Comment struct {
 	CreatedAt time.Time  `db:"created_at" json:"created_at"`
 	UpdatedAt time.Time  `db:"updated_at" json:"updated_at"`
 	Replies   []*Comment `db:"-" json:"replies,omitempty"`
+
+	// Enriched fields
+	AuthorName   string `db:"author_name" json:"author_name"`
+	AuthorAvatar string `db:"author_avatar" json:"author_avatar"`
 }

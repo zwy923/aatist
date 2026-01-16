@@ -43,6 +43,14 @@ func parseCategory(category string) (model.PostCategory, bool) {
 		return model.PostCategoryStudyTips, true
 	case "events":
 		return model.PostCategoryEvents, true
+	case "housing":
+		return model.PostCategoryHousing, true
+	case "food", "cafes", "food_cafes", "food-cafes":
+		return model.PostCategoryFoodCafes, true
+	case "sports", "hobbies", "sports_hobbies", "sports-hobbies":
+		return model.PostCategorySportsHobbies, true
+	case "random":
+		return model.PostCategoryRandom, true
 	case "projects":
 		return model.PostCategoryProjects, true
 	case "other":

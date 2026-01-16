@@ -23,6 +23,7 @@ type SavedItemService interface {
 	GetSavedItemsByType(ctx context.Context, userID int64, itemType model.SavedItemType) ([]*model.SavedItem, error)
 	SaveItem(ctx context.Context, userID int64, itemID int64, itemType model.SavedItemType) error
 	UnsaveItem(ctx context.Context, userID int64, itemID int64, itemType model.SavedItemType) error
+	UnsaveItemByID(ctx context.Context, userID int64, id int64) error
 	IsSaved(ctx context.Context, userID int64, itemID int64, itemType model.SavedItemType) (bool, error)
 }
 
@@ -65,6 +66,10 @@ func (s *savedItemService) SaveItem(ctx context.Context, userID int64, itemID in
 
 func (s *savedItemService) UnsaveItem(ctx context.Context, userID int64, itemID int64, itemType model.SavedItemType) error {
 	return s.savedItemRepo.Delete(ctx, userID, itemID, itemType)
+}
+
+func (s *savedItemService) UnsaveItemByID(ctx context.Context, userID int64, id int64) error {
+	return s.savedItemRepo.DeleteByID(ctx, userID, id)
 }
 
 func (s *savedItemService) IsSaved(ctx context.Context, userID int64, itemID int64, itemType model.SavedItemType) (bool, error) {

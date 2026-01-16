@@ -42,11 +42,6 @@ func main() {
 	}
 	defer postgres.Close()
 
-	// Run database migrations
-	if err := app.RunMigrations(postgres, logger); err != nil {
-		logger.Fatal("Failed to run migrations", zap.Error(err))
-	}
-
 	// Initialize Redis
 	redis, err := app.InitRedis(cfg.Redis.Addr, cfg.Redis.DB, logger)
 	if err != nil {
@@ -95,7 +90,10 @@ func main() {
 	if avatarURLPrefix == "" {
 		avatarURLPrefix = "http://localhost:9000/files" // Default file service public URL
 	}
-	profileService := service.NewProfileService(userRepo, fileClient, redis, logger, avatarURLPrefix)
+	profileService, err := service.NewProfileService(userRepo, fileClient, redis, logger, avatarURLPrefix)
+	if err != nil {
+		logger.Fatal("Failed to initialize profile service", zap.Error(err))
+	}
 	savedItemService := service.NewSavedItemService(savedItemRepo)
 	notificationClient := service.NewHTTPNotificationClient()
 
@@ -168,6 +166,7 @@ func main() {
 			protectedUsers.GET("/me/saved", authHandler.GetSavedItemsHandler)
 			protectedUsers.POST("/me/saved", authHandler.SaveItemHandler)
 			protectedUsers.DELETE("/me/saved", authHandler.UnsaveItemHandler)
+			protectedUsers.DELETE("/me/saved/:id", authHandler.UnsaveItemHandler)
 
 			// Skills maintenance
 			protectedUsers.POST("/me/skills", authHandler.AddUserSkillHandler)

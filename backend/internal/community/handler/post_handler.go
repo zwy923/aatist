@@ -24,7 +24,7 @@ type PostHandler struct {
 func NewPostHandler(postSvc service.PostService, logger *log.Logger) *PostHandler {
 	return &PostHandler{
 		HandlerBase: HandlerBase{logger: logger},
-		postSvc:    postSvc,
+		postSvc:     postSvc,
 	}
 }
 
@@ -64,6 +64,10 @@ func (h *PostHandler) GetPostsHandler(c *gin.Context) {
 			h.handleServiceError(c, err)
 			return
 		}
+
+		userID, _ := middleware.GetUserID(c)
+		h.postSvc.EnrichPostsWithLikes(c.Request.Context(), posts, userID)
+
 		c.JSON(http.StatusOK, response.Success(posts))
 		return
 	}
@@ -87,6 +91,10 @@ func (h *PostHandler) GetPostsHandler(c *gin.Context) {
 		h.handleServiceError(c, err)
 		return
 	}
+
+	userID, _ := middleware.GetUserID(c)
+	h.postSvc.EnrichPostsWithLikes(c.Request.Context(), posts, userID)
+
 	c.JSON(http.StatusOK, response.Success(posts))
 }
 
@@ -105,6 +113,10 @@ func (h *PostHandler) GetTrendingPostsHandler(c *gin.Context) {
 		h.handleServiceError(c, err)
 		return
 	}
+
+	userID, _ := middleware.GetUserID(c)
+	h.postSvc.EnrichPostsWithLikes(c.Request.Context(), posts, userID)
+
 	c.JSON(http.StatusOK, response.Success(posts))
 }
 
@@ -123,6 +135,10 @@ func (h *PostHandler) GetPostDetailHandler(c *gin.Context) {
 		h.handleServiceError(c, err)
 		return
 	}
+
+	userID, _ := middleware.GetUserID(c)
+	h.postSvc.EnrichPostWithLike(c.Request.Context(), post, userID)
+
 	c.JSON(http.StatusOK, response.Success(post))
 }
 
@@ -212,7 +228,10 @@ func (h *PostHandler) DeletePostHandler(c *gin.Context) {
 		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "invalid post id")
 		return
 	}
-	if err := h.postSvc.DeletePost(c.Request.Context(), uri.ID, userID); err != nil {
+	role, _ := middleware.GetRole(c)
+	isAdmin := role == "admin" || role == "org_team" // Assuming org_team or admin can moderate
+
+	if err := h.postSvc.DeletePost(c.Request.Context(), uri.ID, userID, isAdmin); err != nil {
 		h.handleServiceError(c, err)
 		return
 	}
@@ -243,6 +262,10 @@ func (h *PostHandler) GetUserPostsHandler(c *gin.Context) {
 		h.handleServiceError(c, err)
 		return
 	}
+
+	userID, _ := middleware.GetUserID(c)
+	h.postSvc.EnrichPostsWithLikes(c.Request.Context(), posts, userID)
+
 	c.JSON(http.StatusOK, response.Success(posts))
 }
 
@@ -268,6 +291,8 @@ func (h *PostHandler) GetMyPostsHandler(c *gin.Context) {
 		h.handleServiceError(c, err)
 		return
 	}
+
+	h.postSvc.EnrichPostsWithLikes(c.Request.Context(), posts, userID)
+
 	c.JSON(http.StatusOK, response.Success(posts))
 }
-

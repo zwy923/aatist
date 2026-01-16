@@ -14,7 +14,7 @@ import (
 
 // FileServiceClient defines interface for uploading files via HTTP
 type FileServiceClient interface {
-	UploadFile(ctx context.Context, userID int64, fileType string, reader io.Reader, size int64, contentType, filename string) (*FileUploadResponse, error)
+	UploadFile(ctx context.Context, userID int64, role, email, fileType string, reader io.Reader, size int64, contentType, filename string) (*FileUploadResponse, error)
 }
 
 type httpFileServiceClient struct {
@@ -53,7 +53,7 @@ func NewHTTPFileServiceClient() FileServiceClient {
 	}
 }
 
-func (c *httpFileServiceClient) UploadFile(ctx context.Context, userID int64, fileType string, reader io.Reader, size int64, contentType, filename string) (*FileUploadResponse, error) {
+func (c *httpFileServiceClient) UploadFile(ctx context.Context, userID int64, role, email, fileType string, reader io.Reader, size int64, contentType, filename string) (*FileUploadResponse, error) {
 	// Create multipart form
 	var requestBody bytes.Buffer
 	writer := multipart.NewWriter(&requestBody)
@@ -86,8 +86,10 @@ func (c *httpFileServiceClient) UploadFile(ctx context.Context, userID int64, fi
 
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	// Gateway will automatically set internal call headers when proxying
-	// We need to set user identity header for Gateway to forward
+	// We need to set user identity headers for Gateway to forward to downstream services
 	req.Header.Set("X-User-ID", fmt.Sprintf("%d", userID))
+	req.Header.Set("X-User-Role", role)
+	req.Header.Set("X-User-Email", email)
 
 	resp, err := c.client.Do(req)
 	if err != nil {

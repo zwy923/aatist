@@ -40,11 +40,6 @@ func main() {
 	}
 	defer postgres.Close()
 
-	// Run database migrations
-	if err := app.RunMigrations(postgres, logger); err != nil {
-		logger.Fatal("Failed to run migrations", zap.Error(err))
-	}
-
 	// Initialize repositories
 	eventRepo := repository.NewPostgresEventRepository(postgres.GetDB())
 	interestRepo := repository.NewPostgresEventInterestRepository(postgres.GetDB())

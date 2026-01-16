@@ -25,6 +25,7 @@ func NewDefaultRouter(logger *log.Logger, serviceName string) *gin.Engine {
 	router := gin.New()
 
 	// Apply global middlewares
+	router.Use(middleware.LoggerMiddleware(logger))
 	router.Use(middleware.RecoveryMiddleware(logger))
 	router.Use(middleware.RequestIDMiddleware())
 	router.Use(middleware.TrustGatewayMiddleware()) // Trust headers from Gateway

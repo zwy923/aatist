@@ -11,22 +11,30 @@ import (
 type PostCategory string
 
 const (
-	PostCategoryGeneral   PostCategory = "general"
-	PostCategoryStudyTips PostCategory = "study_tips"
-	PostCategoryEvents    PostCategory = "events"
-	PostCategoryProjects  PostCategory = "projects"
-	PostCategoryOther     PostCategory = "other"
-	PostCategorySticky    PostCategory = "sticky"
+	PostCategoryGeneral       PostCategory = "general"
+	PostCategoryStudyTips     PostCategory = "study_tips"
+	PostCategoryEvents        PostCategory = "events"
+	PostCategoryProjects      PostCategory = "projects"
+	PostCategoryFoodCafes     PostCategory = "food_cafes"
+	PostCategoryHousing       PostCategory = "housing"
+	PostCategorySportsHobbies PostCategory = "sports_hobbies"
+	PostCategoryRandom        PostCategory = "random"
+	PostCategoryOther         PostCategory = "other"
+	PostCategorySticky        PostCategory = "sticky"
 )
 
 // validPostCategories keeps the allowed category list aligned with DB-level CHECK constraints.
 var validPostCategories = map[PostCategory]struct{}{
-	PostCategoryGeneral:   {},
-	PostCategoryStudyTips: {},
-	PostCategoryEvents:    {},
-	PostCategoryProjects:  {},
-	PostCategoryOther:     {},
-	PostCategorySticky:    {},
+	PostCategoryGeneral:       {},
+	PostCategoryStudyTips:     {},
+	PostCategoryEvents:        {},
+	PostCategoryProjects:      {},
+	PostCategoryFoodCafes:     {},
+	PostCategoryHousing:       {},
+	PostCategorySportsHobbies: {},
+	PostCategoryRandom:        {},
+	PostCategoryOther:         {},
+	PostCategorySticky:        {},
 }
 
 // IsValid reports whether the category is part of the supported list.
@@ -90,4 +98,12 @@ type DiscussionPost struct {
 	CommentCount int64        `db:"comment_count" json:"comment_count"`
 	CreatedAt    time.Time    `db:"created_at" json:"created_at"`
 	UpdatedAt    time.Time    `db:"updated_at" json:"updated_at"`
+
+	// Enriched fields (joined from users table)
+	AuthorName    string `db:"author_name" json:"author_name"`
+	AuthorAvatar  string `db:"author_avatar" json:"author_avatar"`
+	AuthorFaculty string `db:"author_faculty" json:"author_faculty"`
+
+	// Client-side state
+	HasLiked bool `db:"-" json:"has_liked"`
 }

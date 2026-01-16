@@ -12,24 +12,28 @@ import {
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import EventIcon from "@mui/icons-material/Event";
 import WorkOutlineIcon from "@mui/icons-material/WorkOutline";
-import { eventsAPI, opportunitiesAPI, portfolioAPI } from "../services/api";
-import { useUser } from "../store/userStore.jsx";
+import { opportunitiesApi } from "../features/opportunities/api/opportunities";
+import { eventsApi } from "../features/events/api/events";
+import { portfolioApi } from "../features/profile/api/profile";
+import { useAuth } from "../features/auth/hooks/useAuth";
 import StatsCard from "../components/dashboard/StatsCard";
 import DashboardHeader from "../components/dashboard/DashboardHeader";
 import PopularSkillsCard from "../components/dashboard/PopularSkillsCard";
 import OpportunitiesOverview from "../components/dashboard/OpportunitiesOverview";
 import DiscoverTalentSection from "../components/dashboard/DiscoverTalentSection";
 import { aggregateTags } from "../components/dashboard/utils";
+import { StateContainer } from "../shared/components/ui/StateContainer";
+import PageLayout from "../shared/components/PageLayout";
 
 const NAV_LINKS = [
-  { label: "Opportunities", path: "/dashboard?section=opportunities" },
+  { label: "Opportunities", path: "/opportunities" },
+  { label: "My Applications", path: "/applications" },
   { label: "Events", path: "/dashboard?section=events" },
-  { label: "Community", path: "/dashboard?section=community" },
 ];
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user, isAuthenticated, logout } = useUser();
+  const { user, isAuthenticated, logout } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -57,34 +61,37 @@ export default function Dashboard() {
     try {
       setLoading(true);
 
-      const oppsData = await opportunitiesAPI.getOpportunities({
+      const oppsResponse = await opportunitiesApi.getOpportunities({
         page: 1,
         limit: 12,
         sort: "newest",
       });
-      const oppList = oppsData.opportunities || [];
+      const oppsData = oppsResponse.data.data;
+      const oppList = oppsData?.opportunities || oppsData?.items || [];
       setOpportunities(oppList);
       setStats((prev) => ({
         ...prev,
-        openOpportunities: oppsData.pagination?.total || oppList.length,
+        openOpportunities: oppsData?.pagination?.total || oppList.length,
       }));
       setPopularSkills(aggregateTags(oppList));
 
-      const eventsData = await eventsAPI.getEvents({
+      const eventsResponse = await eventsApi.getEvents({
         page: 1,
         limit: 6,
         sort: "upcoming",
       });
+      const eventsData = eventsResponse.data.data;
       setStats((prev) => ({
         ...prev,
-        upcomingEvents: eventsData.pagination?.total || eventsData.events?.length || 0,
+        upcomingEvents: eventsData?.pagination?.total || eventsData?.events?.length || eventsData?.items?.length || 0,
       }));
 
       try {
-        const myPortfolio = await portfolioAPI.getMyPortfolio();
+        const portfolioResponse = await portfolioApi.getMyPortfolio();
+        const myPortfolio = portfolioResponse.data.data;
         setStats((prev) => ({
           ...prev,
-          ongoingProjects: myPortfolio.projects?.length || 0,
+          ongoingProjects: myPortfolio?.projects?.length || myPortfolio?.items?.length || 0,
         }));
       } catch (portfolioErr) {
         console.warn("Portfolio not available:", portfolioErr);
@@ -99,77 +106,35 @@ export default function Dashboard() {
     }
   }, []);
 
+  const hasFetched = React.useRef(false);
   useEffect(() => {
     if (!isAuthenticated) {
       navigate("/auth/login");
       return;
     }
-    loadDashboardData();
+    if (!hasFetched.current) {
+      loadDashboardData();
+      hasFetched.current = true;
+    }
   }, [isAuthenticated, navigate, loadDashboardData]);
-
-  const handleMenuOpen = (event) => setMenuAnchorEl(event.currentTarget);
-  const handleMenuClose = () => setMenuAnchorEl(null);
-  const handleLogout = async () => {
-    await logout();
-    handleMenuClose();
-    navigate("/auth/login");
-  };
-  const handleNavClick = useCallback(
-    (path) => navigate(path),
-    [navigate]
-  );
-
-  const verificationChip = isStudentRole ? (
-    <Chip
-      size="small"
-      label={isVerifiedStudent ? "Student verified" : "Verification pending"}
-      color={isVerifiedStudent ? "success" : "warning"}
-      variant="outlined"
-      sx={{ fontSize: "0.75rem" }}
-    />
-  ) : (
-    <Chip
-      size="small"
-      label="Organization workspace"
-      color="info"
-      variant="outlined"
-      sx={{ fontSize: "0.75rem" }}
-    />
-  );
-
-  if (loading) {
-    return (
-      <Box
-        sx={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "radial-gradient(ellipse at top left, #101820, #050505)",
-        }}
-      >
-        <CircularProgress />
-      </Box>
-    );
-  }
 
   const statsCards = [
     {
-      key: "open",
+      id: "open",
       label: "Open Opportunities",
       value: stats.openOpportunities,
       icon: <WorkOutlineIcon sx={{ color: "#5de0ff", fontSize: 32 }} />,
       accent: { bg: "rgba(93, 224, 255, 0.1)" },
     },
     {
-      key: "projects",
+      id: "projects",
       label: "Ongoing Projects",
       value: stats.ongoingProjects,
       icon: <AssignmentIcon sx={{ color: "#ffb877", fontSize: 32 }} />,
       accent: { bg: "rgba(255, 184, 119, 0.1)" },
     },
     {
-      key: "events",
+      id: "events",
       label: "Upcoming Events",
       value: stats.upcomingEvents,
       icon: <EventIcon sx={{ color: "#5de0ff", fontSize: 32 }} />,
@@ -178,30 +143,9 @@ export default function Dashboard() {
   ];
 
   return (
-    <Box
-      sx={{
-        minHeight: "100vh",
-        background: "radial-gradient(ellipse at top left, #101820, #050505)",
-        py: 4,
-      }}
-    >
-      <Container maxWidth="xl">
+    <PageLayout maxWidth="xl">
+      <StateContainer loading={loading} onRetry={loadDashboardData}>
         <Stack spacing={4}>
-          <DashboardHeader
-            navItems={NAV_LINKS}
-            onNavClick={handleNavClick}
-            verificationChip={verificationChip}
-            menuAnchorEl={menuAnchorEl}
-            isMenuOpen={isMenuOpen}
-            onMenuOpen={handleMenuOpen}
-            onMenuClose={handleMenuClose}
-            onLogout={handleLogout}
-            userDisplayName={userDisplayName}
-            userEmail={user?.email}
-            isStudentRole={isStudentRole}
-            onNavigate={(path) => navigate(path)}
-          />
-
           <Box>
             <Typography variant="h3" fontWeight={700} sx={{ color: "text.primary", mb: 1 }}>
               Welcome to Your Talent Hub
@@ -212,9 +156,9 @@ export default function Dashboard() {
           </Box>
 
           <Grid container spacing={3}>
-            {statsCards.map((card) => (
-              <Grid item xs={12} sm={6} md={4} key={card.key}>
-                <StatsCard {...card} />
+            {statsCards.map(({ id, ...cardProps }) => (
+              <Grid item xs={12} sm={6} md={4} key={id}>
+                <StatsCard {...cardProps} />
               </Grid>
             ))}
           </Grid>
@@ -236,8 +180,8 @@ export default function Dashboard() {
             onSelectUser={(userId) => navigate(`/users/${userId}`)}
           />
         </Stack>
-      </Container>
-    </Box>
+      </StateContainer>
+    </PageLayout>
   );
 }
 

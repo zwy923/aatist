@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gin-gonic/gin"
 	"github.com/aatist/backend/pkg/errs"
 	"github.com/aatist/backend/pkg/response"
+	"github.com/gin-gonic/gin"
 )
 
 // TrustGatewayMiddleware extracts user identity from headers set by Gateway
@@ -41,6 +41,9 @@ func TrustGatewayMiddleware() gin.HandlerFunc {
 // Use this for protected endpoints in microservices
 func RequireGatewayAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if c == nil {
+			return
+		}
 		userIDStr := c.GetHeader(HeaderUserID)
 		if userIDStr == "" {
 			c.JSON(http.StatusUnauthorized, response.Error(errs.NewAppError(errs.ErrUnauthorized, http.StatusUnauthorized, "authentication required").WithCode(errs.CodeUnauthorized)))
@@ -51,4 +54,3 @@ func RequireGatewayAuth() gin.HandlerFunc {
 		c.Next()
 	}
 }
-

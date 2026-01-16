@@ -587,7 +587,10 @@ func (h *OpportunityHandler) ListMyApplicationsHandler(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, response.Success(responses))
+	c.JSON(http.StatusOK, response.Success(gin.H{
+		"applications": responses,
+		"items":        responses,
+	}))
 }
 
 // ListOpportunityApplicationsHandler handles GET /opportunities/:id/applications
@@ -629,5 +632,8 @@ func (h *OpportunityHandler) ListOpportunityApplicationsHandler(c *gin.Context) 
 		}
 	}
 
-	c.JSON(http.StatusOK, response.Success(responses))
+	c.JSON(http.StatusOK, response.Success(gin.H{
+		"applications": responses,
+		"items":        responses,
+	}))
 }

@@ -14,7 +14,7 @@ export function UserProvider({ children }) {
     const savedToken = localStorage.getItem("token");
     const savedRefreshToken = localStorage.getItem("refresh_token");
     const savedUser = localStorage.getItem("user");
-    
+
     if (savedToken && savedUser) {
       setToken(savedToken);
       try {
@@ -48,12 +48,19 @@ export function UserProvider({ children }) {
       console.error("Logout API call failed", err);
       // 即使API调用失败，也继续清除本地状态
     }
-    
+
     setUser(null);
     setToken(null);
     localStorage.removeItem("token");
     localStorage.removeItem("refresh_token");
     localStorage.removeItem("user");
+  };
+
+  // Update user data in state and localStorage
+  const updateUser = (updatedData) => {
+    const newUser = { ...user, ...updatedData };
+    setUser(newUser);
+    localStorage.setItem("user", JSON.stringify(newUser));
   };
 
   const value = {
@@ -62,6 +69,7 @@ export function UserProvider({ children }) {
     loading,
     login,
     logout,
+    updateUser,
     isAuthenticated: !!user && !!token,
   };
 

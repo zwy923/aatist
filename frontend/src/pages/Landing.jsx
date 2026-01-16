@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Button, Typography } from "@mui/material";
-import { useUser } from "../store/userStore.jsx";
+import { useAuth } from "../features/auth/hooks/useAuth";
 
 // Constants
 const PARTICLE_TEXT =
@@ -201,7 +201,7 @@ export default function Landing() {
   const textRef = useRef(null);
   const canvasRef = useRef(null);
   const navigate = useNavigate();
-  const { user, logout, isAuthenticated } = useUser();
+  const { user, logout, isAuthenticated } = useAuth();
 
   useTitleFloat(textRef);
   useParticleAnimation(canvasRef);

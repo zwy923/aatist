@@ -64,8 +64,11 @@ type SavedItemRepository interface {
 	// Create creates a new saved item
 	Create(ctx context.Context, item *model.SavedItem) error
 
-	// Delete deletes a saved item
+	// Delete deletes a saved item by target item ID and type
 	Delete(ctx context.Context, userID int64, itemID int64, itemType model.SavedItemType) error
+
+	// DeleteByID deletes a saved item by its unique ID
+	DeleteByID(ctx context.Context, userID int64, id int64) error
 
 	// Exists checks if a saved item exists
 	Exists(ctx context.Context, userID int64, itemID int64, itemType model.SavedItemType) (bool, error)

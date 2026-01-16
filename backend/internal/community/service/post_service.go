@@ -18,7 +18,7 @@ import (
 type PostService interface {
 	CreatePost(ctx context.Context, post *model.DiscussionPost) error
 	UpdatePost(ctx context.Context, post *model.DiscussionPost) error
-	DeletePost(ctx context.Context, id int64, userID int64) error
+	DeletePost(ctx context.Context, id int64, userID int64, isAdmin bool) error
 	GetPost(ctx context.Context, id int64) (*model.DiscussionPost, error)
 	ListPosts(ctx context.Context, filter repository.PostListFilter) ([]*model.DiscussionPost, error)
 	ListUserPosts(ctx context.Context, userID int64, limit, offset int) ([]*model.DiscussionPost, error)
@@ -26,10 +26,13 @@ type PostService interface {
 	SearchPostsTrending(ctx context.Context, filter repository.PostSearchFilter) ([]*model.DiscussionPost, error)
 	GetTrendingPosts(ctx context.Context, limit int) ([]*model.DiscussionPost, error)
 	GetStickyPosts(ctx context.Context, limit int) ([]*model.DiscussionPost, error)
+	EnrichPostWithLike(ctx context.Context, post *model.DiscussionPost, userID int64) error
+	EnrichPostsWithLikes(ctx context.Context, posts []*model.DiscussionPost, userID int64) error
 }
 
 type postService struct {
 	postRepo   repository.PostRepository
+	likeRepo   repository.LikeRepository
 	redis      redis.Cmdable
 	publisher  EventPublisher
 	trending   *TrendingManager
@@ -37,7 +40,7 @@ type postService struct {
 	logger     *log.Logger
 }
 
-func NewPostService(postRepo repository.PostRepository, redisClient redis.Cmdable, publisher EventPublisher, trending *TrendingManager, engagement *EngagementUpdater, logger *log.Logger) PostService {
+func NewPostService(postRepo repository.PostRepository, likeRepo repository.LikeRepository, redisClient redis.Cmdable, publisher EventPublisher, trending *TrendingManager, engagement *EngagementUpdater, logger *log.Logger) PostService {
 	if trending == nil {
 		trending = NewTrendingManager(postRepo, redisClient, logger)
 	}
@@ -46,12 +49,38 @@ func NewPostService(postRepo repository.PostRepository, redisClient redis.Cmdabl
 	}
 	return &postService{
 		postRepo:   postRepo,
+		likeRepo:   likeRepo,
 		redis:      redisClient,
 		publisher:  publisher,
 		trending:   trending,
 		engagement: engagement,
 		logger:     logger,
 	}
+}
+
+func (s *postService) EnrichPostWithLike(ctx context.Context, post *model.DiscussionPost, userID int64) error {
+	if userID <= 0 || post == nil {
+		return nil
+	}
+	liked, err := s.likeRepo.Exists(ctx, post.ID, userID)
+	if err != nil {
+		return err
+	}
+	post.HasLiked = liked
+	return nil
+}
+
+func (s *postService) EnrichPostsWithLikes(ctx context.Context, posts []*model.DiscussionPost, userID int64) error {
+	if userID <= 0 || len(posts) == 0 {
+		return nil
+	}
+	// For simplicity, we'll do individual checks for now.
+	// In a high-traffic system, a bulk "GetLikesByUser" would be better.
+	for _, p := range posts {
+		liked, _ := s.likeRepo.Exists(ctx, p.ID, userID)
+		p.HasLiked = liked
+	}
+	return nil
 }
 
 func (s *postService) CreatePost(ctx context.Context, post *model.DiscussionPost) error {
@@ -93,8 +122,8 @@ func (s *postService) UpdatePost(ctx context.Context, post *model.DiscussionPost
 	return nil
 }
 
-func (s *postService) DeletePost(ctx context.Context, id int64, userID int64) error {
-	if err := s.postRepo.Delete(ctx, id, userID); err != nil {
+func (s *postService) DeletePost(ctx context.Context, id int64, userID int64, isAdmin bool) error {
+	if err := s.postRepo.Delete(ctx, id, userID, isAdmin); err != nil {
 		return err
 	}
 	s.engagement.ClearCounters(id)

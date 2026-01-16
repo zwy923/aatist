@@ -8,7 +8,7 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U aatn"]
+      test: [ "CMD-SHELL", "pg_isready -U aatn" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -18,7 +18,7 @@ services:
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -34,7 +34,7 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "status"]
+      test: [ "CMD", "rabbitmq-diagnostics", "status" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -49,11 +49,26 @@ services:
       - "9000:9000"
       - "9001:9001"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
       interval: 5s
       timeout: 3s
       retries: 5
 
+  migrate:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - CONFIG_PATH=/app/configs/config.yaml
+      - POSTGRES_DSN=postgres://aatn:aatn@postgres:5432/aatn?sslmode=disable
+      - MIGRATIONS_DIR=/app/migrations
+      - APP_ENV=dev
+    volumes:
+      - ./configs:/app/configs
+      - ./migrations:/app/migrations
   user-service:
     build:
       context: .
@@ -67,6 +82,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_started
+      migrate:
+        condition: service_completed_successfully
     environment:
       - SERVICE_NAME=user-service
       - CONFIG_PATH=/app/configs/config.yaml
@@ -76,7 +93,6 @@ services:
       - JWT_SECRET=CHANGE_ME_IN_PRODUCTION_USE_STRONG_SECRET
       - HTTP_PORT=8081
       - APP_ENV=dev
-      - MIGRATIONS_DIR=/app/migrations
       - S3_ENDPOINT=minio:9000
       - S3_ACCESS_KEY=minioadmin
       - S3_SECRET_KEY=minioadmin
@@ -89,7 +105,6 @@ services:
       - "8081:8081"
     volumes:
       - ./configs:/app/configs
-      - ./migrations:/app/migrations
 
   email-worker:
     build:
@@ -118,6 +133,8 @@ services:
         condition: service_healthy
       user-service:
         condition: service_started
+      migrate:
+        condition: service_completed_successfully
     environment:
       - SERVICE_NAME=portfolio-service
       - CONFIG_PATH=/app/configs/config.yaml
@@ -141,6 +158,8 @@ services:
         condition: service_healthy
       backend-mq:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       - SERVICE_NAME=notification-service
       - CONFIG_PATH=/app/configs/config.yaml
@@ -149,14 +168,12 @@ services:
       - MQ_BROKER=amqp://guest:guest@backend-mq:5672/
       - HTTP_PORT=8085
       - APP_ENV=dev
-      - MIGRATIONS_DIR=/app/migrations
       - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-}
       - INTERNAL_ALLOWED_IPS=${INTERNAL_ALLOWED_IPS:-}
     ports:
       - "8085:8085"
     volumes:
       - ./configs:/app/configs
-      - ./migrations:/app/migrations
 
   file-service:
     build:
@@ -167,13 +184,14 @@ services:
         condition: service_healthy
       minio:
         condition: service_started
+      migrate:
+        condition: service_completed_successfully
     environment:
       - SERVICE_NAME=file-service
       - CONFIG_PATH=/app/configs/config.yaml
       - POSTGRES_DSN=postgres://aatn:aatn@postgres:5432/aatn?sslmode=disable
       - HTTP_PORT=8086
       - APP_ENV=dev
-      - MIGRATIONS_DIR=/app/migrations
       - S3_ENDPOINT=minio:9000
       - S3_ACCESS_KEY=minioadmin
       - S3_SECRET_KEY=minioadmin
@@ -186,7 +204,6 @@ services:
       - "8086:8086"
     volumes:
       - ./configs:/app/configs
-      - ./migrations:/app/migrations
 
   community-service:
     build:
@@ -199,6 +216,8 @@ services:
         condition: service_healthy
       backend-mq:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       - SERVICE_NAME=community-service
       - CONFIG_PATH=/app/configs/config.yaml
@@ -207,13 +226,11 @@ services:
       - MQ_BROKER=amqp://guest:guest@backend-mq:5672/
       - HTTP_PORT=8087
       - APP_ENV=dev
-      - MIGRATIONS_DIR=/app/migrations
       - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-}
     ports:
       - "8087:8087"
     volumes:
       - ./configs:/app/configs
-      - ./migrations:/app/migrations
 
   opp-service:
     build:
@@ -224,19 +241,19 @@ services:
         condition: service_healthy
       user-service:
         condition: service_started
+      migrate:
+        condition: service_completed_successfully
     environment:
       - SERVICE_NAME=opp-service
       - CONFIG_PATH=/app/configs/config.yaml
       - POSTGRES_DSN=postgres://aatn:aatn@postgres:5432/aatn?sslmode=disable
       - HTTP_PORT=8083
       - APP_ENV=dev
-      - MIGRATIONS_DIR=/app/migrations
       - GATEWAY_URL=http://gateway:8080
     ports:
       - "8083:8083"
     volumes:
       - ./configs:/app/configs
-      - ./migrations:/app/migrations
 
   events-service:
     build:
@@ -247,19 +264,19 @@ services:
         condition: service_healthy
       user-service:
         condition: service_started
+      migrate:
+        condition: service_completed_successfully
     environment:
       - SERVICE_NAME=events-service
       - CONFIG_PATH=/app/configs/config.yaml
       - POSTGRES_DSN=postgres://aatn:aatn@postgres:5432/aatn?sslmode=disable
       - HTTP_PORT=8084
       - APP_ENV=dev
-      - MIGRATIONS_DIR=/app/migrations
       - GATEWAY_URL=http://gateway:8080
     ports:
       - "8084:8084"
     volumes:
       - ./configs:/app/configs
-      - ./migrations:/app/migrations
 
   gateway:
     build:
@@ -274,6 +291,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_started
+      migrate:
+        condition: service_completed_successfully
       user-service:
         condition: service_started
       portfolio-service:

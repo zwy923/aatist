@@ -41,11 +41,6 @@ func main() {
 	}
 	defer postgres.Close()
 
-	// Run database migrations
-	if err := app.RunMigrations(postgres, logger); err != nil {
-		logger.Fatal("Failed to run migrations", zap.Error(err))
-	}
-
 	// Initialize S3/MinIO storage
 	s3Client, err := storage.NewS3(storage.S3Config{
 		Endpoint:  cfg.S3.Endpoint,
@@ -78,7 +73,7 @@ func main() {
 		// Internal API routes (for service-to-service communication)
 		// These routes require internal authentication
 		internal := api.Group("/internal/file")
-		internal.Use(middleware.RequireInternalCall()) // Require internal service authentication
+		internal.Use(middleware.RequireInternalCall())    // Require internal service authentication
 		internal.Use(middleware.TrustGatewayMiddleware()) // Extract user identity from headers (set by Gateway)
 		{
 			internal.POST("/upload", fileHandler.UploadFileHandler)
@@ -89,7 +84,7 @@ func main() {
 		// User-facing file routes (require auth via Gateway)
 		files := api.Group("/files")
 		files.Use(middleware.TrustGatewayMiddleware()) // Trust Gateway headers
-		files.Use(middleware.RequireGatewayAuth())    // Require Gateway to set user identity
+		files.Use(middleware.RequireGatewayAuth())     // Require Gateway to set user identity
 		{
 			files.POST("/upload", fileHandler.UploadFileHandler)
 			files.POST("/presigned-upload", fileHandler.GeneratePresignedUploadURLHandler)
@@ -105,4 +100,3 @@ func main() {
 		logger.Fatal("Server error", zap.Error(err))
 	}
 }
-

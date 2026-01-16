@@ -74,26 +74,15 @@ func (t *TrendingManager) GetTopIDs(ctx context.Context, limit int64) ([]int64, 
 	return result, nil
 }
 
-// calculateScore computes Reddit-style hot score.
-func (t *TrendingManager) calculateScore(ctx context.Context, post *model.DiscussionPost) float64 {
-	likes := t.readCount(ctx, likeCountKey(post.ID))
-	comments := t.readCount(ctx, commentCountKey(post.ID))
-
-	engagement := float64(likes + comments + 1) // avoid log(0)
-	timeSince := time.Since(post.CreatedAt).Hours()
-	if timeSince < 0 {
-		timeSince = 0
-	}
-	return math.Log(engagement) - timeSince*trendingDecayFactor
-}
-
-func (t *TrendingManager) readCount(ctx context.Context, key string) int64 {
+func (t *TrendingManager) readCount(ctx context.Context, key string, dbValue int64) int64 {
 	if t.redis == nil {
-		return 0
+		return dbValue
 	}
 	val, err := t.redis.Get(ctx, key).Int64()
-	if err != nil {
-		return 0
+	if err == redis.Nil {
+		// Initialize Redis with DB value
+		t.redis.SetNX(ctx, key, dbValue, 0)
+		return dbValue
 	}
 	return val
 }
@@ -143,11 +132,30 @@ func (t *TrendingManager) refreshNow(ctx context.Context, postID int64) {
 		return
 	}
 
-	score := t.calculateScore(ctx, post)
+	likes := t.readCount(ctx, likeCountKey(post.ID), post.LikeCount)
+	comments := t.readCount(ctx, commentCountKey(post.ID), post.CommentCount)
+
+	score := t.calculateScoreWithCounts(ctx, post, likes, comments)
 	if err := t.redis.ZAdd(ctx, redisTrendingKey, redis.Z{
 		Member: postID,
 		Score:  score,
 	}).Err(); err != nil {
 		t.logger.Warn("failed to update trending score", zap.Int64("post_id", postID), zap.Error(err))
 	}
+
+	// Sync counts to DB
+	if err := t.postRepo.UpdateEngagementCounts(ctx, postID, likes, comments); err != nil {
+		t.logger.Warn("failed to sync engagement counts to DB", zap.Int64("post_id", postID), zap.Error(err))
+	} else {
+		t.logger.Info("Synced engagement counts to DB", zap.Int64("post_id", postID), zap.Int64("likes", likes), zap.Int64("comments", comments))
+	}
+}
+
+func (t *TrendingManager) calculateScoreWithCounts(ctx context.Context, post *model.DiscussionPost, likes, comments int64) float64 {
+	engagement := float64(likes + comments + 1) // avoid log(0)
+	timeSince := time.Since(post.CreatedAt).Hours()
+	if timeSince < 0 {
+		timeSince = 0
+	}
+	return math.Log(engagement) - timeSince*trendingDecayFactor
 }

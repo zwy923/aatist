@@ -133,6 +133,7 @@ func (u *EngagementUpdater) flush(likeDeltas, commentDeltas map[int64]int64) {
 	}
 
 	for postID := range changed {
+		u.logger.Info("Engagement flushed, scheduling refresh", zap.Int64("post_id", postID))
 		u.ScheduleRefresh(postID)
 	}
 }

@@ -106,16 +106,24 @@ export default function DashboardHeader({
           <MenuItem
             onClick={() => {
               onMenuClose();
-              onNavigate("/saved");
+              onNavigate("/profile?tab=saved");
             }}
           >
             Saved items
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              onMenuClose();
+              onNavigate("/applications");
+            }}
+          >
+            My applications
           </MenuItem>
           {isStudentRole && (
             <MenuItem
               onClick={() => {
                 onMenuClose();
-                onNavigate("/portfolio/edit");
+                onNavigate("/profile?tab=portfolio");
               }}
             >
               Edit portfolio
@@ -124,7 +132,7 @@ export default function DashboardHeader({
           <MenuItem
             onClick={() => {
               onMenuClose();
-              onNavigate("/settings");
+              onNavigate("/profile?tab=settings");
             }}
           >
             Settings

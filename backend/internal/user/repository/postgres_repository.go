@@ -127,7 +127,7 @@ func (r *postgresRepository) CreateUser(ctx context.Context, user *model.User) e
 		student_id, school, faculty, major, weekly_hours, weekly_availability, skills, courses,
 		organization_name, organization_bio, contact_title, is_affiliated_with_school, org_size,
 		created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
 		RETURNING id`
 
 	now := time.Now()
@@ -375,6 +375,26 @@ func (r *postgresSavedItemRepository) Delete(ctx context.Context, userID int64, 
 	result, err := r.db.ExecContext(ctx, query, userID, itemID, itemType)
 	if err != nil {
 		return fmt.Errorf("failed to delete saved item: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("saved item not found or unauthorized")
+	}
+
+	return nil
+}
+
+func (r *postgresSavedItemRepository) DeleteByID(ctx context.Context, userID int64, id int64) error {
+	query := `DELETE FROM saved_items WHERE id = $1 AND user_id = $2`
+
+	result, err := r.db.ExecContext(ctx, query, id, userID)
+	if err != nil {
+		return fmt.Errorf("failed to delete saved item by id: %w", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()

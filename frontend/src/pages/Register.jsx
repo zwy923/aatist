@@ -19,7 +19,7 @@ import {
   Select,
   Grid,
 } from "@mui/material";
-import { authAPI } from "../services/api";
+import { useAuth } from "../features/auth/hooks/useAuth";
 
 const createRegisterForm = () => ({
   name: "",
@@ -86,7 +86,7 @@ const isStrongPassword = (password) => strongPasswordRegex.test(password);
 
 export default function Register() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const { register, loading } = useAuth();
   const [error, setError] = useState("");
   const [registerSuccess, setRegisterSuccess] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState("");
@@ -121,23 +121,19 @@ export default function Register() {
   const handleRegister = async (e) => {
     e.preventDefault();
     setError("");
-    setLoading(true);
 
     if (!registerForm.role) {
       setError("Please choose how you'd like to use Aatist.");
-      setLoading(false);
       return;
     }
 
     if (!isStrongPassword(registerForm.password)) {
       setError(strongPasswordHint);
-      setLoading(false);
       return;
     }
 
     if (registerForm.password !== registerForm.confirmPassword) {
       setError("Passwords do not match.");
-      setLoading(false);
       return;
     }
 
@@ -146,12 +142,10 @@ export default function Register() {
     if (registerForm.role === "student") {
       if (!registerForm.studentId.trim()) {
         setError("Student ID is required.");
-        setLoading(false);
         return;
       }
       if (!registerForm.school) {
         setError("Please select your university.");
-        setLoading(false);
         return;
       }
 
@@ -161,7 +155,6 @@ export default function Register() {
       if (registerForm.school === OTHER_OPTION) {
         if (!registerForm.customSchool.trim()) {
           setError("Please enter your university name.");
-          setLoading(false);
           return;
         }
         resolvedSchool = registerForm.customSchool.trim();
@@ -173,7 +166,6 @@ export default function Register() {
       if (schoolOption?.faculties?.length) {
         if (!registerForm.faculty) {
           setError("Please select your faculty.");
-          setLoading(false);
           return;
         }
         if (
@@ -181,7 +173,6 @@ export default function Register() {
           !registerForm.customFaculty.trim()
         ) {
           setError("Please enter your faculty name.");
-          setLoading(false);
           return;
         }
         resolvedFaculty =
@@ -200,12 +191,10 @@ export default function Register() {
     } else if (registerForm.role === "organization") {
       if (!registerForm.organizationName.trim()) {
         setError("Organization / team name is required.");
-        setLoading(false);
         return;
       }
       if (!registerForm.contactTitle.trim()) {
         setError("Please tell us your role / title.");
-        setLoading(false);
         return;
       }
       profile.organizationName = registerForm.organizationName.trim();
@@ -215,7 +204,6 @@ export default function Register() {
     // Ensure profile is not empty (profile is required)
     if (Object.keys(profile).length === 0) {
       setError("Profile information is required.");
-      setLoading(false);
       return;
     }
 
@@ -223,56 +211,22 @@ export default function Register() {
       Object.entries(profile).filter(([, value]) => Boolean(value))
     );
 
-    try {
-      await authAPI.register({
-        name: registerForm.name,
-        email: registerForm.email,
-        password: registerForm.password,
-        role: registerForm.role,
-        profile: cleanProfile,
-      });
+    const result = await register({
+      name: registerForm.name,
+      email: registerForm.email,
+      password: registerForm.password,
+      role: registerForm.role,
+      profile: cleanProfile,
+    });
+
+    if (result.success) {
       setRegisterSuccess(true);
       setRegisteredEmail(registerForm.email);
       setRegisterForm(createRegisterForm());
       setRegisterStage("choice");
-    } catch (err) {
-      console.error("Registration error:", err); // Debug log
-      
-      let errorMessage = "Registration failed, try again.";
-      
-      // Check if we have a response object
-      if (err.response) {
-        const status = err.response.status;
-        const data = err.response.data;
-        
-        // Handle 409 Conflict (email/username already exists)
-        if (status === 409) {
-          errorMessage = data?.error?.message || 
-                        data?.message || 
-                        "This email is already registered. Please use a different email address.";
-        } 
-        // Handle other error responses
-        else if (data?.error?.message) {
-          errorMessage = data.error.message;
-        } else if (data?.message) {
-          errorMessage = data.message;
-        } else if (data?.error) {
-          errorMessage = typeof data.error === 'string' ? data.error : data.error.message || "An error occurred";
-        }
-      } 
-      // Handle network errors or other exceptions
-      else if (err.request) {
-        errorMessage = "Network error. Please check your connection and try again.";
-      } 
-      // Handle other errors
-      else if (err.message) {
-        errorMessage = err.message;
-      }
-      
-      setError(errorMessage);
+    } else {
+      setError(result.error || "Registration failed, try again.");
       setRegisterSuccess(false);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -395,6 +349,7 @@ export default function Register() {
     <Box component="form" onSubmit={handleRegister}>
       <Stack spacing={3}>
         <TextField
+          id="register-name"
           label="Full name"
           placeholder="How should we call you?"
           value={registerForm.name}
@@ -403,6 +358,7 @@ export default function Register() {
           fullWidth
         />
         <TextField
+          id="register-email"
           label="Email"
           type="email"
           placeholder={emailPlaceholder}
@@ -413,6 +369,7 @@ export default function Register() {
         />
         <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
           <TextField
+            id="register-password"
             label="Password"
             type="password"
             placeholder="Min 10 characters, Aa1!"
@@ -423,6 +380,7 @@ export default function Register() {
             helperText={strongPasswordHint}
           />
           <TextField
+            id="register-confirm-password"
             label="Confirm password"
             type="password"
             placeholder="Repeat password"
@@ -438,6 +396,7 @@ export default function Register() {
         {registerForm.role === "student" ? (
           <Stack spacing={2}>
             <TextField
+              id="register-student-id"
               label="Student ID"
               placeholder="e.g. A123456"
               value={registerForm.studentId}
@@ -475,6 +434,7 @@ export default function Register() {
             </FormControl>
             {registerForm.school === OTHER_OPTION && (
               <TextField
+                id="register-custom-school"
                 label="University name"
                 placeholder="Enter your university"
                 value={registerForm.customSchool}
@@ -490,6 +450,7 @@ export default function Register() {
         ) : (
           <Stack spacing={2}>
             <TextField
+              id="register-organization-name"
               label="Organization / team"
               placeholder="Aalto Ventures Program"
               value={registerForm.organizationName}
@@ -500,6 +461,7 @@ export default function Register() {
               fullWidth
             />
             <TextField
+              id="register-contact-title"
               label="Role / title"
               placeholder="Program Coordinator"
               value={registerForm.contactTitle}
@@ -605,18 +567,18 @@ export default function Register() {
   const headerTitle = registerSuccess
     ? "Verify your inbox"
     : registerStage === "choice"
-    ? "How do you want to join?"
-    : registerForm.role === "organization"
-    ? "Tell us about your collective"
-    : "Tell us about your campus life";
+      ? "How do you want to join?"
+      : registerForm.role === "organization"
+        ? "Tell us about your collective"
+        : "Tell us about your campus life";
 
   const headerSubtitle = registerSuccess
     ? `We just emailed ${registeredEmail || "you"} with the final verification step.`
     : registerStage === "choice"
-    ? "Select whether you are joining as a student maker or as an organization that publishes opportunities."
-    : registerForm.role === "organization"
-    ? "Share the essentials so we can unlock partner tooling for you."
-    : "We partner with students across Finland—let us know where you study.";
+      ? "Select whether you are joining as a student maker or as an organization that publishes opportunities."
+      : registerForm.role === "organization"
+        ? "Share the essentials so we can unlock partner tooling for you."
+        : "We partner with students across Finland—let us know where you study.";
 
   return (
     <Box

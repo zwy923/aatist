@@ -21,7 +21,7 @@ func NewPostgresProjectRepository(db *sqlx.DB) ProjectRepository {
 
 func (r *postgresProjectRepository) FindByUserID(ctx context.Context, userID int64) ([]*model.Project, error) {
 	var projects []*model.Project
-	query := `SELECT id, user_id, title, description, year, tags, cover_image_url, project_link, created_at, updated_at
+	query := `SELECT id, user_id, title, client_name, description, year, tags, cover_image_url, project_link, created_at, updated_at
 		FROM projects WHERE user_id = $1 ORDER BY created_at DESC`
 
 	err := r.db.SelectContext(ctx, &projects, query, userID)
@@ -34,7 +34,7 @@ func (r *postgresProjectRepository) FindByUserID(ctx context.Context, userID int
 
 func (r *postgresProjectRepository) FindByID(ctx context.Context, id int64) (*model.Project, error) {
 	var project model.Project
-	query := `SELECT id, user_id, title, description, year, tags, cover_image_url, project_link, created_at, updated_at
+	query := `SELECT id, user_id, title, client_name, description, year, tags, cover_image_url, project_link, created_at, updated_at
 		FROM projects WHERE id = $1`
 
 	err := r.db.GetContext(ctx, &project, query, id)
@@ -49,8 +49,8 @@ func (r *postgresProjectRepository) FindByID(ctx context.Context, id int64) (*mo
 }
 
 func (r *postgresProjectRepository) Create(ctx context.Context, project *model.Project) error {
-	query := `INSERT INTO projects (user_id, title, description, year, tags, cover_image_url, project_link, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	query := `INSERT INTO projects (user_id, title, client_name, description, year, tags, cover_image_url, project_link, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		RETURNING id`
 
 	now := time.Now()
@@ -60,6 +60,7 @@ func (r *postgresProjectRepository) Create(ctx context.Context, project *model.P
 	err := r.db.QueryRowContext(ctx, query,
 		project.UserID,
 		project.Title,
+		project.ClientName,
 		project.Description,
 		project.Year,
 		project.Tags,
@@ -78,13 +79,14 @@ func (r *postgresProjectRepository) Create(ctx context.Context, project *model.P
 
 func (r *postgresProjectRepository) Update(ctx context.Context, project *model.Project) error {
 	query := `UPDATE projects 
-		SET title = $1, description = $2, year = $3, tags = $4, cover_image_url = $5, project_link = $6, updated_at = $7
-		WHERE id = $8 AND user_id = $9
+		SET title = $1, client_name = $2, description = $3, year = $4, tags = $5, cover_image_url = $6, project_link = $7, updated_at = $8
+		WHERE id = $9 AND user_id = $10
 		RETURNING id`
 
 	var id int64
 	err := r.db.QueryRowContext(ctx, query,
 		project.Title,
+		project.ClientName,
 		project.Description,
 		project.Year,
 		project.Tags,

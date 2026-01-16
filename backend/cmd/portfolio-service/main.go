@@ -77,7 +77,7 @@ func main() {
 		{
 			protectedPortfolio.GET("/me/portfolio", portfolioHandler.GetMyPortfolioHandler)
 			protectedPortfolio.POST("/me/portfolio", portfolioHandler.CreateProjectHandler)
-			protectedPortfolio.PUT("/me/portfolio/:id", portfolioHandler.UpdateProjectHandler)
+			protectedPortfolio.PATCH("/me/portfolio/:id", portfolioHandler.UpdateProjectHandler)
 			protectedPortfolio.DELETE("/me/portfolio/:id", portfolioHandler.DeleteProjectHandler)
 		}
 	}

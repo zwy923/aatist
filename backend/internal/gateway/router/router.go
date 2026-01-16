@@ -100,7 +100,6 @@ func registerProtectedRoutes(group *gin.RouterGroup, getTimeout func(string) tim
 				{"POST", "/users/me/saved"},
 				{"DELETE", "/users/me/saved"},     // Support query params deletion
 				{"DELETE", "/users/me/saved/:id"}, // Changed to require ID
-				{"GET", "/users/me/applications"}, // Proxy to opp-service
 				{"POST", "/users/me/skills"},
 				{"DELETE", "/users/me/skills/:name"},
 				{"POST", "/users/me/courses"},
@@ -144,6 +143,7 @@ func registerProtectedRoutes(group *gin.RouterGroup, getTimeout func(string) tim
 				{"GET", "/applications/:id"},
 				{"PATCH", "/applications/:id"},
 				{"DELETE", "/applications/:id"},
+				{"GET", "/users/me/applications"},
 			},
 		},
 		{

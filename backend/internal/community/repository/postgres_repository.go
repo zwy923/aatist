@@ -79,9 +79,21 @@ func (r *postgresPostRepository) Update(ctx context.Context, post *model.Discuss
 	return nil
 }
 
-func (r *postgresPostRepository) Delete(ctx context.Context, id int64, userID int64) error {
-	query := `DELETE FROM discussion_posts WHERE id = $1 AND user_id = $2`
-	result, err := r.db.ExecContext(ctx, query, id, userID)
+func (r *postgresPostRepository) Delete(ctx context.Context, id int64, userID int64, force bool) error {
+	var (
+		query string
+		args  []interface{}
+	)
+
+	if force {
+		query = `DELETE FROM discussion_posts WHERE id = $1`
+		args = []interface{}{id}
+	} else {
+		query = `DELETE FROM discussion_posts WHERE id = $1 AND user_id = $2`
+		args = []interface{}{id, userID}
+	}
+
+	result, err := r.db.ExecContext(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("failed to delete post: %w", err)
 	}
@@ -96,8 +108,11 @@ func (r *postgresPostRepository) Delete(ctx context.Context, id int64, userID in
 }
 
 func (r *postgresPostRepository) FindByID(ctx context.Context, id int64) (*model.DiscussionPost, error) {
-	query := `SELECT id, user_id, title, content, category, tags, like_count, comment_count, created_at, updated_at
-			  FROM discussion_posts WHERE id = $1`
+	query := `SELECT p.id, p.user_id, p.title, p.content, p.category, p.tags, p.like_count, p.comment_count, p.created_at, p.updated_at,
+	                 u.name AS author_name, u.avatar_url AS author_avatar, u.faculty AS author_faculty
+			  FROM discussion_posts p
+			  JOIN users u ON p.user_id = u.id
+			  WHERE p.id = $1`
 	var post model.DiscussionPost
 	err := r.db.GetContext(ctx, &post, query, id)
 	if err != nil {
@@ -123,19 +138,21 @@ func (r *postgresPostRepository) List(ctx context.Context, filter PostListFilter
 		args    []interface{}
 		builder strings.Builder
 	)
-	builder.WriteString(`SELECT id, user_id, title, content, category, tags, like_count, comment_count, created_at, updated_at
-	                     FROM discussion_posts`)
+	builder.WriteString(`SELECT p.id, p.user_id, p.title, p.content, p.category, p.tags, p.like_count, p.comment_count, p.created_at, p.updated_at,
+	                            u.name AS author_name, u.avatar_url AS author_avatar, u.faculty AS author_faculty
+	                     FROM discussion_posts p
+	                     JOIN users u ON p.user_id = u.id`)
 
 	if filter.Category != nil {
 		args = append(args, *filter.Category)
-		builder.WriteString(fmt.Sprintf(" WHERE category = $%d", len(args)))
+		builder.WriteString(fmt.Sprintf(" WHERE p.category = $%d", len(args)))
 	}
 
 	builder.WriteString(" ORDER BY ")
 	if filter.Sort == PostListSortOldest {
-		builder.WriteString("created_at ASC")
+		builder.WriteString("p.created_at ASC")
 	} else {
-		builder.WriteString("created_at DESC")
+		builder.WriteString("p.created_at DESC")
 	}
 
 	args = append(args, limit)
@@ -158,10 +175,12 @@ func (r *postgresPostRepository) ListByUserID(ctx context.Context, userID int64,
 		offset = 0
 	}
 
-	query := `SELECT id, user_id, title, content, category, tags, like_count, comment_count, created_at, updated_at
-			  FROM discussion_posts
-			  WHERE user_id = $1
-			  ORDER BY created_at DESC
+	query := `SELECT p.id, p.user_id, p.title, p.content, p.category, p.tags, p.like_count, p.comment_count, p.created_at, p.updated_at,
+	                 u.name AS author_name, u.avatar_url AS author_avatar, u.faculty AS author_faculty
+			  FROM discussion_posts p
+			  JOIN users u ON p.user_id = u.id
+			  WHERE p.user_id = $1
+			  ORDER BY p.created_at DESC
 			  LIMIT $2 OFFSET $3`
 
 	var posts []*model.DiscussionPost
@@ -188,14 +207,16 @@ func (r *postgresPostRepository) Search(ctx context.Context, filter PostSearchFi
 
 	// Use TSVector for content and trigram similarity for title.
 	sqlQuery := `
-		SELECT id, user_id, title, content, category, tags, like_count, comment_count, created_at, updated_at
-		FROM discussion_posts
-		WHERE tsv @@ plainto_tsquery('english', $1)
-		   OR title % $1
+		SELECT p.id, p.user_id, p.title, p.content, p.category, p.tags, p.like_count, p.comment_count, p.created_at, p.updated_at,
+		       u.name AS author_name, u.avatar_url AS author_avatar, u.faculty AS author_faculty
+		FROM discussion_posts p
+		JOIN users u ON p.user_id = u.id
+		WHERE p.tsv @@ plainto_tsquery('english', $1)
+		   OR p.title % $1
 		ORDER BY (
-			ts_rank_cd(tsv, plainto_tsquery('english', $1))
-			+ similarity(title, $1)
-		) DESC, created_at DESC
+			ts_rank_cd(p.tsv, plainto_tsquery('english', $1))
+			+ similarity(p.title, $1)
+		) DESC, p.created_at DESC
 		LIMIT $2 OFFSET $3`
 
 	rows, err := r.db.QueryxContext(ctx, sqlQuery, query, limit, offset)
@@ -271,8 +292,11 @@ func (r *postgresPostRepository) GetPostsByIDs(ctx context.Context, ids []int64)
 		return []*model.DiscussionPost{}, nil
 	}
 
-	query, args, err := sqlx.In(`SELECT id, user_id, title, content, category, tags, like_count, comment_count, created_at, updated_at
-		FROM discussion_posts WHERE id IN (?)`, ids)
+	query, args, err := sqlx.In(`SELECT p.id, p.user_id, p.title, p.content, p.category, p.tags, p.like_count, p.comment_count, p.created_at, p.updated_at,
+	                            u.name AS author_name, u.avatar_url AS author_avatar, u.faculty AS author_faculty
+		FROM discussion_posts p
+		JOIN users u ON p.user_id = u.id
+		WHERE p.id IN (?)`, ids)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build IN query: %w", err)
 	}
@@ -295,6 +319,16 @@ func (r *postgresPostRepository) GetPostsByIDs(ctx context.Context, ids []int64)
 		}
 	}
 	return ordered, nil
+}
+
+func (r *postgresPostRepository) UpdateEngagementCounts(ctx context.Context, postID int64, likes, comments int64) error {
+	query := `UPDATE discussion_posts 
+			  SET like_count = $1, 
+			      comment_count = $2, 
+				  updated_at = NOW() 
+			  WHERE id = $3`
+	_, err := r.db.ExecContext(ctx, query, likes, comments, postID)
+	return err
 }
 
 // CommentRepository implementation.
@@ -356,10 +390,12 @@ func (r *postgresCommentRepository) ListByPostID(ctx context.Context, postID int
 		offset = 0
 	}
 
-	query := `SELECT id, post_id, user_id, parent_id, content, created_at, updated_at
-			  FROM post_comments
-			  WHERE post_id = $1
-			  ORDER BY created_at ASC
+	query := `SELECT c.id, c.post_id, c.user_id, c.parent_id, c.content, c.created_at, c.updated_at,
+	                 u.name AS author_name, u.avatar_url AS author_avatar
+			  FROM post_comments c
+			  JOIN users u ON c.user_id = u.id
+			  WHERE c.post_id = $1
+			  ORDER BY c.created_at ASC
 			  LIMIT $2 OFFSET $3`
 
 	var comments []*model.Comment
@@ -370,8 +406,11 @@ func (r *postgresCommentRepository) ListByPostID(ctx context.Context, postID int
 }
 
 func (r *postgresCommentRepository) FindByID(ctx context.Context, id int64) (*model.Comment, error) {
-	query := `SELECT id, post_id, user_id, parent_id, content, created_at, updated_at
-			  FROM post_comments WHERE id = $1`
+	query := `SELECT c.id, c.post_id, c.user_id, c.parent_id, c.content, c.created_at, c.updated_at,
+	                 u.name AS author_name, u.avatar_url AS author_avatar
+			  FROM post_comments c
+			  JOIN users u ON c.user_id = u.id
+			  WHERE c.id = $1`
 
 	var comment model.Comment
 	if err := r.db.GetContext(ctx, &comment, query, id); err != nil {
@@ -394,13 +433,14 @@ func (r *postgresLikeRepository) Create(ctx context.Context, postID int64, userI
 	return nil
 }
 
-func (r *postgresLikeRepository) Delete(ctx context.Context, postID int64, userID int64) error {
+func (r *postgresLikeRepository) Delete(ctx context.Context, postID int64, userID int64) (bool, error) {
 	query := `DELETE FROM post_likes WHERE post_id = $1 AND user_id = $2`
-	_, err := r.db.ExecContext(ctx, query, postID, userID)
+	res, err := r.db.ExecContext(ctx, query, postID, userID)
 	if err != nil {
-		return fmt.Errorf("failed to delete like: %w", err)
+		return false, fmt.Errorf("failed to delete like: %w", err)
 	}
-	return nil
+	rows, _ := res.RowsAffected()
+	return rows > 0, nil
 }
 
 func (r *postgresLikeRepository) Exists(ctx context.Context, postID int64, userID int64) (bool, error) {

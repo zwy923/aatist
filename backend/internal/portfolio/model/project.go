@@ -50,6 +50,7 @@ type Project struct {
 	ID            int64       `db:"id" json:"id"`
 	UserID        int64       `db:"user_id" json:"user_id"`
 	Title         string      `db:"title" json:"title"`
+	ClientName    *string     `db:"client_name" json:"client_name,omitempty"`
 	Description   *string     `db:"description" json:"description,omitempty"`
 	Year          *int        `db:"year" json:"year,omitempty"`
 	Tags          StringArray `db:"tags" json:"tags,omitempty"`
@@ -58,5 +59,3 @@ type Project struct {
 	CreatedAt     time.Time   `db:"created_at" json:"created_at"`
 	UpdatedAt     time.Time   `db:"updated_at" json:"updated_at"`
 }
-
-

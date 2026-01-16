@@ -384,16 +384,30 @@ func (h *AuthHandler) UpdateCurrentUserHandler(c *gin.Context) {
 
 // UploadAvatarHandler handles avatar uploads via multipart/form-data.
 func (h *AuthHandler) UploadAvatarHandler(c *gin.Context) {
+	if h.logger == nil {
+		// Temporary fallback to avoid secondary panic from logging
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "logger is nil"})
+		return
+	}
+
+	if h.profileSvc == nil {
+		h.logger.Error("profileSvc is nil")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "profile service not configured"})
+		return
+	}
+
 	userID, err := middleware.GetUserID(c)
 	if err != nil {
 		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
 		return
 	}
 
+	h.logger.Info("UploadAvatar: before rate limit", zap.Int64("user_id", userID))
 	if err := h.profileSvc.EnsureAvatarUploadRateLimit(c.Request.Context(), userID); err != nil {
 		h.handleServiceError(c, err)
 		return
 	}
+	h.logger.Info("UploadAvatar: after rate limit")
 
 	fileHeader, err := c.FormFile(avatarFormField)
 	if err != nil {
@@ -436,11 +450,13 @@ func (h *AuthHandler) UploadAvatarHandler(c *gin.Context) {
 		filename = filename + guessExtensionForType(contentType)
 	}
 
+	h.logger.Info("UploadAvatar: before upload", zap.Int64("user_id", userID))
 	profile, err := h.profileSvc.UploadAvatar(c.Request.Context(), userID, reader, fileHeader.Size, contentType, filename)
 	if err != nil {
 		h.handleServiceError(c, err)
 		return
 	}
+	h.logger.Info("UploadAvatar: after upload")
 
 	var updatedAt string
 	var lastUpdated *string
@@ -691,6 +707,7 @@ func mapUserToResponse(user *model.User) UserResponse {
 		WeeklyHours:         user.WeeklyHours,
 		WeeklyAvailability:  user.WeeklyAvailability,
 		Skills:              user.Skills,
+		Courses:             user.Courses,
 		PortfolioVisibility: user.PortfolioVisibility.String(),
 		// Organization fields
 		OrganizationName:       user.OrganizationName,
@@ -839,7 +856,9 @@ func (h *AuthHandler) GetSavedItemsHandler(c *gin.Context) {
 			h.handleServiceError(c, err)
 			return
 		}
-		c.JSON(http.StatusOK, response.Success(items))
+		c.JSON(http.StatusOK, response.Success(gin.H{
+			"items": items,
+		}))
 		return
 	}
 
@@ -849,7 +868,9 @@ func (h *AuthHandler) GetSavedItemsHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, response.Success(items))
+	c.JSON(http.StatusOK, response.Success(gin.H{
+		"items": items,
+	}))
 }
 
 // SaveItemHandler saves an item
@@ -896,22 +917,51 @@ func (h *AuthHandler) UnsaveItemHandler(c *gin.Context) {
 		return
 	}
 
+	// 1. Check for ID in path (e.g., DELETE /users/me/saved/:id)
+	if idStr := c.Param("id"); idStr != "" {
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err == nil {
+			if err := h.savedItemSvc.UnsaveItemByID(c.Request.Context(), userID, id); err != nil {
+				h.handleServiceError(c, err)
+				return
+			}
+			c.JSON(http.StatusOK, response.Success(gin.H{"message": "item unsaved successfully"}))
+			return
+		}
+	}
+
+	// 2. Check for type and targetId in query params (e.g., DELETE /users/me/saved?type=...&targetId=...)
+	itemTypeStr := c.Query("type")
+	targetIdStr := c.Query("targetId")
+	if itemTypeStr != "" && targetIdStr != "" {
+		targetId, err := strconv.ParseInt(targetIdStr, 10, 64)
+		if err == nil {
+			itemType := model.SavedItemType(itemTypeStr)
+			if err := h.savedItemSvc.UnsaveItem(c.Request.Context(), userID, targetId, itemType); err != nil {
+				h.handleServiceError(c, err)
+				return
+			}
+			c.JSON(http.StatusOK, response.Success(gin.H{"message": "item unsaved successfully"}))
+			return
+		}
+	}
+
+	// 3. Fallback to JSON body (for backward compatibility)
 	var req struct {
-		ItemID   int64  `json:"item_id" binding:"required"`
-		ItemType string `json:"item_type" binding:"required,oneof=project opportunity user event"`
+		ItemID   int64  `json:"item_id"`
+		ItemType string `json:"item_type"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, err.Error())
+	if err := c.ShouldBindJSON(&req); err == nil && req.ItemID != 0 && req.ItemType != "" {
+		itemType := model.SavedItemType(req.ItemType)
+		if err := h.savedItemSvc.UnsaveItem(c.Request.Context(), userID, req.ItemID, itemType); err != nil {
+			h.handleServiceError(c, err)
+			return
+		}
+		c.JSON(http.StatusOK, response.Success(gin.H{"message": "item unsaved successfully"}))
 		return
 	}
 
-	itemType := model.SavedItemType(req.ItemType)
-	if err := h.savedItemSvc.UnsaveItem(c.Request.Context(), userID, req.ItemID, itemType); err != nil {
-		h.handleServiceError(c, err)
-		return
-	}
-
-	c.JSON(http.StatusOK, response.Success(gin.H{"message": "item unsaved successfully"}))
+	h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "missing saved item id or type/targetId")
 }
 
 // mapUserToPublicResponse maps user to public response (excludes sensitive fields)
@@ -934,6 +984,7 @@ func mapUserToPublicResponse(user *model.User) gin.H {
 		resp["weekly_hours"] = user.WeeklyHours
 		resp["weekly_availability"] = user.WeeklyAvailability
 		resp["skills"] = user.Skills
+		resp["courses"] = user.Courses
 		resp["portfolio_visibility"] = user.PortfolioVisibility.String()
 	}
 

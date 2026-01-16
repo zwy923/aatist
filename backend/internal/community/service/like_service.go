@@ -77,10 +77,13 @@ func (s *likeService) LikePost(ctx context.Context, postID int64, likerID int64)
 }
 
 func (s *likeService) UnlikePost(ctx context.Context, postID int64, likerID int64) error {
-	if err := s.likeRepo.Delete(ctx, postID, likerID); err != nil {
+	deleted, err := s.likeRepo.Delete(ctx, postID, likerID)
+	if err != nil {
 		return err
 	}
-	s.engagement.QueueLikeDelta(postID, -1)
+	if deleted {
+		s.engagement.QueueLikeDelta(postID, -1)
+	}
 	return nil
 }
 
