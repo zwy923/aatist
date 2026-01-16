@@ -11,6 +11,9 @@ type NotificationRepository interface {
 	// Create creates a new notification
 	Create(ctx context.Context, notification *model.Notification) error
 
+	// CreateBatch creates multiple notifications in a single transaction
+	CreateBatch(ctx context.Context, notifications []*model.Notification) error
+
 	// FindByUserID finds all notifications for a user
 	FindByUserID(ctx context.Context, userID int64, limit, offset int) ([]*model.Notification, error)
 

@@ -10,6 +10,7 @@ import (
 // NotificationService defines the interface for notification operations
 type NotificationService interface {
 	CreateNotification(ctx context.Context, userID int64, notifType model.NotificationType, title string, message *string, data model.NotificationData) error
+	CreateNotifications(ctx context.Context, notifications []*model.Notification) error
 	GetNotifications(ctx context.Context, userID int64, limit, offset int) ([]*model.Notification, error)
 	GetUnreadNotifications(ctx context.Context, userID int64, limit, offset int) ([]*model.Notification, error)
 	MarkAsRead(ctx context.Context, userID int64, notificationID int64) error
@@ -45,6 +46,14 @@ func (s *notificationService) CreateNotification(ctx context.Context, userID int
 	}
 
 	return s.notifRepo.Create(ctx, notification)
+}
+
+func (s *notificationService) CreateNotifications(ctx context.Context, notifications []*model.Notification) error {
+	if len(notifications) == 0 {
+		return nil
+	}
+	// Ideally validate notifications here
+	return s.notifRepo.CreateBatch(ctx, notifications)
 }
 
 func (s *notificationService) GetNotifications(ctx context.Context, userID int64, limit, offset int) ([]*model.Notification, error) {
