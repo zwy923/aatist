@@ -97,8 +97,15 @@ export default function Dashboard() {
         console.warn("Portfolio not available:", portfolioErr);
       }
 
-      // @todo Replace placeholder when backend exposes public portfolios endpoint
-      setStudentPortfolios([]);
+      // Fetch public portfolios
+      try {
+        const publicPortfoliosResponse = await portfolioApi.getPublicPortfolios({ limit: 4 });
+        const publicPortfoliosData = publicPortfoliosResponse.data.data;
+        setStudentPortfolios(publicPortfoliosData?.projects || publicPortfoliosData?.items || []);
+      } catch (publicPortfolioErr) {
+        console.warn("Public portfolios not available:", publicPortfolioErr);
+        setStudentPortfolios([]);
+      }
     } catch (err) {
       console.error("Failed to load dashboard data:", err);
     } finally {
