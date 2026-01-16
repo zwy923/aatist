@@ -86,11 +86,24 @@ func (c *CommunityEventConsumer) handlePostCommented(evt postCommentedEvent) err
 		"comment_id":        evt.CommentID,
 		"comment_author_id": evt.CommentAuthorID,
 	}
+
+	var notifications []*model.Notification
 	for _, userID := range evt.MentionedUserIDs {
 		if userID == evt.CommentAuthorID {
 			continue
 		}
-		if err := c.notificationSvc.CreateNotification(ctx, userID, model.NotificationTypeCommunityMention, title, &message, data); err != nil {
+		notifications = append(notifications, &model.Notification{
+			UserID:  userID,
+			Type:    model.NotificationTypeCommunityMention,
+			Title:   title,
+			Message: &message,
+			Data:    data,
+			IsRead:  false,
+		})
+	}
+
+	if len(notifications) > 0 {
+		if err := c.notificationSvc.CreateNotifications(ctx, notifications); err != nil {
 			return err
 		}
 	}

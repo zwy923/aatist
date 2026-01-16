@@ -41,6 +41,27 @@ func (r *postgresNotificationRepository) Create(ctx context.Context, notificatio
 	return nil
 }
 
+func (r *postgresNotificationRepository) CreateBatch(ctx context.Context, notifications []*model.Notification) error {
+	if len(notifications) == 0 {
+		return nil
+	}
+
+	query := `INSERT INTO notifications (user_id, type, title, message, data, is_read, created_at)
+		VALUES (:user_id, :type, :title, :message, :data, :is_read, :created_at)`
+
+	now := time.Now()
+	for _, n := range notifications {
+		n.CreatedAt = now
+	}
+
+	_, err := r.db.NamedExecContext(ctx, query, notifications)
+	if err != nil {
+		return fmt.Errorf("failed to create batch notifications: %w", err)
+	}
+
+	return nil
+}
+
 func (r *postgresNotificationRepository) FindByUserID(ctx context.Context, userID int64, limit, offset int) ([]*model.Notification, error) {
 	var notifications []*model.Notification
 	query := `SELECT id, user_id, type, title, message, data, is_read, created_at
