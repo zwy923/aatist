@@ -117,10 +117,115 @@ func (t *TrendingManager) run() {
 			if len(pending) == 0 {
 				continue
 			}
-			for id := range pending {
-				t.refreshNow(ctx, id)
-				delete(pending, id)
-			}
+			t.processPending(ctx, pending)
+		}
+	}
+}
+
+func (t *TrendingManager) processPending(ctx context.Context, pending map[int64]struct{}) {
+	if len(pending) == 0 {
+		return
+	}
+
+	ids := make([]int64, 0, len(pending))
+	for id := range pending {
+		ids = append(ids, id)
+	}
+
+	// Always clear the pending map
+	defer func() {
+		for k := range pending {
+			delete(pending, k)
+		}
+	}()
+
+	// Batch fetch posts
+	posts, err := t.postRepo.GetPostsByIDs(ctx, ids)
+	if err != nil {
+		t.logger.Error("failed to batch fetch posts", zap.Error(err))
+		return
+	}
+
+	if len(posts) == 0 {
+		return
+	}
+
+	// Prepare Redis pipeline for reading counts
+	pipe := t.redis.Pipeline()
+	cmdMap := make(map[int64]struct {
+		likes    *redis.StringCmd
+		comments *redis.StringCmd
+	}, len(posts))
+
+	for _, post := range posts {
+		cmdMap[post.ID] = struct {
+			likes    *redis.StringCmd
+			comments *redis.StringCmd
+		}{
+			likes:    pipe.Get(ctx, likeCountKey(post.ID)),
+			comments: pipe.Get(ctx, commentCountKey(post.ID)),
+		}
+	}
+
+	// Execute pipeline
+	_, _ = pipe.Exec(ctx) // Ignore error here, we check individual commands
+
+	// Calculate scores and prepare updates
+	zMembers := make([]redis.Z, 0, len(posts))
+
+	// Pipeline for SetNX (missing keys) if any
+	// We might need another pipeline or just fire and forget.
+	// Since SetNX is cheap and likely rare after warmup, we can just do it.
+	// Or even better, add to a second pipeline if we want.
+	// But let's process results first.
+
+	for _, post := range posts {
+		cmds := cmdMap[post.ID]
+
+		var likes, comments int64
+
+		// Check likes
+		lVal, err := cmds.likes.Int64()
+		if err == redis.Nil {
+			likes = post.LikeCount
+			t.redis.SetNX(ctx, likeCountKey(post.ID), likes, 0)
+		} else if err == nil {
+			likes = lVal
+		} else {
+			likes = post.LikeCount
+		}
+
+		// Check comments
+		cVal, err := cmds.comments.Int64()
+		if err == redis.Nil {
+			comments = post.CommentCount
+			t.redis.SetNX(ctx, commentCountKey(post.ID), comments, 0)
+		} else if err == nil {
+			comments = cVal
+		} else {
+			comments = post.CommentCount
+		}
+
+		score := t.calculateScoreWithCounts(ctx, post, likes, comments)
+		zMembers = append(zMembers, redis.Z{
+			Member: post.ID,
+			Score:  score,
+		})
+
+		// Sync engagement counts to DB
+		// Doing this sequentially is still better than full sequential loop.
+		// Optimizing this would require repo change (BatchUpdateEngagementCounts).
+		if err := t.postRepo.UpdateEngagementCounts(ctx, post.ID, likes, comments); err != nil {
+			t.logger.Warn("failed to sync engagement counts to DB", zap.Int64("post_id", post.ID), zap.Error(err))
+		} else {
+			t.logger.Info("Synced engagement counts to DB", zap.Int64("post_id", post.ID), zap.Int64("likes", likes), zap.Int64("comments", comments))
+		}
+	}
+
+	// Batch update scores in Redis
+	if len(zMembers) > 0 {
+		if err := t.redis.ZAdd(ctx, redisTrendingKey, zMembers...).Err(); err != nil {
+			t.logger.Warn("failed to batch update trending scores", zap.Error(err))
 		}
 	}
 }
