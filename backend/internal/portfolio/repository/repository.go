@@ -14,6 +14,9 @@ type ProjectRepository interface {
 	// FindByID finds a project by ID
 	FindByID(ctx context.Context, id int64) (*model.Project, error)
 
+	// FindAll finds all projects with pagination
+	FindAll(ctx context.Context, limit, offset int) ([]*model.Project, error)
+
 	// Create creates a new project
 	Create(ctx context.Context, project *model.Project) error
 

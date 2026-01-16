@@ -23,6 +23,7 @@ export const profileApi = {
 };
 
 export const portfolioApi = {
+    getPublicPortfolios: (params) => apiClient.get('/portfolio', { params }),
     getMyPortfolio: () => apiClient.get('/users/me/portfolio'),
     createPortfolioItem: (data) => apiClient.post('/users/me/portfolio', data),
     updatePortfolioItem: (id, data) => apiClient.patch(`/users/me/portfolio/${id}`, data),

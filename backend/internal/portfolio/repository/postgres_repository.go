@@ -48,6 +48,19 @@ func (r *postgresProjectRepository) FindByID(ctx context.Context, id int64) (*mo
 	return &project, nil
 }
 
+func (r *postgresProjectRepository) FindAll(ctx context.Context, limit, offset int) ([]*model.Project, error) {
+	projects := make([]*model.Project, 0)
+	query := `SELECT id, user_id, title, client_name, description, year, tags, cover_image_url, project_link, created_at, updated_at
+		FROM projects ORDER BY created_at DESC LIMIT $1 OFFSET $2`
+
+	err := r.db.SelectContext(ctx, &projects, query, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find all projects: %w", err)
+	}
+
+	return projects, nil
+}
+
 func (r *postgresProjectRepository) Create(ctx context.Context, project *model.Project) error {
 	query := `INSERT INTO projects (user_id, title, client_name, description, year, tags, cover_image_url, project_link, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)

@@ -60,6 +60,36 @@ func (h *PortfolioHandler) GetProjectDetailHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, response.Success(project))
 }
 
+// GetPublicProjectsHandler returns all projects (public)
+func (h *PortfolioHandler) GetPublicProjectsHandler(c *gin.Context) {
+	var req struct {
+		Limit  int `form:"limit"`
+		Offset int `form:"offset"`
+	}
+	if err := c.ShouldBindQuery(&req); err != nil {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "invalid query parameters")
+		return
+	}
+
+	if req.Limit <= 0 {
+		req.Limit = 10
+	}
+	if req.Offset < 0 {
+		req.Offset = 0
+	}
+
+	projects, err := h.projectSvc.GetPublicProjects(c.Request.Context(), req.Limit, req.Offset)
+	if err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, response.Success(gin.H{
+		"projects": projects,
+		"items":    projects,
+	}))
+}
+
 // GetUserPortfolioHandler returns all projects for a user (public)
 func (h *PortfolioHandler) GetUserPortfolioHandler(c *gin.Context) {
 	var req struct {

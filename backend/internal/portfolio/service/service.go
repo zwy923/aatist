@@ -12,6 +12,7 @@ import (
 type ProjectService interface {
 	GetUserProjects(ctx context.Context, userID int64) ([]*model.Project, error)
 	GetProject(ctx context.Context, id int64) (*model.Project, error)
+	GetPublicProjects(ctx context.Context, limit, offset int) ([]*model.Project, error)
 	CreateProject(ctx context.Context, userID int64, project *model.Project) error
 	UpdateProject(ctx context.Context, userID int64, project *model.Project) error
 	DeleteProject(ctx context.Context, userID int64, id int64) error
@@ -41,6 +42,10 @@ func (s *projectService) GetUserProjects(ctx context.Context, userID int64) ([]*
 
 func (s *projectService) GetProject(ctx context.Context, id int64) (*model.Project, error) {
 	return s.projectRepo.FindByID(ctx, id)
+}
+
+func (s *projectService) GetPublicProjects(ctx context.Context, limit, offset int) ([]*model.Project, error) {
+	return s.projectRepo.FindAll(ctx, limit, offset)
 }
 
 func (s *projectService) CreateProject(ctx context.Context, userID int64, project *model.Project) error {

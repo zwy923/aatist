@@ -62,6 +62,7 @@ func main() {
 		// Public portfolio routes
 		portfolio := api.Group("/portfolio")
 		{
+			portfolio.GET("", portfolioHandler.GetPublicProjectsHandler)
 			portfolio.GET("/:id", portfolioHandler.GetProjectDetailHandler)
 		}
 
