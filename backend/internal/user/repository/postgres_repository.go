@@ -420,3 +420,70 @@ func (r *postgresSavedItemRepository) Exists(ctx context.Context, userID int64, 
 
 	return exists, nil
 }
+func (r *postgresRepository) SearchUsers(ctx context.Context, filter UserSearchFilter) ([]*model.User, error) {
+	var (
+		clauses []string
+		args    []interface{}
+		argIdx  = 1
+	)
+
+	// Filter by keyword (Name, Skills, Faculty, or Major)
+	if filter.Query != "" {
+		clauses = append(clauses, fmt.Sprintf("(name ILIKE $%d OR skills::text ILIKE $%d OR faculty ILIKE $%d OR major ILIKE $%d)", argIdx, argIdx, argIdx, argIdx))
+		args = append(args, "%"+filter.Query+"%")
+		argIdx++
+	}
+
+	// Filter by Faculty
+	if filter.Faculty != "" {
+		clauses = append(clauses, fmt.Sprintf("faculty = $%d", argIdx))
+		args = append(args, filter.Faculty)
+		argIdx++
+	}
+
+	// Filter by MinHours
+	if filter.MinHours != nil {
+		clauses = append(clauses, fmt.Sprintf("weekly_hours >= $%d", argIdx))
+		args = append(args, *filter.MinHours)
+		argIdx++
+	}
+
+	// Filter by Role (default to student/alumni if searching for talent)
+	if filter.Role != "" {
+		clauses = append(clauses, fmt.Sprintf("role = $%d", argIdx))
+		args = append(args, filter.Role)
+		argIdx++
+	} else {
+		clauses = append(clauses, "role IN ('student', 'alumni')")
+	}
+
+	// Only search for public or aalto_only profiles (caller should handle sub-filtering for Aalto)
+	// For simplicity, we filter out private profiles here.
+	clauses = append(clauses, "profile_visibility != 'private'")
+
+	where := ""
+	if len(clauses) > 0 {
+		where = " WHERE " + strings.Join(clauses, " AND ")
+	}
+
+	limit := filter.Limit
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	offset := filter.Offset
+	if offset < 0 {
+		offset = 0
+	}
+
+	query := fmt.Sprintf("SELECT %s FROM users %s ORDER BY name ASC LIMIT $%d OFFSET $%d",
+		userSelectColumns, where, argIdx, argIdx+1)
+	args = append(args, limit, offset)
+
+	var users []*model.User
+	err := r.db.SelectContext(ctx, &users, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search users: %w", err)
+	}
+
+	return users, nil
+}

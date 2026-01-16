@@ -20,6 +20,7 @@ export const profileApi = {
     removeSavedItemByTarget: (type, targetId) =>
         apiClient.delete('/users/me/saved', { params: { type, targetId } }),
     getMyApplications: () => apiClient.get('/users/me/applications'),
+    searchUsers: (params) => apiClient.get('/users/search', { params }),
 };
 
 export const portfolioApi = {

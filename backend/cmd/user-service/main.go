@@ -140,6 +140,9 @@ func main() {
 
 			// Get user summary (lightweight profile for cards/lists)
 			users.GET("/:id/summary", authHandler.GetUserSummaryHandler)
+
+			// Search users (talent search)
+			users.GET("/search", authHandler.SearchUsersHandler)
 		}
 
 		// Metadata routes

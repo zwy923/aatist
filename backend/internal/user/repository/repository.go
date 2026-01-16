@@ -13,6 +13,15 @@ type ProfileUpdate struct {
 	Fields map[string]interface{}
 }
 
+type UserSearchFilter struct {
+	Query    string
+	Faculty  string
+	MinHours *int
+	Role     string
+	Limit    int
+	Offset   int
+}
+
 type UserRepository interface {
 	// FindByEmail finds a user by email
 	FindByEmail(ctx context.Context, email string) (*model.User, error)
@@ -51,6 +60,8 @@ type UserRepository interface {
 	SearchSkills(ctx context.Context, query string, limit int) ([]model.SkillMetadata, error)
 	SearchCourses(ctx context.Context, query string, limit int) ([]model.CourseMetadata, error)
 	SearchTags(ctx context.Context, tagType string, query string, limit int) ([]model.TagMetadata, error)
+	// SearchUsers searches for users based on filter
+	SearchUsers(ctx context.Context, filter UserSearchFilter) ([]*model.User, error)
 }
 
 // SavedItemRepository defines the interface for saved items operations

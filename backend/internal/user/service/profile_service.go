@@ -54,6 +54,7 @@ type ProfileService interface {
 	SearchSkills(ctx context.Context, query string, limit int) ([]model.SkillMetadata, error)
 	SearchCourses(ctx context.Context, query string, limit int) ([]model.CourseMetadata, error)
 	SearchTags(ctx context.Context, tagType string, query string, limit int) ([]model.TagMetadata, error)
+	SearchUsers(ctx context.Context, filter repository.UserSearchFilter) ([]*model.User, error)
 
 	// User skills/courses maintenance
 	AddUserSkill(ctx context.Context, userID int64, skill model.Skill) (*model.User, error)
@@ -338,6 +339,16 @@ func (s *profileService) SearchTags(ctx context.Context, tagType string, query s
 		limit = 20
 	}
 	return s.userRepo.SearchTags(ctx, tagType, query, limit)
+}
+
+func (s *profileService) SearchUsers(ctx context.Context, filter repository.UserSearchFilter) ([]*model.User, error) {
+	if filter.Limit <= 0 || filter.Limit > 100 {
+		filter.Limit = 20
+	}
+	if filter.Offset < 0 {
+		filter.Offset = 0
+	}
+	return s.userRepo.SearchUsers(ctx, filter)
 }
 
 func (s *profileService) AddUserSkill(ctx context.Context, userID int64, skill model.Skill) (*model.User, error) {

@@ -12,6 +12,7 @@ import (
 	"github.com/aatist/backend/internal/platform/log"
 	"github.com/aatist/backend/internal/platform/middleware"
 	"github.com/aatist/backend/internal/user/model"
+	"github.com/aatist/backend/internal/user/repository"
 	"github.com/aatist/backend/internal/user/service"
 	"github.com/aatist/backend/pkg/errs"
 	"github.com/aatist/backend/pkg/response"
@@ -1078,4 +1079,46 @@ func (h *AuthHandler) GetUserSummaryHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response.Success(summary))
+}
+
+// SearchUsersHandler handles GET /users/search
+func (h *AuthHandler) SearchUsersHandler(c *gin.Context) {
+	var query struct {
+		Query    string `form:"q"`
+		Faculty  string `form:"faculty"`
+		MinHours int    `form:"min_hours"`
+		Role     string `form:"role"`
+		Limit    int    `form:"limit"`
+		Offset   int    `form:"offset"`
+	}
+
+	if err := c.ShouldBindQuery(&query); err != nil {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "invalid query parameters")
+		return
+	}
+
+	filter := repository.UserSearchFilter{
+		Query:   query.Query,
+		Faculty: query.Faculty,
+		Role:    query.Role,
+		Limit:   query.Limit,
+		Offset:  query.Offset,
+	}
+	if query.MinHours > 0 {
+		filter.MinHours = &query.MinHours
+	}
+
+	users, err := h.profileSvc.SearchUsers(c.Request.Context(), filter)
+	if err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+
+	// Map to public response
+	results := make([]gin.H, 0, len(users))
+	for _, u := range users {
+		results = append(results, mapUserToPublicResponse(u))
+	}
+
+	c.JSON(http.StatusOK, response.Success(results))
 }

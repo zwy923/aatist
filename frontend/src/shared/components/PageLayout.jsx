@@ -8,6 +8,7 @@ const NAV_LINKS = [
     { label: "Dashboard", path: "/dashboard" },
     { label: "Opportunities", path: "/opportunities" },
     { label: "Community", path: "/community" },
+    { label: "Talents", path: "/talents" },
     { label: "Events", path: "/dashboard?section=events" },
 ];
 

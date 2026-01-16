@@ -194,7 +194,7 @@ func registerPublicRoutes(group *gin.RouterGroup, getTimeout func(string) time.D
 				{"GET", "/users/check-email"},
 				{"GET", "/users/:id"},
 				{"GET", "/users/:id/summary"},
-				{"GET", "/talents"}, // Search talents
+				{"GET", "/users/search"}, // Student/Talent search
 				// Dashboard stats
 				{"GET", "/stats/overview"},
 				{"GET", "/skills/popular"},
