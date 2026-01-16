@@ -202,7 +202,8 @@ const Talents = () => {
             // Also fetch saved items to show favorite state
             if (user) {
                 const savedResp = await profileApi.getSavedItems({ type: 'user' });
-                const ids = new Set((savedResp.data.data || []).map(item => item.item_id));
+                const items = savedResp.data.data?.items || [];
+                const ids = new Set(items.map(item => item.item_id));
                 setSavedIds(ids);
             }
         } catch (err) {

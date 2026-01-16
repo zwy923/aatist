@@ -21,10 +21,12 @@ export const profileApi = {
         apiClient.delete('/users/me/saved', { params: { type, targetId } }),
     getMyApplications: () => apiClient.get('/users/me/applications'),
     searchUsers: (params) => apiClient.get('/users/search', { params }),
+    getPublicProfile: (id) => apiClient.get(`/users/${id}`),
 };
 
 export const portfolioApi = {
     getPublicPortfolios: (params) => apiClient.get('/portfolio', { params }),
+    getUserPortfolio: (id) => apiClient.get(`/users/${id}/portfolio`),
     getMyPortfolio: () => apiClient.get('/users/me/portfolio'),
     createPortfolioItem: (data) => apiClient.post('/users/me/portfolio', data),
     updatePortfolioItem: (id, data) => apiClient.patch(`/users/me/portfolio/${id}`, data),

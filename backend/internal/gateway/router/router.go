@@ -207,6 +207,7 @@ func registerPublicRoutes(group *gin.RouterGroup, getTimeout func(string) time.D
 		{
 			Name: "portfolio-service", Port: 8082,
 			Routes: []RouteDef{
+				{"GET", "/portfolio"},
 				{"GET", "/portfolio/:id"},
 				{"GET", "/users/:id/portfolio"},
 			},

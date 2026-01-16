@@ -12,6 +12,7 @@ import OpportunitiesPage from "./pages/Opportunities.jsx";
 import OpportunityDetailPage from "./pages/OpportunityDetail.jsx";
 import CommunityPage from "./pages/Community.jsx";
 import TalentsPage from "./pages/Talents.jsx";
+import PublicProfilePage from "./pages/PublicProfile.jsx";
 
 import "./styles/global.css";
 
@@ -63,6 +64,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <Route path="/opportunities/:id" element={<OpportunityDetailPage />} />
           <Route path="/community" element={<CommunityPage />} />
           <Route path="/talents" element={<TalentsPage />} />
+          <Route path="/users/:id" element={<PublicProfilePage />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>
