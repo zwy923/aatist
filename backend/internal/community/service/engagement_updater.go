@@ -111,14 +111,34 @@ func (u *EngagementUpdater) flush(likeDeltas, commentDeltas map[int64]int64) {
 		return
 	}
 
+	if u.redis == nil {
+		// Should not happen if loop is running, but defensive check
+		for k := range likeDeltas {
+			delete(likeDeltas, k)
+		}
+		for k := range commentDeltas {
+			delete(commentDeltas, k)
+		}
+		return
+	}
+
 	ctx := context.Background()
 	changed := make(map[int64]struct{})
+	pipe := u.redis.Pipeline()
+
+	type pendingCmd struct {
+		key string
+		cmd *redis.IntCmd
+	}
+	var cmds []pendingCmd
 
 	for postID, delta := range likeDeltas {
 		if delta == 0 {
 			continue
 		}
-		u.applyDelta(ctx, likeCountKey(postID), delta)
+		key := likeCountKey(postID)
+		cmd := pipe.IncrBy(ctx, key, delta)
+		cmds = append(cmds, pendingCmd{key: key, cmd: cmd})
 		changed[postID] = struct{}{}
 		delete(likeDeltas, postID)
 	}
@@ -127,29 +147,35 @@ func (u *EngagementUpdater) flush(likeDeltas, commentDeltas map[int64]int64) {
 		if delta == 0 {
 			continue
 		}
-		u.applyDelta(ctx, commentCountKey(postID), delta)
+		key := commentCountKey(postID)
+		cmd := pipe.IncrBy(ctx, key, delta)
+		cmds = append(cmds, pendingCmd{key: key, cmd: cmd})
 		changed[postID] = struct{}{}
 		delete(commentDeltas, postID)
+	}
+
+	if len(cmds) > 0 {
+		_, err := pipe.Exec(ctx)
+		if err != nil && err != redis.Nil {
+			u.logger.Warn("engagement pipeline exec failed", zap.Error(err))
+		}
+
+		for _, item := range cmds {
+			res, err := item.cmd.Result()
+			if err != nil {
+				u.logger.Warn("failed to update engagement counter", zap.String("key", item.key), zap.Error(err))
+				continue
+			}
+			if res < 0 {
+				if err := u.redis.Set(ctx, item.key, 0, 0).Err(); err != nil {
+					u.logger.Warn("failed to reset negative counter", zap.String("key", item.key), zap.Error(err))
+				}
+			}
+		}
 	}
 
 	for postID := range changed {
 		u.logger.Info("Engagement flushed, scheduling refresh", zap.Int64("post_id", postID))
 		u.ScheduleRefresh(postID)
-	}
-}
-
-func (u *EngagementUpdater) applyDelta(ctx context.Context, key string, delta int64) {
-	if u.redis == nil {
-		return
-	}
-	result, err := u.redis.IncrBy(ctx, key, delta).Result()
-	if err != nil {
-		u.logger.Warn("failed to update engagement counter", zap.String("key", key), zap.Error(err))
-		return
-	}
-	if result < 0 {
-		if err := u.redis.Set(ctx, key, 0, 0).Err(); err != nil {
-			u.logger.Warn("failed to reset negative counter", zap.String("key", key), zap.Error(err))
-		}
 	}
 }
