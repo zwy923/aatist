@@ -24,7 +24,7 @@ type RegisterProfile struct {
 
 type RegisterRequest struct {
 	Email    string           `json:"email" binding:"required,email"`
-	Password string           `json:"password" binding:"required,min=6"`
+	Password string           `json:"password" binding:"required,min=8"`
 	Name     string           `json:"name" binding:"required,min=1,max=100"`
 	Role     string           `json:"role"`
 	Profile  *RegisterProfile `json:"profile"`
@@ -94,7 +94,7 @@ type ErrorResponse struct {
 // ChangePasswordRequest represents change password request
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"current_password" binding:"required"`
-	NewPassword     string `json:"new_password" binding:"required,min=6"`
+	NewPassword     string `json:"new_password" binding:"required,min=8"`
 }
 
 // CheckExistsResponse represents the response for check username/email existence
@@ -110,7 +110,7 @@ type ForgotPasswordRequest struct {
 // ResetPasswordRequest represents reset password request
 type ResetPasswordRequest struct {
 	Token       string `json:"token" binding:"required"`
-	NewPassword string `json:"new_password" binding:"required,min=6"`
+	NewPassword string `json:"new_password" binding:"required,min=8"`
 }
 
 // SkillInput represents a skill with level in request.

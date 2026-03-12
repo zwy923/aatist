@@ -79,7 +79,7 @@ function Register() {
     setStudentForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const validatePassword = (password) => password.length >= 6;
+  const validatePassword = (password) => password.length >= 8;
 
   const submitClient = async (event) => {
     event.preventDefault();
@@ -91,7 +91,7 @@ function Register() {
       return;
     }
     if (!validatePassword(clientForm.password)) {
-      setError("Password must be at least 6 characters.");
+      setError("Password must be at least 8 characters.");
       return;
     }
     if (clientForm.password !== clientForm.confirmPassword) {
@@ -136,7 +136,7 @@ function Register() {
       return;
     }
     if (!validatePassword(studentForm.password)) {
-      setError("Password must be at least 6 characters.");
+      setError("Password must be at least 8 characters.");
       return;
     }
     if (studentForm.password !== studentForm.confirmPassword) {

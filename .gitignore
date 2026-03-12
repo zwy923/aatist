@@ -1,66 +1,17 @@
 # =====================================================
-# 🌐 Aatist Project .gitignore
-# (FastAPI + LangChain + Go + React + Docker)
+# Aatist Project .gitignore (Go + React + Docker)
 # =====================================================
 
 # ------------------------------
-# 🐍 Python
+# Environment
 # ------------------------------
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-*.so
-*.egg-info/
 .env
-*.env
 .env.*
-.venv/
-venv/
-ENV/
-env/
-site-packages/
-
-# Jupyter notebooks
-.ipynb_checkpoints/
-*.ipynb~
-
-# Logs & cache
-*.log
-*.out
-*.tmp
-*.bak
-.DS_Store
-*.swp
-.cache/
-__pycache__/
-*.sqlite3
-*.db
+!.env.example
 
 # ------------------------------
-# 🧠 LangChain / AI
+# Go
 # ------------------------------
-backend/app/ai/vectorstore/
-backend/app/ai/*.faiss
-backend/app/ai/*.pkl
-backend/app/ai/*.jsonl
-
-# ------------------------------
-# 🦦 FastAPI
-# ------------------------------
-alembic/versions/
-*.pid
-*.db-journal
-*.sqlite
-*.pyc
-logs/
-backend/app/__pycache__/
-backend/tests/
-
-# ------------------------------
-#  Go (Event Logger Service)
-# ------------------------------
-# Go build artifacts
 *.exe
 *.exe~
 *.dll
@@ -68,8 +19,6 @@ backend/tests/
 *.dylib
 *.test
 *.out
-
-# Go cache
 /go/pkg/
 /go/bin/
 /go/build/
@@ -78,23 +27,16 @@ backend/tests/
 /obj/
 *.modcache/
 
-# Go module cache
-backend/app/go_services/event_logger/logs/
-backend/app/go_services/event_logger/event_logger
-backend/app/go_services/event_logger/*.log
-
 # ------------------------------
-#  Frontend (React/Vite)
+# Frontend (React/Vite)
 # ------------------------------
 frontend/node_modules/
 frontend/dist/
-frontend/.env
-frontend/.env.*
 frontend/.vite/
 frontend/build/
 
 # ------------------------------
-#  Docker / Compose
+# Docker / Compose
 # ------------------------------
 *.pid
 *.tar
@@ -110,7 +52,20 @@ tmp/
 *.sock
 
 # ------------------------------
-#  System / IDE / Editor
+# Logs & cache
+# ------------------------------
+*.log
+*.out
+*.tmp
+*.bak
+.DS_Store
+*.swp
+.cache/
+*.sqlite3
+*.db
+
+# ------------------------------
+# System / IDE / Editor
 # ------------------------------
 .vscode/
 .idea/
@@ -122,7 +77,7 @@ Thumbs.db
 .DS_Store
 
 # ------------------------------
-#  Secrets
+# Secrets
 # ------------------------------
 secrets.json
 credentials.json
@@ -134,7 +89,7 @@ id_rsa.pub
 *.key
 
 # ------------------------------
-#  Tests / Reports
+# Tests / Reports
 # ------------------------------
 .coverage
 htmlcov/
@@ -145,7 +100,6 @@ coverage.xml
 .pytest_cache/
 reports/
 test_results/
-
 
 postman/
 .postman/

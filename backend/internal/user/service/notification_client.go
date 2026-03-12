@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 )
 
 // NotificationClient defines interface for creating notifications via HTTP
@@ -30,7 +31,7 @@ func NewHTTPNotificationClient() NotificationClient {
 
 	return &httpNotificationClient{
 		baseURL: baseURL,
-		client:  &http.Client{},
+		client:  &http.Client{Timeout: 10 * time.Second},
 	}
 }
 

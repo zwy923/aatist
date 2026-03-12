@@ -1,3 +1,6 @@
+x-postgres-dsn: &postgres-dsn
+  POSTGRES_DSN: postgres://aatn:aatn@postgres:5432/aatn?sslmode=disable
+
 services:
   postgres:
     image: postgres:15
@@ -62,10 +65,10 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      - CONFIG_PATH=/app/configs/config.yaml
-      - POSTGRES_DSN=postgres://aatn:aatn@postgres:5432/aatn?sslmode=disable
-      - MIGRATIONS_DIR=/app/migrations
-      - APP_ENV=dev
+      <<: *postgres-dsn
+      CONFIG_PATH: /app/configs/config.yaml
+      MIGRATIONS_DIR: /app/migrations
+      APP_ENV: dev
     volumes:
       - ./configs:/app/configs
       - ./migrations:/app/migrations
@@ -85,24 +88,24 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      - SERVICE_NAME=user-service
-      - CONFIG_PATH=/app/configs/config.yaml
+      <<: *postgres-dsn
+      SERVICE_NAME: user-service
+      CONFIG_PATH: /app/configs/config.yaml
       # Set to "true" to temporarily disable email verification (no verification email, login without verification)
-      - DISABLE_EMAIL_VERIFICATION=${DISABLE_EMAIL_VERIFICATION:-true}
-      - REDIS_ADDR=redis:6379
-      - POSTGRES_DSN=postgres://aatn:aatn@postgres:5432/aatn?sslmode=disable
-      - MQ_BROKER=amqp://guest:guest@backend-mq:5672/
-      - JWT_SECRET=CHANGE_ME_IN_PRODUCTION_USE_STRONG_SECRET
-      - HTTP_PORT=8081
-      - APP_ENV=dev
-      - S3_ENDPOINT=minio:9000
-      - S3_ACCESS_KEY=minioadmin
-      - S3_SECRET_KEY=minioadmin
-      - S3_BUCKET=avatars
-      - S3_USE_SSL=false
-      - S3_PUBLIC_URL=http://localhost:9000/files
-      - GATEWAY_URL=http://gateway:8080
-      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-}
+      DISABLE_EMAIL_VERIFICATION: ${DISABLE_EMAIL_VERIFICATION:-true}
+      REDIS_ADDR: redis:6379
+      MQ_BROKER: amqp://guest:guest@backend-mq:5672/
+      JWT_SECRET: ${JWT_SECRET:-CHANGE_ME_IN_PRODUCTION_USE_STRONG_SECRET}
+      HTTP_PORT: "8081"
+      APP_ENV: dev
+      S3_ENDPOINT: minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_BUCKET: avatars
+      S3_USE_SSL: "false"
+      S3_PUBLIC_URL: http://localhost:9000/files
+      GATEWAY_URL: http://gateway:8080
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-}
     ports:
       - "8081:8081"
     volumes:
@@ -138,12 +141,12 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      - SERVICE_NAME=portfolio-service
-      - CONFIG_PATH=/app/configs/config.yaml
-      - POSTGRES_DSN=postgres://aatn:aatn@postgres:5432/aatn?sslmode=disable
-      - HTTP_PORT=8082
-      - APP_ENV=dev
-      - GATEWAY_URL=http://gateway:8080
+      <<: *postgres-dsn
+      SERVICE_NAME: portfolio-service
+      CONFIG_PATH: /app/configs/config.yaml
+      HTTP_PORT: "8082"
+      APP_ENV: dev
+      GATEWAY_URL: http://gateway:8080
     ports:
       - "8082:8082"
     volumes:
@@ -163,15 +166,15 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      - SERVICE_NAME=notification-service
-      - CONFIG_PATH=/app/configs/config.yaml
-      - POSTGRES_DSN=postgres://aatn:aatn@postgres:5432/aatn?sslmode=disable
-      - REDIS_ADDR=redis:6379
-      - MQ_BROKER=amqp://guest:guest@backend-mq:5672/
-      - HTTP_PORT=8085
-      - APP_ENV=dev
-      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-}
-      - INTERNAL_ALLOWED_IPS=${INTERNAL_ALLOWED_IPS:-}
+      <<: *postgres-dsn
+      SERVICE_NAME: notification-service
+      CONFIG_PATH: /app/configs/config.yaml
+      REDIS_ADDR: redis:6379
+      MQ_BROKER: amqp://guest:guest@backend-mq:5672/
+      HTTP_PORT: "8085"
+      APP_ENV: dev
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-}
+      INTERNAL_ALLOWED_IPS: ${INTERNAL_ALLOWED_IPS:-}
     ports:
       - "8085:8085"
     volumes:
@@ -189,19 +192,19 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      - SERVICE_NAME=file-service
-      - CONFIG_PATH=/app/configs/config.yaml
-      - POSTGRES_DSN=postgres://aatn:aatn@postgres:5432/aatn?sslmode=disable
-      - HTTP_PORT=8086
-      - APP_ENV=dev
-      - S3_ENDPOINT=minio:9000
-      - S3_ACCESS_KEY=minioadmin
-      - S3_SECRET_KEY=minioadmin
-      - S3_BUCKET=files
-      - S3_USE_SSL=false
-      - S3_PUBLIC_URL=http://localhost:9000/files
-      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-}
-      - INTERNAL_ALLOWED_IPS=${INTERNAL_ALLOWED_IPS:-}
+      <<: *postgres-dsn
+      SERVICE_NAME: file-service
+      CONFIG_PATH: /app/configs/config.yaml
+      HTTP_PORT: "8086"
+      APP_ENV: dev
+      S3_ENDPOINT: minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_BUCKET: files
+      S3_USE_SSL: "false"
+      S3_PUBLIC_URL: http://localhost:9000/files
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-}
+      INTERNAL_ALLOWED_IPS: ${INTERNAL_ALLOWED_IPS:-}
     ports:
       - "8086:8086"
     volumes:
@@ -217,12 +220,12 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      - SERVICE_NAME=chat-service
-      - CONFIG_PATH=/app/configs/config.yaml
-      - POSTGRES_DSN=postgres://aatn:aatn@postgres:5432/aatn?sslmode=disable
-      - HTTP_PORT=8088
-      - APP_ENV=dev
-      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-}
+      <<: *postgres-dsn
+      SERVICE_NAME: chat-service
+      CONFIG_PATH: /app/configs/config.yaml
+      HTTP_PORT: "8088"
+      APP_ENV: dev
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-}
     ports:
       - "8088:8088"
     volumes:
@@ -240,12 +243,12 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      - SERVICE_NAME=opp-service
-      - CONFIG_PATH=/app/configs/config.yaml
-      - POSTGRES_DSN=postgres://aatn:aatn@postgres:5432/aatn?sslmode=disable
-      - HTTP_PORT=8083
-      - APP_ENV=dev
-      - GATEWAY_URL=http://gateway:8080
+      <<: *postgres-dsn
+      SERVICE_NAME: opp-service
+      CONFIG_PATH: /app/configs/config.yaml
+      HTTP_PORT: "8083"
+      APP_ENV: dev
+      GATEWAY_URL: http://gateway:8080
     ports:
       - "8083:8083"
     volumes:
@@ -280,15 +283,15 @@ services:
         condition: service_started
     # Gateway must be started before services that depend on it for internal calls
     environment:
-      - SERVICE_NAME=gateway
-      - CONFIG_PATH=/app/configs/config.yaml
-      - REDIS_ADDR=redis:6379
-      - POSTGRES_DSN=postgres://aatn:aatn@postgres:5432/aatn?sslmode=disable
-      - JWT_SECRET=CHANGE_ME_IN_PRODUCTION_USE_STRONG_SECRET
-      - HTTP_PORT=8080
-      - CORS_ORIGINS=*
-      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-}
-      - CHAT_SERVICE_URL=http://chat-service:8088
+      <<: *postgres-dsn
+      SERVICE_NAME: gateway
+      CONFIG_PATH: /app/configs/config.yaml
+      REDIS_ADDR: redis:6379
+      JWT_SECRET: ${JWT_SECRET:-CHANGE_ME_IN_PRODUCTION_USE_STRONG_SECRET}
+      HTTP_PORT: "8080"
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-}
+      CHAT_SERVICE_URL: http://chat-service:8088
     ports:
       - "8080:8080"
     volumes:
