@@ -31,6 +31,19 @@ apiClient.interceptors.request.use(
 let isRefreshing = false;
 let failedQueue = [];
 
+const getApiErrorMeta = (error) => {
+    const payload = error?.response?.data || {};
+    const wrapped = payload?.error || {};
+    const code = wrapped.code || payload.code || null;
+    const message = wrapped.message || payload.message || error.message || 'An unexpected error occurred';
+    return { code, message, payload };
+};
+
+const isMeEndpoint = (url = '') => {
+    if (!url) return false;
+    return url.includes('/users/me');
+};
+
 const processQueue = (error, token = null) => {
     failedQueue.forEach((prom) => {
         if (error) {
@@ -46,9 +59,11 @@ apiClient.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
+        const status = error.response?.status;
+        const { code, message, payload } = getApiErrorMeta(error);
 
         // Handle 401 Unauthorized
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        if (status === 401 && !originalRequest._retry) {
             if (isRefreshing) {
                 return new Promise((resolve, reject) => {
                     failedQueue.push({ resolve, reject });
@@ -94,12 +109,23 @@ apiClient.interceptors.response.use(
             }
         }
 
+        // Session invalidation guard:
+        // - /users/me returns USER_NOT_FOUND after backend data reset
+        // - or token-related 401s that cannot be refreshed
+        const isTokenIssue =
+            code === 'INVALID_TOKEN' ||
+            code === 'TOKEN_EXPIRED' ||
+            code === 'UNAUTHORIZED';
+        const isCurrentUserMissing = status === 404 && code === 'USER_NOT_FOUND' && isMeEndpoint(originalRequest?.url);
+        if (isCurrentUserMissing || (status === 401 && isTokenIssue)) {
+            useAuthStore.getState().logout();
+        }
+
         // Unified Error Handling
-        const errorMessage = error.response?.data?.message || error.message || 'An unexpected error occurred';
-        const appError = new Error(errorMessage);
-        appError.status = error.response?.status;
-        appError.code = error.response?.data?.code;
-        appError.data = error.response?.data;
+        const appError = new Error(message);
+        appError.status = status;
+        appError.code = code;
+        appError.data = payload;
 
         return Promise.reject(appError);
     }

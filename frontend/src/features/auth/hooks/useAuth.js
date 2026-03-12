@@ -22,14 +22,19 @@ export const useAuth = () => {
     const register = useCallback(async (data) => {
         setLoading(true);
         try {
-            await authApi.register(data);
-            return { success: true };
+            const response = await authApi.register(data);
+            const { user, access_token, refresh_token } = response.data?.data || {};
+            if (user && access_token) {
+                setAuth(user, access_token, refresh_token);
+                return { success: true, autoLogin: true };
+            }
+            return { success: true, autoLogin: false };
         } catch (error) {
             return { success: false, error: error.message };
         } finally {
             setLoading(false);
         }
-    }, [setLoading]);
+    }, [setAuth, setLoading]);
 
     const logout = useCallback(async () => {
         try {

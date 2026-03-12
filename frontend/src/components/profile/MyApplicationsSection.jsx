@@ -51,9 +51,8 @@ export default function MyApplicationsSection({ applications, onNavigate }) {
     return (
         <Paper
             sx={{
-                background: "rgba(7, 12, 30, 0.8)",
-                backdropFilter: "blur(20px)",
-                border: "1px solid rgba(93, 224, 255, 0.15)",
+                background: "#ffffff",
+                border: "1px solid #e5e7eb",
                 borderRadius: 3,
                 p: 4,
             }}
@@ -110,7 +109,7 @@ export default function MyApplicationsSection({ applications, onNavigate }) {
                                         <Card
                                             key={app.id}
                                             sx={{
-                                                backgroundColor: "rgba(7, 12, 30, 0.6)",
+                                                backgroundColor: "#ffffff",
                                                 border: `1px solid ${config.color}30`,
                                                 borderRadius: 2,
                                                 transition: "all 0.2s ease",

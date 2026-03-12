@@ -141,13 +141,14 @@ func (h *PortfolioHandler) CreateProjectHandler(c *gin.Context) {
 	}
 
 	var req struct {
-		Title         string   `json:"title" binding:"required"`
-		ClientName    *string  `json:"client_name"`
-		Description   *string  `json:"description"`
-		Year          *int     `json:"year"`
-		Tags          []string `json:"tags"`
-		CoverImageURL *string  `json:"cover_image_url"`
-		ProjectLink   *string  `json:"project_link"`
+		Title           string   `json:"title" binding:"required"`
+		ServiceCategory *string  `json:"service_category"`
+		ClientName      *string  `json:"client_name"`
+		Description     *string  `json:"description"`
+		Year            *int     `json:"year"`
+		Tags            []string `json:"tags"`
+		CoverImageURL   *string  `json:"cover_image_url"`
+		ProjectLink     *string  `json:"project_link"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, err.Error())
@@ -155,13 +156,14 @@ func (h *PortfolioHandler) CreateProjectHandler(c *gin.Context) {
 	}
 
 	project := &model.Project{
-		Title:         req.Title,
-		ClientName:    req.ClientName,
-		Description:   req.Description,
-		Year:          req.Year,
-		Tags:          model.StringArray(req.Tags),
-		CoverImageURL: req.CoverImageURL,
-		ProjectLink:   req.ProjectLink,
+		Title:           req.Title,
+		ServiceCategory: req.ServiceCategory,
+		ClientName:      req.ClientName,
+		Description:     req.Description,
+		Year:            req.Year,
+		Tags:            model.StringArray(req.Tags),
+		CoverImageURL:   req.CoverImageURL,
+		ProjectLink:     req.ProjectLink,
 	}
 
 	if err := h.projectSvc.CreateProject(c.Request.Context(), userID, project); err != nil {
@@ -189,13 +191,14 @@ func (h *PortfolioHandler) UpdateProjectHandler(c *gin.Context) {
 	}
 
 	var req struct {
-		Title         string   `json:"title" binding:"required"`
-		ClientName    *string  `json:"client_name"`
-		Description   *string  `json:"description"`
-		Year          *int     `json:"year"`
-		Tags          []string `json:"tags"`
-		CoverImageURL *string  `json:"cover_image_url"`
-		ProjectLink   *string  `json:"project_link"`
+		Title           string   `json:"title" binding:"required"`
+		ServiceCategory *string  `json:"service_category"`
+		ClientName      *string  `json:"client_name"`
+		Description     *string  `json:"description"`
+		Year            *int     `json:"year"`
+		Tags            []string `json:"tags"`
+		CoverImageURL   *string  `json:"cover_image_url"`
+		ProjectLink     *string  `json:"project_link"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, err.Error())
@@ -203,14 +206,15 @@ func (h *PortfolioHandler) UpdateProjectHandler(c *gin.Context) {
 	}
 
 	project := &model.Project{
-		ID:            uriReq.ID,
-		Title:         req.Title,
-		ClientName:    req.ClientName,
-		Description:   req.Description,
-		Year:          req.Year,
-		Tags:          model.StringArray(req.Tags),
-		CoverImageURL: req.CoverImageURL,
-		ProjectLink:   req.ProjectLink,
+		ID:              uriReq.ID,
+		Title:           req.Title,
+		ServiceCategory: req.ServiceCategory,
+		ClientName:      req.ClientName,
+		Description:     req.Description,
+		Year:            req.Year,
+		Tags:            model.StringArray(req.Tags),
+		CoverImageURL:   req.CoverImageURL,
+		ProjectLink:     req.ProjectLink,
 	}
 
 	if err := h.projectSvc.UpdateProject(c.Request.Context(), userID, project); err != nil {

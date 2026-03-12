@@ -5,8 +5,8 @@ export default function StatsCard({ icon, label, value, accent }) {
   return (
     <Card
       sx={{
-        background: "rgba(7, 12, 30, 0.96)",
-        border: "1px solid rgba(93, 224, 255, 0.25)",
+        background: "#ffffff",
+        border: "1px solid #e5e7eb",
         borderRadius: 3,
         height: "100%",
       }}

@@ -26,7 +26,15 @@ export default function DashboardHeader({
   userEmail,
   isStudentRole,
   onNavigate,
+  variant = "dark",
 }) {
+  const isLight = variant === "light";
+  const textColor = isLight ? "#333" : "text.secondary";
+  const textHoverColor = isLight ? "#1a1a1a" : "text.primary";
+  const avatarBg = isLight ? "rgba(25, 118, 210, 0.15)" : "rgba(93, 224, 255, 0.2)";
+  const avatarColor = isLight ? "#1976d2" : "#5de0ff";
+  const borderColor = isLight ? "rgba(0,0,0,0.12)" : "rgba(93, 224, 255, 0.4)";
+
   return (
     <Box
       sx={{
@@ -44,9 +52,9 @@ export default function DashboardHeader({
             variant="text"
             onClick={() => onNavClick(item.path)}
             sx={{
-              color: "text.secondary",
+              color: textColor,
               fontWeight: 600,
-              "&:hover": { color: "text.primary" },
+              "&:hover": { color: textHoverColor },
             }}
           >
             {item.label}
@@ -60,7 +68,7 @@ export default function DashboardHeader({
             onClick={onMenuOpen}
             size="small"
             sx={{
-              border: "1px solid rgba(93, 224, 255, 0.4)",
+              border: `1px solid ${borderColor}`,
               padding: 0.5,
             }}
           >
@@ -68,8 +76,8 @@ export default function DashboardHeader({
               sx={{
                 width: 36,
                 height: 36,
-                bgcolor: "rgba(93, 224, 255, 0.2)",
-                color: "#5de0ff",
+                bgcolor: avatarBg,
+                color: avatarColor,
                 fontWeight: 700,
               }}
             >

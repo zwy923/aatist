@@ -36,14 +36,16 @@ type AuthHandler struct {
 	authService        service.AuthService
 	profileSvc         service.ProfileService
 	savedItemSvc       service.SavedItemService
+	userServiceRepo    repository.UserServiceRepository
 	notificationClient service.NotificationClient
-	emailVerifSvc      *service.EmailVerificationService
-	passwordResetSvc   *service.PasswordResetService
-	mq                 interface {
+	emailVerifSvc             *service.EmailVerificationService
+	passwordResetSvc          *service.PasswordResetService
+	mq                        interface {
 		PublishEmailVerification(message interface{}) error
 		PublishPasswordReset(message interface{}) error
 	}
-	logger *log.Logger
+	disableEmailVerification  bool   // When true, do not send verification email after registration
+	logger                    *log.Logger
 }
 
 // NewAuthHandler creates a new authentication handler
@@ -51,6 +53,7 @@ func NewAuthHandler(
 	authService service.AuthService,
 	profileService service.ProfileService,
 	savedItemService service.SavedItemService,
+	userServiceRepo repository.UserServiceRepository,
 	notificationClient service.NotificationClient,
 	emailVerifSvc *service.EmailVerificationService,
 	passwordResetSvc *service.PasswordResetService,
@@ -58,17 +61,20 @@ func NewAuthHandler(
 		PublishEmailVerification(message interface{}) error
 		PublishPasswordReset(message interface{}) error
 	},
+	disableEmailVerification bool,
 	logger *log.Logger,
 ) *AuthHandler {
 	return &AuthHandler{
 		authService:        authService,
 		profileSvc:         profileService,
 		savedItemSvc:       savedItemService,
+		userServiceRepo:    userServiceRepo,
 		notificationClient: notificationClient,
-		emailVerifSvc:      emailVerifSvc,
-		passwordResetSvc:   passwordResetSvc,
-		mq:                 mq,
-		logger:             logger,
+		emailVerifSvc:            emailVerifSvc,
+		passwordResetSvc:         passwordResetSvc,
+		mq:                       mq,
+		disableEmailVerification: disableEmailVerification,
+		logger:                   logger,
 	}
 }
 
@@ -153,9 +159,8 @@ func (h *AuthHandler) RegisterHandler(c *gin.Context) {
 		return
 	}
 
-	// Send verification email to all users (all users need email verification)
-	// School email domains (e.g., @aalto.fi) get role_verified = true, but still need email verification
-	if h.emailVerifSvc != nil && h.mq != nil {
+	// Send verification email unless disabled by config (e.g. when SendGrid quota is exceeded)
+	if !h.disableEmailVerification && h.emailVerifSvc != nil && h.mq != nil {
 		token, err := h.emailVerifSvc.GenerateVerificationToken(ctx, user.ID, user.Email)
 		if err != nil {
 			h.logger.Error("Failed to generate verification token", zap.Error(err))
@@ -194,7 +199,7 @@ func (h *AuthHandler) LoginHandler(c *gin.Context) {
 	}
 
 	ip := h.getClientIP(c)
-	user, tokens, err := h.authService.Login(c.Request.Context(), req.Email, req.Password, ip)
+	user, tokens, err := h.authService.Login(c.Request.Context(), req.Email, req.Password, ip, req.LoginType)
 	if err != nil {
 		h.handleServiceError(c, err)
 		return
@@ -573,6 +578,154 @@ func (h *AuthHandler) RemoveUserCourseHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, response.Success(mapUserToResponse(user)))
 }
 
+// GetUserServicesHandler handles GET /users/me/services
+func (h *AuthHandler) GetUserServicesHandler(c *gin.Context) {
+	userID, err := middleware.GetUserID(c)
+	if err != nil {
+		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
+		return
+	}
+	services, err := h.userServiceRepo.FindByUserID(c.Request.Context(), userID)
+	if err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, response.Success(gin.H{"services": services}))
+}
+
+// CreateUserServiceHandler handles POST /users/me/services
+func (h *AuthHandler) CreateUserServiceHandler(c *gin.Context) {
+	userID, err := middleware.GetUserID(c)
+	if err != nil {
+		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
+		return
+	}
+	var req struct {
+		Category          string   `json:"category" binding:"required,max=100"`
+		ExperienceSummary string   `json:"experience_summary" binding:"omitempty,max=500"`
+		Title             string   `json:"title" binding:"omitempty,max=200"`
+		Description       string   `json:"description" binding:"omitempty,max=5000"`
+		ShortDescription  string   `json:"short_description" binding:"omitempty,max=500"`
+		PriceType         string   `json:"price_type" binding:"omitempty,oneof=hourly project negotiable"`
+		PriceMin          *int     `json:"price_min"`
+		PriceMax          *int     `json:"price_max"`
+		MediaURLs         []string `json:"media_urls"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, err.Error())
+		return
+	}
+	expSummary := strings.TrimSpace(req.ExperienceSummary)
+	if expSummary == "" {
+		expSummary = strings.TrimSpace(req.Description)
+	}
+	if expSummary == "" {
+		expSummary = strings.TrimSpace(req.ShortDescription)
+	}
+	s := &model.UserService{
+		UserID:            userID,
+		Category:          strings.TrimSpace(req.Category),
+		ExperienceSummary: expSummary,
+		Title:             strings.TrimSpace(req.Title),
+		Description:       strings.TrimSpace(req.Description),
+		ShortDescription:  strings.TrimSpace(req.ShortDescription),
+		PriceType:         strings.TrimSpace(req.PriceType),
+		PriceMin:          req.PriceMin,
+		PriceMax:          req.PriceMax,
+		MediaURLs:         model.StringArray(req.MediaURLs),
+	}
+	if err := h.userServiceRepo.Create(c.Request.Context(), s); err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, response.Success(s))
+}
+
+// UpdateUserServiceHandler handles PATCH /users/me/services/:id
+func (h *AuthHandler) UpdateUserServiceHandler(c *gin.Context) {
+	userID, err := middleware.GetUserID(c)
+	if err != nil {
+		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
+		return
+	}
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "invalid service id")
+		return
+	}
+	var req struct {
+		Category          string   `json:"category" binding:"omitempty,max=100"`
+		ExperienceSummary string   `json:"experience_summary" binding:"omitempty,max=500"`
+		Title             string   `json:"title" binding:"omitempty,max=200"`
+		Description       string   `json:"description" binding:"omitempty,max=5000"`
+		ShortDescription  string   `json:"short_description" binding:"omitempty,max=500"`
+		PriceType         string   `json:"price_type" binding:"omitempty,oneof=hourly project negotiable"`
+		PriceMin          *int     `json:"price_min"`
+		PriceMax          *int     `json:"price_max"`
+		MediaURLs         []string `json:"media_urls"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, err.Error())
+		return
+	}
+	s, err := h.userServiceRepo.FindByID(c.Request.Context(), id, userID)
+	if err != nil {
+		h.respondError(c, http.StatusNotFound, errs.ErrInvalidInput, "service not found")
+		return
+	}
+	if req.Category != "" {
+		s.Category = strings.TrimSpace(req.Category)
+	}
+	if req.ExperienceSummary != "" {
+		s.ExperienceSummary = strings.TrimSpace(req.ExperienceSummary)
+	}
+	if req.Title != "" {
+		s.Title = strings.TrimSpace(req.Title)
+	}
+	if req.Description != "" {
+		s.Description = strings.TrimSpace(req.Description)
+	}
+	if req.ShortDescription != "" {
+		s.ShortDescription = strings.TrimSpace(req.ShortDescription)
+	}
+	if req.PriceType != "" {
+		s.PriceType = strings.TrimSpace(req.PriceType)
+	}
+	if req.PriceMin != nil {
+		s.PriceMin = req.PriceMin
+	}
+	if req.PriceMax != nil {
+		s.PriceMax = req.PriceMax
+	}
+	if req.MediaURLs != nil {
+		s.MediaURLs = model.StringArray(req.MediaURLs)
+	}
+	if err := h.userServiceRepo.Update(c.Request.Context(), s); err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, response.Success(s))
+}
+
+// DeleteUserServiceHandler handles DELETE /users/me/services/:id
+func (h *AuthHandler) DeleteUserServiceHandler(c *gin.Context) {
+	userID, err := middleware.GetUserID(c)
+	if err != nil {
+		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
+		return
+	}
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "invalid service id")
+		return
+	}
+	if err := h.userServiceRepo.Delete(c.Request.Context(), id, userID); err != nil {
+		h.respondError(c, http.StatusNotFound, errs.ErrInvalidInput, "service not found")
+		return
+	}
+	c.JSON(http.StatusOK, response.Success(gin.H{"message": "deleted"}))
+}
+
 // SearchSkillsHandler handles GET /skills
 func (h *AuthHandler) SearchSkillsHandler(c *gin.Context) {
 	query := c.Query("q")
@@ -689,13 +842,18 @@ func (h *AuthHandler) getClientIP(c *gin.Context) string {
 
 func mapUserToResponse(user *model.User) UserResponse {
 	resp := UserResponse{
-		ID:                user.ID,
-		Email:             user.Email,
-		Name:              user.Name,
-		AvatarURL:         user.AvatarURL,
-		Role:              user.Role.String(),
-		Bio:               user.Bio,
-		ProfileVisibility: user.ProfileVisibility.String(),
+		ID:                   user.ID,
+		Email:                user.Email,
+		Name:                 user.Name,
+		AvatarURL:            user.AvatarURL,
+		Role:                 user.Role.String(),
+		Bio:                  user.Bio,
+		Website:              user.Website,
+		LinkedIn:             user.LinkedIn,
+		Behance:              user.Behance,
+		Languages:            user.Languages,
+		ProfessionalInterests: user.ProfessionalInterests,
+		ProfileVisibility:    user.ProfileVisibility.String(),
 		IsVerifiedEmail:   user.IsVerifiedEmail,
 		RoleVerified:      user.RoleVerified,
 		OAuthProvider:     user.OAuthProvider,
@@ -705,8 +863,6 @@ func mapUserToResponse(user *model.User) UserResponse {
 		School:              user.School,
 		Faculty:             user.Faculty,
 		Major:               user.Major,
-		WeeklyHours:         user.WeeklyHours,
-		WeeklyAvailability:  user.WeeklyAvailability,
 		Skills:              user.Skills,
 		Courses:             user.Courses,
 		PortfolioVisibility: user.PortfolioVisibility.String(),
@@ -774,64 +930,14 @@ func (h *AuthHandler) GetUserByIDHandler(c *gin.Context) {
 
 	// Return public profile (exclude sensitive fields)
 	publicProfile := mapUserToPublicResponse(user)
+	// Include service offerings for talent profiles
+	if user.Role.IsStudentRole() {
+		services, _ := h.userServiceRepo.FindByUserID(c.Request.Context(), req.ID)
+		if services != nil {
+			publicProfile["services"] = services
+		}
+	}
 	c.JSON(http.StatusOK, response.Success(publicProfile))
-}
-
-// GetAvailabilityHandler returns availability information for the authenticated user
-func (h *AuthHandler) GetAvailabilityHandler(c *gin.Context) {
-	userID, err := middleware.GetUserID(c)
-	if err != nil {
-		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
-		return
-	}
-
-	user, err := h.profileSvc.GetProfile(c.Request.Context(), userID)
-	if err != nil {
-		h.handleServiceError(c, err)
-		return
-	}
-
-	c.JSON(http.StatusOK, response.Success(gin.H{
-		"weekly_hours":        user.WeeklyHours,
-		"weekly_availability": user.WeeklyAvailability,
-	}))
-}
-
-// UpdateAvailabilityHandler updates availability information
-func (h *AuthHandler) UpdateAvailabilityHandler(c *gin.Context) {
-	userID, err := middleware.GetUserID(c)
-	if err != nil {
-		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
-		return
-	}
-
-	var req struct {
-		WeeklyHours        *int                        `json:"weekly_hours"`
-		WeeklyAvailability *[]model.WeeklyAvailability `json:"weekly_availability"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, err.Error())
-		return
-	}
-
-	input := service.UpdateProfileInput{
-		WeeklyHours: req.WeeklyHours,
-	}
-	if req.WeeklyAvailability != nil {
-		wa := model.WeeklyAvailabilityArray(*req.WeeklyAvailability)
-		input.WeeklyAvailability = &wa
-	}
-
-	user, err := h.profileSvc.UpdateProfile(c.Request.Context(), userID, input)
-	if err != nil {
-		h.handleServiceError(c, err)
-		return
-	}
-
-	c.JSON(http.StatusOK, response.Success(gin.H{
-		"weekly_hours":        user.WeeklyHours,
-		"weekly_availability": user.WeeklyAvailability,
-	}))
 }
 
 // GetSavedItemsHandler returns all saved items for the authenticated user
@@ -968,13 +1074,18 @@ func (h *AuthHandler) UnsaveItemHandler(c *gin.Context) {
 // mapUserToPublicResponse maps user to public response (excludes sensitive fields)
 func mapUserToPublicResponse(user *model.User) gin.H {
 	resp := gin.H{
-		"id":                 user.ID,
-		"name":               user.Name,
-		"avatar_url":         user.AvatarURL,
-		"role":               user.Role.String(),
-		"bio":                user.Bio,
-		"profile_visibility": user.ProfileVisibility.String(),
-		"created_at":         user.CreatedAt.Format(time.RFC3339),
+		"id":                   user.ID,
+		"name":                 user.Name,
+		"avatar_url":           user.AvatarURL,
+		"role":                 user.Role.String(),
+		"bio":                  user.Bio,
+		"website":              user.Website,
+		"linkedin":             user.LinkedIn,
+		"behance":              user.Behance,
+		"languages":            user.Languages,
+		"professional_interests": user.ProfessionalInterests,
+		"profile_visibility":   user.ProfileVisibility.String(),
+		"created_at":           user.CreatedAt.Format(time.RFC3339),
 	}
 
 	// Add student/alumni fields if applicable
@@ -982,8 +1093,6 @@ func mapUserToPublicResponse(user *model.User) gin.H {
 		resp["school"] = user.School
 		resp["faculty"] = user.Faculty
 		resp["major"] = user.Major
-		resp["weekly_hours"] = user.WeeklyHours
-		resp["weekly_availability"] = user.WeeklyAvailability
 		resp["skills"] = user.Skills
 		resp["courses"] = user.Courses
 		resp["portfolio_visibility"] = user.PortfolioVisibility.String()
@@ -1086,7 +1195,6 @@ func (h *AuthHandler) SearchUsersHandler(c *gin.Context) {
 	var query struct {
 		Query    string `form:"q"`
 		Faculty  string `form:"faculty"`
-		MinHours int    `form:"min_hours"`
 		Role     string `form:"role"`
 		Limit    int    `form:"limit"`
 		Offset   int    `form:"offset"`
@@ -1098,14 +1206,16 @@ func (h *AuthHandler) SearchUsersHandler(c *gin.Context) {
 	}
 
 	filter := repository.UserSearchFilter{
-		Query:   query.Query,
-		Faculty: query.Faculty,
-		Role:    query.Role,
-		Limit:   query.Limit,
-		Offset:  query.Offset,
+		Query:         query.Query,
+		Faculty:       query.Faculty,
+		Role:          query.Role,
+		Limit:         query.Limit,
+		Offset:        query.Offset,
+		ExcludeUserID: 0,
 	}
-	if query.MinHours > 0 {
-		filter.MinHours = &query.MinHours
+	// Exclude current user from talent search (strict: cannot find own profile)
+	if excludeID, ok := middleware.GetUserIDOptional(c); ok && excludeID > 0 {
+		filter.ExcludeUserID = excludeID
 	}
 
 	users, err := h.profileSvc.SearchUsers(c.Request.Context(), filter)

@@ -17,17 +17,19 @@ const (
 	OnlineStatusTTL = 60 * time.Second
 )
 
-// Manager handles WebSocket connections and online status
+// Manager handles WebSocket connections, online status and chat hub
 type Manager struct {
 	redis  *cache.Redis
 	logger *log.Logger
+	hub    *Hub
 }
 
-// NewManager creates a new WebSocket manager
-func NewManager(redis *cache.Redis, logger *log.Logger) *Manager {
+// NewManager creates a new WebSocket manager. persist can be nil to skip saving messages.
+func NewManager(redis *cache.Redis, logger *log.Logger, persist PersistMessageFunc) *Manager {
 	return &Manager{
 		redis:  redis,
 		logger: logger,
+		hub:    NewHub(logger, persist),
 	}
 }
 

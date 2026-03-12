@@ -52,9 +52,8 @@ export default function SavedItemsSection({ items, onRemove, onNavigate }) {
     return (
         <Paper
             sx={{
-                background: "rgba(7, 12, 30, 0.8)",
-                backdropFilter: "blur(20px)",
-                border: "1px solid rgba(93, 224, 255, 0.15)",
+                background: "#ffffff",
+                border: "1px solid #e5e7eb",
                 borderRadius: 3,
                 p: 4,
             }}
@@ -111,8 +110,8 @@ export default function SavedItemsSection({ items, onRemove, onNavigate }) {
                             <Grid item xs={12} sm={6} md={4} key={item.id}>
                                 <Card
                                     sx={{
-                                        backgroundColor: "rgba(7, 12, 30, 0.6)",
-                                        border: "1px solid rgba(93, 224, 255, 0.1)",
+                                        backgroundColor: "#ffffff",
+                                        border: "1px solid #e5e7eb",
                                         borderRadius: 2,
                                         height: "100%",
                                         transition: "all 0.2s ease",

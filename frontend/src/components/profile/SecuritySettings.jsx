@@ -116,9 +116,8 @@ export default function SecuritySettings({ profile, onPasswordChange, onProfileU
                 {/* Password Change */}
                 <Paper
                     sx={{
-                        background: "rgba(7, 12, 30, 0.8)",
-                        backdropFilter: "blur(20px)",
-                        border: "1px solid rgba(93, 224, 255, 0.15)",
+                        background: "#ffffff",
+                        border: "1px solid #e5e7eb",
                         borderRadius: 3,
                         p: 4,
                     }}
@@ -183,8 +182,10 @@ export default function SecuritySettings({ profile, onPasswordChange, onProfileU
                                     value={passwordForm.confirmPassword}
                                     onChange={handlePasswordFormChange("confirmPassword")}
                                     error={
-                                        passwordForm.confirmPassword &&
-                                        passwordForm.newPassword !== passwordForm.confirmPassword
+                                        !!(
+                                            passwordForm.confirmPassword &&
+                                            passwordForm.newPassword !== passwordForm.confirmPassword
+                                        )
                                     }
                                     helperText={
                                         passwordForm.confirmPassword &&
@@ -220,9 +221,8 @@ export default function SecuritySettings({ profile, onPasswordChange, onProfileU
                 {/* Privacy Settings */}
                 <Paper
                     sx={{
-                        background: "rgba(7, 12, 30, 0.8)",
-                        backdropFilter: "blur(20px)",
-                        border: "1px solid rgba(93, 224, 255, 0.15)",
+                        background: "#ffffff",
+                        border: "1px solid #e5e7eb",
                         borderRadius: 3,
                         p: 4,
                     }}

@@ -14,12 +14,12 @@ type ProfileUpdate struct {
 }
 
 type UserSearchFilter struct {
-	Query    string
-	Faculty  string
-	MinHours *int
-	Role     string
-	Limit    int
-	Offset   int
+	Query         string
+	Faculty       string
+	Role          string
+	Limit         int
+	Offset        int
+	ExcludeUserID int64 // Exclude current user from talent search results
 }
 
 type UserRepository interface {

@@ -1,657 +1,401 @@
-import React, { useState, useMemo } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import React, { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
+  Alert,
   Box,
   Button,
-  TextField,
-  Typography,
-  Alert,
   CircularProgress,
-  Container,
-  Stack,
-  Paper,
-  Card,
-  CardActionArea,
-  Chip,
   FormControl,
-  InputLabel,
   MenuItem,
   Select,
-  Grid,
+  TextField,
+  Typography,
 } from "@mui/material";
 import { useAuth } from "../features/auth/hooks/useAuth";
+import "./AuthRegister.css";
 
-const createRegisterForm = () => ({
+const SCHOOL_OPTIONS = [
+  "School of Arts, Design and Architecture",
+  "School of Business",
+  "School of Chemical Engineering",
+  "School of Electrical Engineering",
+  "School of Engineering",
+  "School of Science",
+];
+
+const DEPARTMENT_OPTIONS = [
+  "Design",
+  "Media",
+  "Architecture",
+  "Film",
+  "Visual Communication",
+  "Other",
+];
+
+const createClientForm = () => ({
   name: "",
+  company: "",
+  title: "",
   email: "",
   password: "",
   confirmPassword: "",
-  role: null,
-  studentId: "",
-  school: "",
-  customSchool: "",
-  faculty: "",
-  customFaculty: "",
-  organizationName: "",
-  contactTitle: "",
+  agreed: false,
 });
 
-const roleConfigs = {
-  student: {
-    title: "Student maker",
-    accent: "#5de0ff",
-    description: "Create & learn",
-    badge: "Create & learn",
-  },
-  organization: {
-    title: "Organization / partner",
-    accent: "#ffb877",
-    description: "Launch opportunities",
-    badge: "Launch opportunities",
-  },
-};
+const createStudentForm = () => ({
+  name: "",
+  preferredName: "",
+  school: "",
+  department: "",
+  program: "",
+  yearOfEnrollment: "",
+  emailLocalPart: "",
+  password: "",
+  confirmPassword: "",
+  agreed: false,
+});
 
-const SCHOOL_OPTIONS = [
-  {
-    value: "aalto",
-    label: "Aalto University",
-    faculties: [
-      "School of Arts, Design and Architecture",
-      "School of Business",
-      "School of Chemical Engineering",
-      "School of Electrical Engineering",
-      "School of Engineering",
-      "School of Science",
-    ],
-  },
-  {
-    value: "helsinki",
-    label: "University of Helsinki",
-    faculties: [
-      "Faculty of Arts",
-      "Faculty of Science",
-      "Faculty of Social Sciences",
-      "Faculty of Medicine",
-    ],
-  },
-];
-
-const OTHER_OPTION = "other";
-
-const strongPasswordRegex =
-  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\da-zA-Z]).{10,}$/;
-const strongPasswordHint =
-  "Use 10+ characters with uppercase, lowercase, a number, and a symbol.";
-const isStrongPassword = (password) => strongPasswordRegex.test(password);
-
-export default function Register() {
+function Register() {
   const navigate = useNavigate();
   const { register, loading } = useAuth();
+  const [mode, setMode] = useState("client");
   const [error, setError] = useState("");
-  const [registerSuccess, setRegisterSuccess] = useState(false);
-  const [registeredEmail, setRegisteredEmail] = useState("");
-  const [registerStage, setRegisterStage] = useState("choice");
-  const [registerForm, setRegisterForm] = useState(createRegisterForm());
+  const [success, setSuccess] = useState("");
+  const [clientForm, setClientForm] = useState(createClientForm());
+  const [studentForm, setStudentForm] = useState(createStudentForm());
 
-  const selectedSchool = useMemo(
-    () => SCHOOL_OPTIONS.find((option) => option.value === registerForm.school),
-    [registerForm.school]
+  const titleText = useMemo(
+    () =>
+      mode === "client"
+        ? "Join Aatist as a Client."
+        : "Join Aatist as a verified Aalto student.",
+    [mode]
   );
 
-  const handleRoleSelect = (role) => {
-    setRegisterForm((prev) => ({
-      ...prev,
-      role,
-      studentId: "",
-      school: "",
-      customSchool: "",
-      faculty: "",
-      customFaculty: "",
-      organizationName: "",
-      contactTitle: "",
-    }));
-    setRegisterStage("form");
-    setError("");
+  const updateClient = (field, value) => {
+    setClientForm((prev) => ({ ...prev, [field]: value }));
+  };
+  const updateStudent = (field, value) => {
+    setStudentForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleRegisterChange = (field, value) => {
-    setRegisterForm((prev) => ({ ...prev, [field]: value }));
-  };
+  const validatePassword = (password) => password.length >= 6;
 
-  const handleRegister = async (e) => {
-    e.preventDefault();
+  const submitClient = async (event) => {
+    event.preventDefault();
     setError("");
+    setSuccess("");
 
-    if (!registerForm.role) {
-      setError("Please choose how you'd like to use Aatist.");
+    if (!clientForm.agreed) {
+      setError("Please agree to the Terms & Privacy Policy.");
       return;
     }
-
-    if (!isStrongPassword(registerForm.password)) {
-      setError(strongPasswordHint);
+    if (!validatePassword(clientForm.password)) {
+      setError("Password must be at least 6 characters.");
       return;
     }
-
-    if (registerForm.password !== registerForm.confirmPassword) {
+    if (clientForm.password !== clientForm.confirmPassword) {
       setError("Passwords do not match.");
       return;
     }
 
-    const profile = {};
+    const payload = {
+      name: clientForm.name.trim(),
+      email: clientForm.email.trim(),
+      password: clientForm.password,
+      role: "organization",
+      profile: {
+        organizationName: clientForm.company.trim(),
+        contactTitle: clientForm.title.trim(),
+      },
+    };
 
-    if (registerForm.role === "student") {
-      if (!registerForm.studentId.trim()) {
-        setError("Student ID is required.");
-        return;
-      }
-      if (!registerForm.school) {
-        setError("Please select your university.");
-        return;
-      }
-
-      const schoolOption = selectedSchool;
-      let resolvedSchool = registerForm.school;
-
-      if (registerForm.school === OTHER_OPTION) {
-        if (!registerForm.customSchool.trim()) {
-          setError("Please enter your university name.");
-          return;
-        }
-        resolvedSchool = registerForm.customSchool.trim();
-      } else if (schoolOption?.label) {
-        resolvedSchool = schoolOption.label;
-      }
-
-      let resolvedFaculty = "";
-      if (schoolOption?.faculties?.length) {
-        if (!registerForm.faculty) {
-          setError("Please select your faculty.");
-          return;
-        }
-        if (
-          registerForm.faculty === OTHER_OPTION &&
-          !registerForm.customFaculty.trim()
-        ) {
-          setError("Please enter your faculty name.");
-          return;
-        }
-        resolvedFaculty =
-          registerForm.faculty === OTHER_OPTION
-            ? registerForm.customFaculty.trim()
-            : registerForm.faculty;
-      } else if (registerForm.customFaculty.trim()) {
-        resolvedFaculty = registerForm.customFaculty.trim();
-      }
-
-      profile.studentId = registerForm.studentId.trim();
-      profile.school = resolvedSchool;
-      if (resolvedFaculty) {
-        profile.faculty = resolvedFaculty;
-      }
-    } else if (registerForm.role === "organization") {
-      if (!registerForm.organizationName.trim()) {
-        setError("Organization / team name is required.");
-        return;
-      }
-      if (!registerForm.contactTitle.trim()) {
-        setError("Please tell us your role / title.");
-        return;
-      }
-      profile.organizationName = registerForm.organizationName.trim();
-      profile.contactTitle = registerForm.contactTitle.trim();
-    }
-
-    // Ensure profile is not empty (profile is required)
-    if (Object.keys(profile).length === 0) {
-      setError("Profile information is required.");
+    const result = await register(payload);
+    if (!result.success) {
+      setError(result.error || "Registration failed.");
       return;
     }
 
-    const cleanProfile = Object.fromEntries(
-      Object.entries(profile).filter(([, value]) => Boolean(value))
-    );
-
-    const result = await register({
-      name: registerForm.name,
-      email: registerForm.email,
-      password: registerForm.password,
-      role: registerForm.role,
-      profile: cleanProfile,
-    });
-
-    if (result.success) {
-      setRegisterSuccess(true);
-      setRegisteredEmail(registerForm.email);
-      setRegisterForm(createRegisterForm());
-      setRegisterStage("choice");
-    } else {
-      setError(result.error || "Registration failed, try again.");
-      setRegisterSuccess(false);
-    }
+    setSuccess(result.autoLogin ? "Account created successfully." : "Account created successfully. Please sign in.");
+    setClientForm(createClientForm());
+    setTimeout(() => navigate(result.autoLogin ? "/dashboard" : "/auth/login/client"), 700);
   };
 
-  const emailPlaceholder =
-    registerForm.role === "organization"
-      ? "you@studio.com"
-      : "firstname.lastname@studentmail.com";
+  const submitStudent = async (event) => {
+    event.preventDefault();
+    setError("");
+    setSuccess("");
 
-  const renderRoleChoice = () => (
-    <Stack spacing={3}>
-      <Typography variant="body1" color="text.secondary">
-        Choose the path that matches how you collaborate with the campus ecosystem.
-      </Typography>
-      <Grid container spacing={2}>
-        {Object.entries(roleConfigs).map(([role, config]) => (
-          <Grid item xs={12} md={6} key={role}>
-            <Card
-              variant="outlined"
-              sx={{
-                borderColor: config.accent + "55",
-                background:
-                  registerForm.role === role
-                    ? "rgba(93, 224, 255, 0.09)"
-                    : "rgba(255,255,255,0.02)",
-              }}
-            >
-              <CardActionArea onClick={() => handleRoleSelect(role)} sx={{ p: 3 }}>
-                <Stack spacing={1.5}>
-                  <Chip
-                    label={config.badge}
-                    variant="outlined"
-                    sx={{
-                      borderColor: config.accent,
-                      color: config.accent,
-                      width: "fit-content",
-                    }}
-                  />
-                  <Typography variant="h6" fontWeight={600}>
-                    {config.title}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {config.description}
-                  </Typography>
-                </Stack>
-              </CardActionArea>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-      <Button
-        variant="text"
-        component={Link}
-        to="/auth/login"
-        sx={{ alignSelf: "flex-start", textTransform: "none" }}
-      >
-        Prefer to sign in instead?
-      </Button>
-    </Stack>
-  );
-
-  const renderFacultyControls = () => {
-    if (!registerForm.school) {
-      return null;
+    const email = `${studentForm.emailLocalPart.trim()}@aalto.fi`;
+    if (!studentForm.agreed) {
+      setError("Please confirm you are an Aalto student and agree to the policy.");
+      return;
+    }
+    if (!studentForm.emailLocalPart.trim()) {
+      setError("Aalto email address is required.");
+      return;
+    }
+    if (!validatePassword(studentForm.password)) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+    if (studentForm.password !== studentForm.confirmPassword) {
+      setError("Passwords do not match.");
+      return;
     }
 
-    if (registerForm.school === OTHER_OPTION) {
-      return (
-        <TextField
-          label="Faculty / School (optional)"
-          placeholder="e.g. Department of Design"
-          value={registerForm.customFaculty}
-          onChange={(e) => handleRegisterChange("customFaculty", e.target.value)}
-          fullWidth
-        />
-      );
+    const payload = {
+      name: studentForm.name.trim(),
+      email,
+      password: studentForm.password,
+      role: "student",
+      profile: {
+        school: studentForm.school,
+        faculty: studentForm.department,
+        major: studentForm.program.trim(),
+        studentId: studentForm.yearOfEnrollment.trim(),
+      },
+    };
+
+    const result = await register(payload);
+    if (!result.success) {
+      setError(result.error || "Registration failed.");
+      return;
     }
 
-    if (!selectedSchool?.faculties?.length) {
-      return null;
-    }
-
-    return (
-      <Stack spacing={2}>
-        <FormControl fullWidth required>
-          <InputLabel id="faculty-select-label">Faculty / School</InputLabel>
-          <Select
-            labelId="faculty-select-label"
-            label="Faculty / School"
-            value={registerForm.faculty}
-            onChange={(e) => handleRegisterChange("faculty", e.target.value)}
-          >
-            <MenuItem value="">
-              <em>Select your faculty</em>
-            </MenuItem>
-            {selectedSchool.faculties.map((faculty) => (
-              <MenuItem key={faculty} value={faculty}>
-                {faculty}
-              </MenuItem>
-            ))}
-            <MenuItem value={OTHER_OPTION}>Other faculty</MenuItem>
-          </Select>
-        </FormControl>
-        {registerForm.faculty === OTHER_OPTION && (
-          <TextField
-            label="Faculty name"
-            placeholder="Type your faculty name"
-            value={registerForm.customFaculty}
-            onChange={(e) =>
-              handleRegisterChange("customFaculty", e.target.value)
-            }
-            required
-            fullWidth
-          />
-        )}
-      </Stack>
-    );
+    setSuccess(result.autoLogin ? "Student account created successfully." : "Student account created successfully. Please sign in.");
+    setStudentForm(createStudentForm());
+    setTimeout(() => navigate(result.autoLogin ? "/dashboard" : "/auth/login/student"), 700);
   };
 
-  const renderRegisterForm = () => (
-    <Box component="form" onSubmit={handleRegister}>
-      <Stack spacing={3}>
-        <TextField
-          id="register-name"
-          label="Full name"
-          placeholder="How should we call you?"
-          value={registerForm.name}
-          onChange={(e) => handleRegisterChange("name", e.target.value)}
-          required
-          fullWidth
-        />
-        <TextField
-          id="register-email"
-          label="Email"
-          type="email"
-          placeholder={emailPlaceholder}
-          value={registerForm.email}
-          onChange={(e) => handleRegisterChange("email", e.target.value)}
-          required
-          fullWidth
-        />
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-          <TextField
-            id="register-password"
-            label="Password"
-            type="password"
-            placeholder="Min 10 characters, Aa1!"
-            value={registerForm.password}
-            onChange={(e) => handleRegisterChange("password", e.target.value)}
-            required
-            fullWidth
-            helperText={strongPasswordHint}
-          />
-          <TextField
-            id="register-confirm-password"
-            label="Confirm password"
-            type="password"
-            placeholder="Repeat password"
-            value={registerForm.confirmPassword}
-            onChange={(e) =>
-              handleRegisterChange("confirmPassword", e.target.value)
-            }
-            required
-            fullWidth
-          />
-        </Stack>
+  return (
+    <main className={`register-auth-page ${mode === "client" ? "register-client-mode" : ""}`}>
+      <header className="register-header">
+        <Link to="/" className="register-brand" aria-label="Aatist Home">
+          <span className="register-brand-icon">A</span>
+          <span className="register-brand-text">atist</span>
+        </Link>
+        <nav className="register-nav" aria-label="Primary">
+          <Link to="/talents" className="register-nav-link">Hire Talent</Link>
+          <Link to="/opportunities" className="register-nav-link">Opportunities</Link>
+          <Link to="/about" className="register-nav-link">About</Link>
+        </nav>
+      </header>
 
-        {registerForm.role === "student" ? (
-          <Stack spacing={2}>
-            <TextField
-              id="register-student-id"
-              label="Student ID"
-              placeholder="e.g. A123456"
-              value={registerForm.studentId}
-              onChange={(e) => handleRegisterChange("studentId", e.target.value)}
-              required
-              fullWidth
-            />
-            <FormControl fullWidth required>
-              <InputLabel id="school-select-label">University</InputLabel>
-              <Select
-                labelId="school-select-label"
-                label="University"
-                value={registerForm.school}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setRegisterForm((prev) => ({
-                    ...prev,
-                    school: value,
-                    customSchool: value === OTHER_OPTION ? prev.customSchool : "",
-                    faculty: "",
-                    customFaculty: "",
-                  }));
-                }}
+      <section className={`register-hero ${mode === "student" ? "student-bg" : "client-bg"}`}>
+        <article className="register-card">
+          <div className="register-card-logo">A atist.</div>
+          <h1>{titleText}</h1>
+          <p>It only takes 1 minute :)</p>
+
+          {mode === "client" && (
+            <div className="register-mode-toggle" role="tablist" aria-label="Register role">
+              <button
+                type="button"
+                className="active"
+                onClick={() => setMode("client")}
               >
-                <MenuItem value="">
-                  <em>Select your university</em>
-                </MenuItem>
-                {SCHOOL_OPTIONS.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-                <MenuItem value={OTHER_OPTION}>Other university</MenuItem>
-              </Select>
-            </FormControl>
-            {registerForm.school === OTHER_OPTION && (
+                Client
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("student")}
+              >
+                Student
+              </button>
+            </div>
+          )}
+
+          {error && <Alert severity="error">{error}</Alert>}
+          {success && <Alert severity="success">{success}</Alert>}
+
+          {mode === "client" ? (
+            <Box component="form" className="register-form" onSubmit={submitClient}>
               <TextField
-                id="register-custom-school"
-                label="University name"
-                placeholder="Enter your university"
-                value={registerForm.customSchool}
-                onChange={(e) =>
-                  handleRegisterChange("customSchool", e.target.value)
-                }
+                placeholder="Full Name"
+                value={clientForm.name}
+                onChange={(e) => updateClient("name", e.target.value)}
                 required
                 fullWidth
               />
-            )}
-            {renderFacultyControls()}
-          </Stack>
-        ) : (
-          <Stack spacing={2}>
-            <TextField
-              id="register-organization-name"
-              label="Organization / team"
-              placeholder="Aalto Ventures Program"
-              value={registerForm.organizationName}
-              onChange={(e) =>
-                handleRegisterChange("organizationName", e.target.value)
-              }
-              required
-              fullWidth
-            />
-            <TextField
-              id="register-contact-title"
-              label="Role / title"
-              placeholder="Program Coordinator"
-              value={registerForm.contactTitle}
-              onChange={(e) =>
-                handleRegisterChange("contactTitle", e.target.value)
-              }
-              required
-              fullWidth
-            />
-          </Stack>
-        )}
-
-        <Stack
-          direction={{ xs: "column", md: "row" }}
-          spacing={2}
-          justifyContent="space-between"
-        >
-          <Button
-            variant="outlined"
-            color="secondary"
-            onClick={() => setRegisterStage("choice")}
-            sx={{ flexBasis: { md: "40%" }, textTransform: "none" }}
-          >
-            Change registration type
-          </Button>
-          <Button
-            type="submit"
-            variant="contained"
-            size="large"
-            disabled={loading}
-            sx={{
-              flexGrow: 1,
-              background: "linear-gradient(135deg, #007bff 0%, #7f5dff 100%)",
-              "&:hover": {
-                background: "linear-gradient(135deg, #0066cc 0%, #6b4dd9 100%)",
-              },
-            }}
-            endIcon={
-              loading ? <CircularProgress size={18} color="inherit" /> : undefined
-            }
-          >
-            {loading ? "Creating..." : "Create my space"}
-          </Button>
-        </Stack>
-        <Typography variant="body2" color="text.secondary" textAlign="center">
-          Already have access?{" "}
-          <Link
-            to="/auth/login"
-            style={{
-              color: "#5de0ff",
-              textDecoration: "none",
-              fontWeight: 600,
-            }}
-          >
-            Sign in instead
-          </Link>
-        </Typography>
-      </Stack>
-    </Box>
-  );
-
-  const renderRegisterContent = () => {
-    if (registerSuccess) {
-      return (
-        <Stack spacing={3} alignItems="center">
-          <Chip
-            label="Verification email sent"
-            color="primary"
-            variant="outlined"
-          />
-          <Typography variant="h5" fontWeight={600} textAlign="center">
-            Check your inbox
-          </Typography>
-          <Typography variant="body1" color="text.secondary" textAlign="center">
-            We sent a verification link to <strong>{registeredEmail}</strong>.
-            Please verify within 24 hours to activate your workspace.
-          </Typography>
-          <Button
-            variant="contained"
-            size="large"
-            component={Link}
-            to="/auth/login"
-            sx={{
-              background: "linear-gradient(135deg, #007bff 0%, #7f5dff 100%)",
-              "&:hover": {
-                background: "linear-gradient(135deg, #0066cc 0%, #6b4dd9 100%)",
-              },
-            }}
-          >
-            Back to sign in
-          </Button>
-        </Stack>
-      );
-    }
-
-    if (registerStage === "choice") {
-      return renderRoleChoice();
-    }
-
-    return renderRegisterForm();
-  };
-
-  const headerTitle = registerSuccess
-    ? "Verify your inbox"
-    : registerStage === "choice"
-      ? "How do you want to join?"
-      : registerForm.role === "organization"
-        ? "Tell us about your collective"
-        : "Tell us about your campus life";
-
-  const headerSubtitle = registerSuccess
-    ? `We just emailed ${registeredEmail || "you"} with the final verification step.`
-    : registerStage === "choice"
-      ? "Select whether you are joining as a student maker or as an organization that publishes opportunities."
-      : registerForm.role === "organization"
-        ? "Share the essentials so we can unlock partner tooling for you."
-        : "We partner with students across Finland—let us know where you study.";
-
-  return (
-    <Box
-      sx={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "radial-gradient(ellipse at top left, #101820, #050505)",
-        padding: 2,
-      }}
-    >
-      <Container maxWidth="md">
-        <Paper
-          elevation={0}
-          sx={{
-            padding: { xs: 3, md: 5 },
-            background: "rgba(7, 12, 30, 0.96)",
-            borderRadius: 3,
-            border: "1px solid rgba(93, 224, 255, 0.25)",
-            position: "relative",
-            overflow: "hidden",
-            "&::before": {
-              content: '""',
-              position: "absolute",
-              inset: 0,
-              pointerEvents: "none",
-              background:
-                "radial-gradient(circle at 20% 20%, rgba(93,224,255,0.15), transparent 45%)",
-            },
-          }}
-        >
-          <Stack spacing={3} sx={{ position: "relative" }}>
-            <Stack spacing={1}>
-              <Chip
-                label={registerSuccess ? "Join the network" : "Continue building"}
-                color="primary"
-                variant="outlined"
-                sx={{ width: "fit-content" }}
+              <TextField
+                placeholder="Company"
+                value={clientForm.company}
+                onChange={(e) => updateClient("company", e.target.value)}
+                required
+                fullWidth
               />
-              <Typography variant="h4" fontWeight={700}>
-                {headerTitle}
-              </Typography>
-              <Typography variant="body1" color="text.secondary">
-                {headerSubtitle}
-              </Typography>
-            </Stack>
+              <TextField
+                placeholder="Role"
+                value={clientForm.title}
+                onChange={(e) => updateClient("title", e.target.value)}
+                required
+                fullWidth
+              />
+              <TextField
+                type="email"
+                placeholder="Email"
+                value={clientForm.email}
+                onChange={(e) => updateClient("email", e.target.value)}
+                required
+                fullWidth
+              />
+              <TextField
+                type="password"
+                placeholder="Password (6+ characters)"
+                value={clientForm.password}
+                onChange={(e) => updateClient("password", e.target.value)}
+                required
+                fullWidth
+              />
+              <TextField
+                type="password"
+                placeholder="Confirm Password"
+                value={clientForm.confirmPassword}
+                onChange={(e) => updateClient("confirmPassword", e.target.value)}
+                required
+                fullWidth
+              />
 
-            {error && (
-              <Alert severity="error" variant="outlined">
-                {error}
-              </Alert>
+              <label className="register-checkbox">
+                <input
+                  type="checkbox"
+                  checked={clientForm.agreed}
+                  onChange={(e) => updateClient("agreed", e.target.checked)}
+                />
+                <span>
+                  I agree to the <Link to="/terms" className="register-terms-link">Terms & Privacy Policy</Link>.
+                </span>
+              </label>
+
+              <div className="register-submit-wrap">
+                <Button type="submit" className="register-submit" disabled={loading}>
+                  {loading ? <CircularProgress size={20} color="inherit" /> : "Create Account"}
+                </Button>
+              </div>
+            </Box>
+          ) : (
+            <Box component="form" className="register-form" onSubmit={submitStudent}>
+              <TextField
+                placeholder="Full Name"
+                value={studentForm.name}
+                onChange={(e) => updateStudent("name", e.target.value)}
+                required
+                fullWidth
+              />
+              <TextField
+                placeholder="Preferred Name (Optional)"
+                value={studentForm.preferredName}
+                onChange={(e) => updateStudent("preferredName", e.target.value)}
+                fullWidth
+              />
+              <FormControl fullWidth required>
+                <Select
+                  displayEmpty
+                  value={studentForm.school}
+                  onChange={(e) => updateStudent("school", e.target.value)}
+                >
+                  <MenuItem value="" disabled>
+                    School (Drop-Down)
+                  </MenuItem>
+                  {SCHOOL_OPTIONS.map((item) => (
+                    <MenuItem key={item} value={item}>
+                      {item}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl fullWidth required>
+                <Select
+                  displayEmpty
+                  value={studentForm.department}
+                  onChange={(e) => updateStudent("department", e.target.value)}
+                >
+                  <MenuItem value="" disabled>
+                    Department (Drop-Down)
+                  </MenuItem>
+                  {DEPARTMENT_OPTIONS.map((item) => (
+                    <MenuItem key={item} value={item}>
+                      {item}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <TextField
+                placeholder="Program"
+                value={studentForm.program}
+                onChange={(e) => updateStudent("program", e.target.value)}
+                required
+                fullWidth
+              />
+              <TextField
+                placeholder="Year of enrollment"
+                value={studentForm.yearOfEnrollment}
+                onChange={(e) => updateStudent("yearOfEnrollment", e.target.value)}
+                required
+                fullWidth
+              />
+              <div className="aalto-email-input">
+                <TextField
+                  placeholder="Aalto Email Address"
+                  value={studentForm.emailLocalPart}
+                  onChange={(e) => updateStudent("emailLocalPart", e.target.value)}
+                  required
+                  fullWidth
+                />
+                <span>@aalto.fi</span>
+              </div>
+              <TextField
+                type="password"
+                placeholder="Password (6+ characters)"
+                value={studentForm.password}
+                onChange={(e) => updateStudent("password", e.target.value)}
+                required
+                fullWidth
+              />
+              <TextField
+                type="password"
+                placeholder="Confirm Password"
+                value={studentForm.confirmPassword}
+                onChange={(e) => updateStudent("confirmPassword", e.target.value)}
+                required
+                fullWidth
+              />
+
+              <label className="register-checkbox">
+                <input
+                  type="checkbox"
+                  checked={studentForm.agreed}
+                  onChange={(e) => updateStudent("agreed", e.target.checked)}
+                />
+                <span>
+                  I confirm that I am an Aalto student and agree to the{" "}
+                  <Link to="/terms" className="register-terms-link">Terms & Privacy Policy</Link>.
+                </span>
+              </label>
+
+              <div className="register-submit-wrap">
+                <Button type="submit" className="register-submit" disabled={loading}>
+                  {loading ? <CircularProgress size={20} color="inherit" /> : "Create Account"}
+                </Button>
+              </div>
+            </Box>
+          )}
+
+          <p className="register-signin-link">
+            Already have an account? <Link to="/auth/login">Sign in</Link>
+            {mode === "student" && (
+              <> · <button type="button" className="register-mode-link" onClick={() => setMode("client")}>Register as client</button></>
             )}
-
-            {renderRegisterContent()}
-
-            <Button
-              component={Link}
-              to="/"
-              variant="text"
-              size="small"
-              sx={{
-                alignSelf: "center",
-                textTransform: "none",
-                color: "text.secondary",
-              }}
-            >
-              Back to home
-            </Button>
-          </Stack>
-        </Paper>
-      </Container>
-    </Box>
+            {mode === "client" && (
+              <> · <button type="button" className="register-mode-link" onClick={() => setMode("student")}>Register as student</button></>
+            )}
+          </p>
+        </article>
+      </section>
+    </main>
   );
 }
+
+export default Register;
 

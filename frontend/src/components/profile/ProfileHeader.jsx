@@ -69,9 +69,8 @@ export default function ProfileHeader({ profile, onAvatarUpload, onNavigateBack 
     return (
         <Paper
             sx={{
-                background: "linear-gradient(135deg, rgba(93, 224, 255, 0.1) 0%, rgba(7, 12, 30, 0.95) 100%)",
-                backdropFilter: "blur(20px)",
-                border: "1px solid rgba(93, 224, 255, 0.2)",
+                background: "#ffffff",
+                border: "1px solid #e5e7eb",
                 borderRadius: 4,
                 p: 4,
                 position: "relative",
@@ -86,7 +85,7 @@ export default function ProfileHeader({ profile, onAvatarUpload, onNavigateBack 
                     right: -100,
                     width: 300,
                     height: 300,
-                    background: "radial-gradient(circle, rgba(93, 224, 255, 0.15) 0%, transparent 70%)",
+                    background: "radial-gradient(circle, rgba(25, 118, 210, 0.08) 0%, transparent 70%)",
                     borderRadius: "50%",
                     pointerEvents: "none",
                 }}
@@ -218,16 +217,6 @@ export default function ProfileHeader({ profile, onAvatarUpload, onNavigateBack 
                 {/* Quick stats for students */}
                 {(profile?.role === "student" || profile?.role === "alumni") && (
                     <Stack spacing={1} alignItems="flex-end">
-                        {profile?.weekly_hours !== undefined && (
-                            <Box sx={{ textAlign: "right" }}>
-                                <Typography variant="h5" fontWeight={700} color="primary.main">
-                                    {profile.weekly_hours}h
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                    Weekly Availability
-                                </Typography>
-                            </Box>
-                        )}
                         {profile?.skills?.length > 0 && (
                             <Box sx={{ textAlign: "right" }}>
                                 <Typography variant="h5" fontWeight={700} color="secondary.main">

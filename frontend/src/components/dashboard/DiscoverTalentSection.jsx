@@ -24,7 +24,7 @@ export default function DiscoverTalentSection({ portfolios, onSelectUser }) {
             Discover Work
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Explore diverse projects from the Aalto community
+            Explore diverse projects from Aalto creators
           </Typography>
         </Box>
       </Stack>
@@ -157,8 +157,8 @@ export default function DiscoverTalentSection({ portfolios, onSelectUser }) {
           sx={{
             p: 6,
             textAlign: "center",
-            background: "rgba(7, 12, 30, 0.4)",
-            border: "1px dashed rgba(255, 255, 255, 0.1)",
+            background: "#ffffff",
+            border: "1px dashed #d1d5db",
             borderRadius: 4,
           }}
         >

@@ -25,14 +25,18 @@ type UpdateProfileInput struct {
 	Name              *string
 	AvatarURL         *string
 	Bio               *string
+	Website           *string
+	LinkedIn          *string
+	Behance           *string
+	Languages         *string
+	ProfessionalInterests *string
+	GuidedProfileQuestions *map[string]interface{}
 	ProfileVisibility *model.ProfileVisibility
 	// Student/Alumni fields
 	StudentID           *string
 	School              *string
 	Faculty             *string
 	Major               *string
-	WeeklyHours         *int
-	WeeklyAvailability  *model.WeeklyAvailabilityArray
 	Skills              *[]model.Skill
 	PortfolioVisibility *model.PortfolioVisibility
 	// Organization fields
@@ -162,6 +166,24 @@ func (s *profileService) UpdateProfile(ctx context.Context, userID int64, input 
 	if input.Bio != nil {
 		fields["bio"] = valueOrNil(normalizeOptionalStringWithLimit(input.Bio, maxBioLength))
 	}
+	if input.Website != nil {
+		fields["website"] = valueOrNil(normalizeOptionalStringWithLimit(input.Website, 500))
+	}
+	if input.LinkedIn != nil {
+		fields["linkedin"] = valueOrNil(normalizeOptionalStringWithLimit(input.LinkedIn, 500))
+	}
+	if input.Behance != nil {
+		fields["behance"] = valueOrNil(normalizeOptionalStringWithLimit(input.Behance, 500))
+	}
+	if input.Languages != nil {
+		fields["languages"] = valueOrNil(normalizeOptionalStringWithLimit(input.Languages, 500))
+	}
+	if input.ProfessionalInterests != nil {
+		fields["professional_interests"] = valueOrNil(normalizeOptionalStringWithLimit(input.ProfessionalInterests, 1000))
+	}
+	if input.GuidedProfileQuestions != nil {
+		fields["guided_profile_questions"] = model.GuidedProfileQuestionsJSON(*input.GuidedProfileQuestions)
+	}
 	if input.ProfileVisibility != nil {
 		if input.ProfileVisibility.IsValid() {
 			fields["profile_visibility"] = input.ProfileVisibility.String()
@@ -186,12 +208,6 @@ func (s *profileService) UpdateProfile(ctx context.Context, userID int64, input 
 			normalizedSkills := sanitizeSkillsWithLevel(*input.Skills)
 			skills := model.Skills(normalizedSkills)
 			fields["skills"] = skills
-		}
-		if input.WeeklyHours != nil {
-			fields["weekly_hours"] = *input.WeeklyHours
-		}
-		if input.WeeklyAvailability != nil {
-			fields["weekly_availability"] = *input.WeeklyAvailability
 		}
 		if input.PortfolioVisibility != nil {
 			if input.PortfolioVisibility.IsValid() {

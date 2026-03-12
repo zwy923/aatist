@@ -7,14 +7,14 @@ export default function PopularSkillsCard({ skills }) {
     <Paper
       sx={{
         p: 3,
-        background: "rgba(7, 12, 30, 0.96)",
-        border: "1px solid rgba(93, 224, 255, 0.25)",
+        background: "#ffffff",
+        border: "1px solid #e5e7eb",
         borderRadius: 3,
         height: "100%",
       }}
     >
       <Stack direction="row" spacing={1} alignItems="center" mb={2}>
-        <TrendingUp sx={{ color: "#5de0ff" }} />
+        <TrendingUp sx={{ color: "#1976d2" }} />
         <Typography variant="h6" fontWeight={600}>
           Popular Skills
         </Typography>
@@ -39,7 +39,7 @@ export default function PopularSkillsCard({ skills }) {
                 sx={{
                   height: 6,
                   borderRadius: 3,
-                  background: "rgba(93, 224, 255, 0.1)",
+                  background: "rgba(25, 118, 210, 0.1)",
                   overflow: "hidden",
                 }}
               >
@@ -47,7 +47,7 @@ export default function PopularSkillsCard({ skills }) {
                   sx={{
                     height: "100%",
                     width: `${Math.min((item.count / (skills[0]?.count || 1)) * 100, 100)}%`,
-                    background: "linear-gradient(90deg, #5de0ff, #7f5dff)",
+                    background: "linear-gradient(90deg, #1976d2, #7b1fa2)",
                   }}
                 />
               </Box>

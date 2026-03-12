@@ -97,51 +97,6 @@ func (s *Skills) Scan(value interface{}) error {
 	return nil
 }
 
-// WeeklyAvailability represents availability for a specific week.
-type WeeklyAvailability struct {
-	Week   int    `json:"week"`
-	Year   int    `json:"year"`
-	Status string `json:"status"` // open / busy / limited
-}
-
-// WeeklyAvailabilityArray is a JSONB-backed slice of WeeklyAvailability.
-type WeeklyAvailabilityArray []WeeklyAvailability
-
-func (wa WeeklyAvailabilityArray) Value() (driver.Value, error) {
-	if len(wa) == 0 {
-		return []byte("[]"), nil
-	}
-	b, err := json.Marshal(wa)
-	if err != nil {
-		return nil, err
-	}
-	return string(b), nil
-}
-
-func (wa *WeeklyAvailabilityArray) Scan(value interface{}) error {
-	if value == nil {
-		*wa = nil
-		return nil
-	}
-
-	bytes, ok := value.([]byte)
-	if !ok {
-		return fmt.Errorf("invalid type for WeeklyAvailabilityArray: %T", value)
-	}
-
-	if len(bytes) == 0 {
-		*wa = nil
-		return nil
-	}
-
-	var temp []WeeklyAvailability
-	if err := json.Unmarshal(bytes, &temp); err != nil {
-		return err
-	}
-	*wa = temp
-	return nil
-}
-
 // StringArray is a JSONB-backed string slice (kept for backward compatibility).
 type StringArray []string
 

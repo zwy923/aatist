@@ -13,24 +13,29 @@ import (
 )
 
 const userSelectColumns = `id, email, password_hash, name, avatar_url, role,
-	bio, profile_visibility, portfolio_visibility,
+	bio, website, linkedin, behance, languages, professional_interests, guided_profile_questions,
+	profile_visibility, portfolio_visibility,
 	is_verified_email, role_verified, oauth_provider, oauth_subject, last_login_at, failed_attempts, locked_until,
 	created_at, updated_at,
-	student_id, school, faculty, major, weekly_hours, weekly_availability, skills, courses,
+	student_id, school, faculty, major, skills, courses,
 	organization_name, organization_bio, contact_title, is_affiliated_with_school, org_size`
 
 var profileUpdatableColumns = []string{
 	// Common fields
 	"name",
 	"bio",
+	"website",
+	"linkedin",
+	"behance",
+	"languages",
+	"professional_interests",
+	"guided_profile_questions",
 	"profile_visibility",
 	// Student/Alumni fields
 	"student_id",
 	"school",
 	"faculty",
 	"major",
-	"weekly_hours",
-	"weekly_availability",
 	"skills",
 	"courses",
 	"portfolio_visibility",
@@ -124,10 +129,10 @@ func (r *postgresRepository) UpdatePassword(ctx context.Context, userID int64, p
 func (r *postgresRepository) CreateUser(ctx context.Context, user *model.User) error {
 	query := `INSERT INTO users (email, password_hash, name, role, bio, profile_visibility, portfolio_visibility,
 		is_verified_email, role_verified, oauth_provider, oauth_subject, failed_attempts,
-		student_id, school, faculty, major, weekly_hours, weekly_availability, skills, courses,
+		student_id, school, faculty, major, skills, courses,
 		organization_name, organization_bio, contact_title, is_affiliated_with_school, org_size,
 		created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
 		RETURNING id`
 
 	now := time.Now()
@@ -152,8 +157,6 @@ func (r *postgresRepository) CreateUser(ctx context.Context, user *model.User) e
 		user.School,
 		user.Faculty,
 		user.Major,
-		user.WeeklyHours,
-		user.WeeklyAvailability,
 		user.Skills,
 		user.Courses,
 		// Organization fields
@@ -441,25 +444,25 @@ func (r *postgresRepository) SearchUsers(ctx context.Context, filter UserSearchF
 		argIdx++
 	}
 
-	// Filter by MinHours
-	if filter.MinHours != nil {
-		clauses = append(clauses, fmt.Sprintf("weekly_hours >= $%d", argIdx))
-		args = append(args, *filter.MinHours)
-		argIdx++
-	}
-
-	// Filter by Role (default to student/alumni if searching for talent)
+	// Talent search: only students/alumni; never show client roles (org_person, org_team)
 	if filter.Role != "" {
+		// If explicit role given, still exclude clients
 		clauses = append(clauses, fmt.Sprintf("role = $%d", argIdx))
 		args = append(args, filter.Role)
 		argIdx++
-	} else {
-		clauses = append(clauses, "role IN ('student', 'alumni')")
 	}
+	clauses = append(clauses, "role IN ('student', 'alumni')")
 
 	// Only search for public or aalto_only profiles (caller should handle sub-filtering for Aalto)
 	// For simplicity, we filter out private profiles here.
 	clauses = append(clauses, "profile_visibility != 'private'")
+
+	// Exclude current user from talent search (cannot find own profile)
+	if filter.ExcludeUserID > 0 {
+		clauses = append(clauses, fmt.Sprintf("id != $%d", argIdx))
+		args = append(args, filter.ExcludeUserID)
+		argIdx++
+	}
 
 	where := ""
 	if len(clauses) > 0 {

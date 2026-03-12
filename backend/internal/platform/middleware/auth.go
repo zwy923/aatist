@@ -67,6 +67,19 @@ func GetUserID(c *gin.Context) (int64, error) {
 	return id, nil
 }
 
+// GetUserIDOptional returns user ID from context if present (for optional auth routes)
+func GetUserIDOptional(c *gin.Context) (int64, bool) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		return 0, false
+	}
+	id, ok := userID.(int64)
+	if !ok {
+		return 0, false
+	}
+	return id, true
+}
+
 // GetRole extracts role from context (must be used after AuthMiddleware)
 func GetRole(c *gin.Context) (string, error) {
 	role, exists := c.Get("role")

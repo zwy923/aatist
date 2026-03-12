@@ -21,7 +21,7 @@ func NewPostgresProjectRepository(db *sqlx.DB) ProjectRepository {
 
 func (r *postgresProjectRepository) FindByUserID(ctx context.Context, userID int64) ([]*model.Project, error) {
 	var projects []*model.Project
-	query := `SELECT id, user_id, title, client_name, description, year, tags, cover_image_url, project_link, created_at, updated_at
+	query := `SELECT id, user_id, title, service_category, client_name, description, year, tags, cover_image_url, project_link, created_at, updated_at
 		FROM projects WHERE user_id = $1 ORDER BY created_at DESC`
 
 	err := r.db.SelectContext(ctx, &projects, query, userID)
@@ -34,7 +34,7 @@ func (r *postgresProjectRepository) FindByUserID(ctx context.Context, userID int
 
 func (r *postgresProjectRepository) FindByID(ctx context.Context, id int64) (*model.Project, error) {
 	var project model.Project
-	query := `SELECT id, user_id, title, client_name, description, year, tags, cover_image_url, project_link, created_at, updated_at
+	query := `SELECT id, user_id, title, service_category, client_name, description, year, tags, cover_image_url, project_link, created_at, updated_at
 		FROM projects WHERE id = $1`
 
 	err := r.db.GetContext(ctx, &project, query, id)
@@ -50,7 +50,7 @@ func (r *postgresProjectRepository) FindByID(ctx context.Context, id int64) (*mo
 
 func (r *postgresProjectRepository) FindAll(ctx context.Context, limit, offset int) ([]*model.Project, error) {
 	projects := make([]*model.Project, 0)
-	query := `SELECT id, user_id, title, client_name, description, year, tags, cover_image_url, project_link, created_at, updated_at
+	query := `SELECT id, user_id, title, service_category, client_name, description, year, tags, cover_image_url, project_link, created_at, updated_at
 		FROM projects ORDER BY created_at DESC LIMIT $1 OFFSET $2`
 
 	err := r.db.SelectContext(ctx, &projects, query, limit, offset)
@@ -61,9 +61,26 @@ func (r *postgresProjectRepository) FindAll(ctx context.Context, limit, offset i
 	return projects, nil
 }
 
+func (r *postgresProjectRepository) FindAllPublic(ctx context.Context, limit, offset int) ([]*model.Project, error) {
+	projects := make([]*model.Project, 0)
+	query := `SELECT p.id, p.user_id, p.title, p.service_category, p.client_name, p.description, p.year, p.tags, p.cover_image_url, p.project_link, p.created_at, p.updated_at
+		FROM projects p
+		INNER JOIN users u ON p.user_id = u.id
+		WHERE u.portfolio_visibility = 'public'
+		ORDER BY p.created_at DESC
+		LIMIT $1 OFFSET $2`
+
+	err := r.db.SelectContext(ctx, &projects, query, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find public projects: %w", err)
+	}
+
+	return projects, nil
+}
+
 func (r *postgresProjectRepository) Create(ctx context.Context, project *model.Project) error {
-	query := `INSERT INTO projects (user_id, title, client_name, description, year, tags, cover_image_url, project_link, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	query := `INSERT INTO projects (user_id, title, service_category, client_name, description, year, tags, cover_image_url, project_link, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id`
 
 	now := time.Now()
@@ -73,6 +90,7 @@ func (r *postgresProjectRepository) Create(ctx context.Context, project *model.P
 	err := r.db.QueryRowContext(ctx, query,
 		project.UserID,
 		project.Title,
+		project.ServiceCategory,
 		project.ClientName,
 		project.Description,
 		project.Year,
@@ -92,13 +110,14 @@ func (r *postgresProjectRepository) Create(ctx context.Context, project *model.P
 
 func (r *postgresProjectRepository) Update(ctx context.Context, project *model.Project) error {
 	query := `UPDATE projects 
-		SET title = $1, client_name = $2, description = $3, year = $4, tags = $5, cover_image_url = $6, project_link = $7, updated_at = $8
-		WHERE id = $9 AND user_id = $10
+		SET title = $1, service_category = $2, client_name = $3, description = $4, year = $5, tags = $6, cover_image_url = $7, project_link = $8, updated_at = $9
+		WHERE id = $10 AND user_id = $11
 		RETURNING id`
 
 	var id int64
 	err := r.db.QueryRowContext(ctx, query,
 		project.Title,
+		project.ServiceCategory,
 		project.ClientName,
 		project.Description,
 		project.Year,

@@ -32,6 +32,8 @@ email:
   sendgrid_api_key: "SG.xxxxx"
   from_email: "no-reply@aatist.fi"
   frontend_url: "http://localhost:5173"
+  # Set to true to temporarily disable email verification (no verification email sent, login allowed without verification)
+  disable_email_verification: false
   # Auto-verified school email domains (only for student/alumni roles)
   # Students with these email domains will be automatically verified upon registration
   auto_verified_domains:

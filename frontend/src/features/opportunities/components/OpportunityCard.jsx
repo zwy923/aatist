@@ -12,7 +12,26 @@ import {
 import { Link } from 'react-router-dom';
 import SavedButton from './SavedButton';
 
+// Maps API response (snake_case) to card props
+const mapOpportunity = (o) => ({
+    id: o.id,
+    title: o.title,
+    description: o.description,
+    budget: o.budget_value != null ? `€${o.budget_value}` : 'Negotiable',
+    payType: o.budget_type || 'fixed',
+    location: o.location,
+    workLanguage: Array.isArray(o.languages) ? o.languages.join(', ') : (o.languages || 'N/A'),
+    startDate: o.start_date,
+    duration: o.duration_months != null ? `${o.duration_months} month(s)` : 'Flexible',
+    publishedAt: o.published_at,
+    tags: o.tags || [],
+    urgent: o.urgent,
+    savedByMe: o.is_favorite,
+    appliedByMe: o.applied_by_me,
+});
+
 const OpportunityCard = ({ opportunity }) => {
+    const opp = mapOpportunity(opportunity);
     const {
         id,
         title,
@@ -28,7 +47,7 @@ const OpportunityCard = ({ opportunity }) => {
         urgent,
         savedByMe,
         appliedByMe
-    } = opportunity;
+    } = opp;
 
     const formatDate = (dateString) => {
         if (!dateString) return 'N/A';
@@ -65,9 +84,8 @@ const OpportunityCard = ({ opportunity }) => {
                     boxShadow: '0 12px 24px rgba(0,0,0,0.2)',
                     borderColor: 'primary.main',
                 },
-                border: '1px solid rgba(255,255,255,0.1)',
-                background: 'rgba(7, 12, 30, 0.6)',
-                backdropFilter: 'blur(10px)',
+                border: '1px solid #e5e7eb',
+                background: '#ffffff',
             }}
         >
             {urgent && (
@@ -138,7 +156,7 @@ const OpportunityCard = ({ opportunity }) => {
                             label={tag}
                             size="small"
                             variant="outlined"
-                            sx={{ borderColor: 'rgba(255,255,255,0.1)', color: 'text.secondary' }}
+                            sx={{ borderColor: '#e5e7eb', color: 'text.secondary' }}
                         />
                     ))}
                 </Stack>

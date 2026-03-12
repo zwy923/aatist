@@ -247,10 +247,22 @@ func (h *OpportunityHandler) GetOpportunityHandler(c *gin.Context) {
 }
 
 // CreateOpportunityHandler handles POST /opportunities
+// Only clients (org_person, org_team) can create opportunities; students cannot
 func (h *OpportunityHandler) CreateOpportunityHandler(c *gin.Context) {
 	userID, err := middleware.GetUserID(c)
 	if err != nil {
 		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
+		return
+	}
+
+	role, err := middleware.GetRole(c)
+	if err != nil {
+		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
+		return
+	}
+	// Students and alumni cannot create opportunities; only clients (org roles) can
+	if role == "student" || role == "alumni" {
+		h.respondError(c, http.StatusForbidden, errs.ErrForbidden, "only clients can post opportunities; students can upload services instead")
 		return
 	}
 

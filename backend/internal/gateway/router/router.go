@@ -3,6 +3,7 @@ package router
 import (
 	"time"
 
+	"github.com/aatist/backend/internal/gateway/chatclient"
 	gatewayMiddleware "github.com/aatist/backend/internal/gateway/middleware"
 	"github.com/aatist/backend/internal/gateway/proxy"
 	"github.com/aatist/backend/internal/gateway/websocket"
@@ -24,8 +25,9 @@ func RegisterRoutes(router *gin.Engine, cfg *config.Config, logger *log.Logger, 
 		return cfg.Gateway.ServiceTimeout
 	}
 
-	// Initialize WebSocket manager
-	wsManager := websocket.NewManager(redis, logger)
+	// Persist chat messages to chat-service (optional; set CHAT_SERVICE_URL if chat-service is running)
+	persistFunc := chatclient.NewPersistFunc(logger)
+	wsManager := websocket.NewManager(redis, logger, persistFunc)
 
 	// API routes with /api/v1 prefix
 	api := router.Group("/api/v1")
@@ -90,12 +92,11 @@ func registerProtectedRoutes(group *gin.RouterGroup, getTimeout func(string) tim
 		{
 			Name: "user-service", Port: 8081,
 			Routes: []RouteDef{
+				{"GET", "/users/search"}, // Talent search (auth required, excludes self)
 				{"GET", "/users/me"},
 				{"PATCH", "/users/me"},
 				{"POST", "/users/me/avatar"},
 				{"PATCH", "/users/me/password"},
-				{"GET", "/users/me/availability"},
-				{"PATCH", "/users/me/availability"},
 				{"GET", "/users/me/saved"},
 				{"POST", "/users/me/saved"},
 				{"DELETE", "/users/me/saved"},     // Support query params deletion
@@ -104,6 +105,10 @@ func registerProtectedRoutes(group *gin.RouterGroup, getTimeout func(string) tim
 				{"DELETE", "/users/me/skills/:name"},
 				{"POST", "/users/me/courses"},
 				{"DELETE", "/users/me/courses/:code"},
+				{"GET", "/users/me/services"},
+				{"POST", "/users/me/services"},
+				{"PATCH", "/users/me/services/:id"},
+				{"DELETE", "/users/me/services/:id"},
 			},
 		},
 		{
@@ -120,8 +125,11 @@ func registerProtectedRoutes(group *gin.RouterGroup, getTimeout func(string) tim
 			Routes: []RouteDef{
 				{"GET", "/files"},
 				{"GET", "/files/:id"},
-				{"GET", "/files/:id/download"}, // Added download route
+				{"GET", "/files/:id/download"},
 				{"POST", "/files"},
+				{"POST", "/files/upload"},
+				{"POST", "/files/presigned-upload"},
+				{"POST", "/files/confirm-upload"},
 				{"DELETE", "/files/:id"},
 			},
 		},
@@ -147,32 +155,11 @@ func registerProtectedRoutes(group *gin.RouterGroup, getTimeout func(string) tim
 			},
 		},
 		{
-			Name: "events-service", Port: 8084,
+			Name: "chat-service", Port: 8088,
 			Routes: []RouteDef{
-				{"POST", "/events"},
-				{"PATCH", "/events/:id"},
-				{"DELETE", "/events/:id"},
-				{"POST", "/events/:id/interested"},
-				{"DELETE", "/events/:id/interested"},
-				{"POST", "/events/:id/going"},
-				{"DELETE", "/events/:id/going"},
-				{"POST", "/events/:id/comments"},
-				{"PATCH", "/events/comments/:id"},
-				{"DELETE", "/events/comments/:id"},
-			},
-		},
-		{
-			Name: "community-service", Port: 8087,
-			Routes: []RouteDef{
-				{"POST", "/community/posts"},
-				{"PATCH", "/community/posts/:id"}, // Changed PUT to PATCH
-				{"DELETE", "/community/posts/:id"},
-				{"POST", "/community/posts/:id/like"},
-				{"DELETE", "/community/posts/:id/like"},
-				{"POST", "/community/posts/:id/comments"},
-				{"PATCH", "/community/comments/:id"}, // Changed PUT to PATCH
-				{"DELETE", "/community/comments/:id"},
-				{"GET", "/community/users/me/posts"},
+				{"POST", "/conversations/start"},
+				{"GET", "/conversations"},
+				{"GET", "/conversations/:id/messages"},
 			},
 		},
 	}
@@ -194,7 +181,6 @@ func registerPublicRoutes(group *gin.RouterGroup, getTimeout func(string) time.D
 				{"GET", "/users/check-email"},
 				{"GET", "/users/:id"},
 				{"GET", "/users/:id/summary"},
-				{"GET", "/users/search"}, // Student/Talent search
 				// Dashboard stats
 				{"GET", "/stats/overview"},
 				{"GET", "/skills/popular"},
@@ -210,23 +196,6 @@ func registerPublicRoutes(group *gin.RouterGroup, getTimeout func(string) time.D
 				{"GET", "/portfolio"},
 				{"GET", "/portfolio/:id"},
 				{"GET", "/users/:id/portfolio"},
-			},
-		},
-		{
-			Name: "community-service", Port: 8087,
-			Routes: []RouteDef{
-				{"GET", "/community/posts"},
-				{"GET", "/community/posts/:id"},
-				{"GET", "/community/posts/:id/comments"},
-				{"GET", "/community/users/:id/posts"},
-			},
-		},
-		{
-			Name: "events-service", Port: 8084,
-			Routes: []RouteDef{
-				{"GET", "/events"},
-				{"GET", "/events/:id"},
-				{"GET", "/events/:id/comments"},
 			},
 		},
 	}
@@ -265,6 +234,10 @@ func registerInternalRoutes(group *gin.RouterGroup, getTimeout func(string) time
 		{
 			GroupPath: "/file", ServiceName: "file-service", Port: 8086,
 			NoRewrite: true,
+		},
+		{
+			GroupPath: "/chat", ServiceName: "chat-service", Port: 8088,
+			RewriteFrom: "/api/v1/internal/chat", RewriteTo: "/api/v1/internal",
 		},
 	}
 

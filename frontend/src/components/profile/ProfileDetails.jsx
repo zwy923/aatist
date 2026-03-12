@@ -138,9 +138,8 @@ export default function ProfileDetails({ profile, isStudentRole, onUpdate }) {
         <>
             <Paper
                 sx={{
-                    background: "rgba(7, 12, 30, 0.8)",
-                    backdropFilter: "blur(20px)",
-                    border: "1px solid rgba(93, 224, 255, 0.15)",
+                    background: "#ffffff",
+                    border: "1px solid #e5e7eb",
                     borderRadius: 3,
                     p: 4,
                 }}

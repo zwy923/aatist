@@ -6,8 +6,8 @@ export default function OpportunitiesOverview({ opportunities, onSelect }) {
     <Paper
       sx={{
         p: 3,
-        background: "rgba(7, 12, 30, 0.96)",
-        border: "1px solid rgba(93, 224, 255, 0.25)",
+        background: "#ffffff",
+        border: "1px solid #e5e7eb",
         borderRadius: 3,
         height: "100%",
       }}
@@ -22,12 +22,12 @@ export default function OpportunitiesOverview({ opportunities, onSelect }) {
             sx={{
               p: 2,
               borderRadius: 2,
-              background: "rgba(93, 224, 255, 0.05)",
-              border: "1px solid rgba(93, 224, 255, 0.1)",
+              background: "#f8fafc",
+              border: "1px solid #e5e7eb",
               cursor: "pointer",
               "&:hover": {
-                background: "rgba(93, 224, 255, 0.1)",
-                borderColor: "rgba(93, 224, 255, 0.3)",
+                background: "#eef5ff",
+                borderColor: "#bfdbfe",
               },
             }}
             onClick={() => onSelect(opp.id)}
@@ -52,8 +52,8 @@ export default function OpportunitiesOverview({ opportunities, onSelect }) {
                         label={tag}
                         size="small"
                         sx={{
-                          background: "rgba(93,224,255,0.1)",
-                          color: "#5de0ff",
+                          background: "rgba(25, 118, 210, 0.1)",
+                          color: "#1976d2",
                           fontSize: "0.65rem",
                         }}
                       />
@@ -66,8 +66,8 @@ export default function OpportunitiesOverview({ opportunities, onSelect }) {
                 size="small"
                 sx={{
                   ml: 2,
-                  background: "rgba(93, 224, 255, 0.2)",
-                  color: "#5de0ff",
+                  background: "rgba(25, 118, 210, 0.15)",
+                  color: "#1976d2",
                 }}
               />
             </Stack>

@@ -58,6 +58,7 @@ func main() {
 	// Initialize repositories
 	userRepo := repository.NewPostgresRepository(postgres.GetDB())
 	savedItemRepo := repository.NewPostgresSavedItemRepository(postgres.GetDB())
+	userServiceRepo := repository.NewPostgresUserServiceRepository(postgres.GetDB())
 
 	// Initialize MQ (optional - only if broker is configured)
 	var rabbitMQ *mq.RabbitMQ
@@ -85,7 +86,7 @@ func main() {
 			zap.Strings("domains", autoVerifiedDomains),
 		)
 	}
-	authService := service.NewAuthService(userRepo, jwt, redis, logger, emailVerifSvc, autoVerifiedDomains)
+	authService := service.NewAuthService(userRepo, jwt, redis, logger, emailVerifSvc, autoVerifiedDomains, cfg.Email.DisableEmailVerification)
 	avatarURLPrefix := cfg.S3.PublicURL
 	if avatarURLPrefix == "" {
 		avatarURLPrefix = "http://localhost:9000/files" // Default file service public URL
@@ -107,7 +108,7 @@ func main() {
 	}
 
 	// Initialize handler
-	authHandler := handler.NewAuthHandler(authService, profileService, savedItemService, notificationClient, emailVerifSvc, passwordResetSvc, mqPublisher, logger)
+	authHandler := handler.NewAuthHandler(authService, profileService, savedItemService, userServiceRepo, notificationClient, emailVerifSvc, passwordResetSvc, mqPublisher, cfg.Email.DisableEmailVerification, logger)
 
 	// Setup Gin router
 	router := app.NewDefaultRouter(logger, "user")
@@ -161,10 +162,6 @@ func main() {
 			// Password management
 			protectedUsers.PATCH("/me/password", authHandler.ChangePasswordHandler)
 
-			// Availability
-			protectedUsers.GET("/me/availability", authHandler.GetAvailabilityHandler)
-			protectedUsers.PATCH("/me/availability", authHandler.UpdateAvailabilityHandler)
-
 			// Saved items
 			protectedUsers.GET("/me/saved", authHandler.GetSavedItemsHandler)
 			protectedUsers.POST("/me/saved", authHandler.SaveItemHandler)
@@ -178,6 +175,12 @@ func main() {
 			// Courses maintenance
 			protectedUsers.POST("/me/courses", authHandler.AddUserCourseHandler)
 			protectedUsers.DELETE("/me/courses/:code", authHandler.RemoveUserCourseHandler)
+
+			// Service offerings
+			protectedUsers.GET("/me/services", authHandler.GetUserServicesHandler)
+			protectedUsers.POST("/me/services", authHandler.CreateUserServiceHandler)
+			protectedUsers.PATCH("/me/services/:id", authHandler.UpdateUserServiceHandler)
+			protectedUsers.DELETE("/me/services/:id", authHandler.DeleteUserServiceHandler)
 		}
 	}
 

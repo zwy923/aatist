@@ -1,378 +1,286 @@
-import React, { useEffect, useRef, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { Box, Button, Typography } from "@mui/material";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
+import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
+import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import { useAuth } from "../features/auth/hooks/useAuth";
+import "./Landing.css";
 
-// Constants
-const PARTICLE_TEXT =
-  "Aatist.fi aims to become the bridge between campus creativity and real-world impact — a place where students learn, earn, and create together.";
-const CANVAS_HEIGHT = 280;
-const PARTICLE_GAP = 2;
-const MOUSE_RADIUS = 100;
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+const DISTURB_RADIUS = 170;
 
-// Custom hook for title floating animation
-function useTitleFloat(ref) {
+const CLIENT_LETTERS = [
+  { char: "C", x: 0, y: 72, r: -31 },
+  { char: "L", x: 76, y: 40, r: -27 },
+  { char: "I", x: 145, y: 25, r: -17 },
+  { char: "E", x: 212, y: 6, r: -3 },
+  { char: "N", x: 286, y: -10, r: 9 },
+  { char: "T", x: 355, y: 6, r: 15 },
+];
+
+const STUDENT_LETTERS = [
+  { char: "A", x: 0, y: 78, r: -11 },
+  { char: "A", x: 76, y: 60, r: -3 },
+  { char: "T", x: 146, y: 35, r: 7 },
+  { char: "I", x: 220, y: 25, r: 8 },
+  { char: "S", x: 286, y: 31, r: 10 },
+  { char: "T", x: 355, y: 36, r: 7 },
+];
+
+const createLetterPhysics = (letters) =>
+  letters.map(() => ({
+    x: 0,
+    y: 0,
+    angle: 0,
+    vx: (Math.random() - 0.5) * 0.6,
+    vy: 0,
+    va: 0,
+  }));
+
+function Landing() {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  const heroRef = useRef(null);
+  const letterRefs = useRef({ client: [], student: [] });
+  const physicsRef = useRef({
+    client: createLetterPhysics(CLIENT_LETTERS),
+    student: createLetterPhysics(STUDENT_LETTERS),
+  });
+  const [activeSide, setActiveSide] = useState("client");
+  const [cursor, setCursor] = useState({ x: 0, y: 0, visible: false });
+
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    let x = 0;
-    let y = 0;
-    let vx = 0.2;
-    let vy = 0.15;
     let animationId;
 
-    const tick = () => {
-      x += vx;
-      y += vy;
-      if (x > 3 || x < -3) vx *= -1;
-      if (y > 2 || y < -2) vy *= -1;
-      el.style.transform = `translate(${x}px, ${y}px)`;
-      animationId = requestAnimationFrame(tick);
-    };
+    const applyTransforms = () => {
+      const groups = [
+        { side: "client", letters: CLIENT_LETTERS },
+        { side: "student", letters: STUDENT_LETTERS },
+      ];
 
-    tick();
+      groups.forEach(({ side, letters }) => {
+        const states = physicsRef.current[side];
+        const refs = letterRefs.current[side];
 
-    return () => {
-      if (animationId) {
-        cancelAnimationFrame(animationId);
-      }
-    };
-  }, [ref]);
-}
+        states.forEach((state, index) => {
+          state.vy += 0.2;
+          state.vx += -state.x * 0.02;
+          state.vy += -state.y * 0.024;
+          state.va += -state.angle * 0.028;
 
-// Custom hook for particle animation
-function useParticleAnimation(canvasRef) {
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+          state.x += state.vx;
+          state.y += state.vy;
+          state.angle += state.va;
 
-    let animationId;
-    let particles = [];
-    const mouse = { x: null, y: null, radius: MOUSE_RADIUS };
+          state.vx *= 0.9;
+          state.vy *= 0.9;
+          state.va *= 0.86;
 
-    const initCanvas = () => {
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
-      const DPR = window.devicePixelRatio || 1;
-      const CSS_W = window.innerWidth;
-      const CSS_H = CANVAS_HEIGHT;
+          if (state.y > 86) {
+            state.y = 86;
+            state.vy *= -0.48;
+          }
+          if (Math.abs(state.x) > 96) {
+            state.x = clamp(state.x, -96, 96);
+            state.vx *= -0.46;
+          }
 
-      canvas.width = Math.floor(CSS_W * DPR);
-      canvas.height = Math.floor(CSS_H * DPR);
-      canvas.style.width = CSS_W + "px";
-      canvas.style.height = CSS_H + "px";
-
-      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-
-      // Render text and extract particles
-      const fontSize = CSS_W < 600 ? 18 : 22;
-      ctx.font = `bold ${fontSize}px Inter, system-ui, sans-serif`;
-      ctx.fillStyle = "white";
-
-      const words = PARTICLE_TEXT.split(" ");
-      const maxWidth = Math.min(CSS_W * 0.86, 900);
-      const lines = [];
-      let line = "";
-
-      for (let i = 0; i < words.length; i++) {
-        const test = line + words[i] + " ";
-        if (ctx.measureText(test).width > maxWidth && i > 0) {
-          lines.push(line.trim());
-          line = words[i] + " ";
-        } else {
-          line = test;
-        }
-      }
-      if (line.trim()) lines.push(line.trim());
-
-      const lineHeight = Math.round(fontSize * 1.3);
-      const totalH = lines.length * lineHeight;
-      const startY = (CSS_H - totalH) / 2;
-
-      lines.forEach((l, i) => {
-        const lw = ctx.measureText(l).width;
-        const x = (CSS_W - lw) / 2;
-        const y = startY + i * lineHeight;
-        ctx.fillText(l, x, y);
+          const letterEl = refs[index];
+          if (!letterEl) return;
+          const base = letters[index];
+          letterEl.style.transform = `translate3d(${base.x + state.x}px, ${
+            base.y + state.y
+          }px, 0) rotate(${base.r + state.angle}deg)`;
+        });
       });
 
-      const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      ctx.clearRect(0, 0, CSS_W, CSS_H);
-
-      // Generate particles
-      const step = Math.max(1, Math.floor(PARTICLE_GAP * DPR));
-      particles = [];
-
-      for (let y = 0; y < img.height; y += step) {
-        for (let x = 0; x < img.width; x += step) {
-          const i = (y * img.width + x) * 4;
-          if (img.data[i + 3] > 128) {
-            particles.push({
-              x: Math.random() * CSS_W,
-              y: Math.random() * CSS_H,
-              originX: x / DPR,
-              originY: y / DPR,
-              vx: 0,
-              vy: 0,
-              alpha: 0,
-            });
-          }
-        }
-      }
-
-      return { ctx, CSS_W, CSS_H, particles: particles };
+      animationId = requestAnimationFrame(applyTransforms);
     };
 
-    let canvasState = initCanvas();
-    let { ctx, CSS_W, CSS_H } = canvasState;
-    particles = canvasState.particles;
+    applyTransforms();
+    return () => cancelAnimationFrame(animationId);
+  }, []);
 
-    const fixY = (eY) => eY - (window.innerHeight - CSS_H) / 2;
+  const disturbWords = useCallback((clientX, clientY, power = 1) => {
+    const groups = [
+      { side: "client", letters: CLIENT_LETTERS },
+      { side: "student", letters: STUDENT_LETTERS },
+    ];
 
-    const handleMouseMove = (e) => {
-      mouse.x = e.clientX;
-      mouse.y = fixY(e.clientY);
-    };
+    groups.forEach(({ side, letters }) => {
+      const refs = letterRefs.current[side];
+      const states = physicsRef.current[side];
 
-    const handleTouchMove = (e) => {
-      const t = e.touches[0];
-      mouse.x = t.clientX;
-      mouse.y = fixY(t.clientY);
-    };
+      letters.forEach((_, index) => {
+        const letterEl = refs[index];
+        if (!letterEl) return;
+        const rect = letterEl.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const dx = centerX - clientX;
+        const dy = centerY - clientY;
+        const dist = Math.hypot(dx, dy) || 1;
 
-    const render = () => {
-      ctx.clearRect(0, 0, CSS_W, CSS_H);
-      for (const p of particles) {
-        const dx = (mouse.x ?? -9999) - p.x;
-        const dy = (mouse.y ?? -9999) - p.y;
-        const dist = Math.hypot(dx, dy);
-        if (dist < mouse.radius) {
-          const f = (mouse.radius - dist) / mouse.radius;
-          p.vx -= (dx / dist) * f * 3;
-          p.vy -= (dy / dist) * f * 3;
-        } else {
-          p.vx += (p.originX - p.x) * 0.015;
-          p.vy += (p.originY - p.y) * 0.015;
-        }
-        p.x += p.vx;
-        p.y += p.vy;
-        p.vx *= 0.9;
-        p.vy *= 0.9;
-        if (p.alpha < 1) p.alpha += 0.02;
+        if (dist > DISTURB_RADIUS) return;
+        const force = (1 - dist / DISTURB_RADIUS) * 2.2 * power;
+        const state = states[index];
+        state.vx += (dx / dist) * force;
+        state.vy += (dy / dist) * force - 0.28 * power;
+        state.va += ((Math.random() - 0.5) * 0.9 + dx * 0.002) * force;
+      });
+    });
+  }, []);
 
-        ctx.fillStyle = `rgba(255,255,255,${p.alpha})`;
-        ctx.shadowBlur = 5;
-        ctx.shadowColor = "rgba(0,128,255,0.6)";
-        ctx.fillRect(p.x, p.y, 2.2, 2.2);
-      }
-      animationId = requestAnimationFrame(render);
-    };
+  const handleHeroPointerMove = (event) => {
+    if (event.pointerType === "touch") return;
+    const rect = heroRef.current?.getBoundingClientRect();
+    if (!rect) return;
 
-    const handleResize = () => {
-      if (animationId) {
-        cancelAnimationFrame(animationId);
-      }
-      canvasState = initCanvas();
-      ctx = canvasState.ctx;
-      CSS_W = canvasState.CSS_W;
-      CSS_H = canvasState.CSS_H;
-      particles = canvasState.particles;
-      animationId = requestAnimationFrame(render);
-    };
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const inClient = x < rect.width / 2;
+    const side = inClient ? "client" : "student";
+    setActiveSide(side);
+    setCursor({ x, y, visible: true });
+    disturbWords(event.clientX, event.clientY, 0.22);
+  };
 
-    render();
+  const handleHeroPointerLeave = () => {
+    setCursor((prev) => ({ ...prev, visible: false }));
+  };
 
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("touchmove", handleTouchMove, { passive: true });
-    window.addEventListener("resize", handleResize);
-
-    return () => {
-      if (animationId) {
-        cancelAnimationFrame(animationId);
-      }
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("touchmove", handleTouchMove);
-      window.removeEventListener("resize", handleResize);
-    };
-  }, [canvasRef]);
-}
-
-export default function Landing() {
-  const textRef = useRef(null);
-  const canvasRef = useRef(null);
-  const navigate = useNavigate();
-  const { user, logout, isAuthenticated } = useAuth();
-
-  useTitleFloat(textRef);
-  useParticleAnimation(canvasRef);
-
-  const handleJoinClick = useCallback(() => {
-    navigate("/auth/register");
-  }, [navigate]);
-
-  const handleDashboardClick = useCallback(() => {
-    navigate("/dashboard");
-  }, [navigate]);
-
-  const userDisplayName = useMemo(
-    () => user?.name || user?.email || "User",
-    [user]
-  );
+  const handleHeroPointerDown = (event) => {
+    if (event.pointerType === "touch") return;
+    disturbWords(event.clientX, event.clientY, 1.15);
+  };
 
   return (
-    <Box
-      sx={{
-        position: "relative",
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        alignItems: "center",
-        textAlign: "center",
-        padding: 2,
-        overflow: "hidden",
-        background: "radial-gradient(ellipse at top left, #101820, #050505)",
-      }}
-    >
-      {/* Background glow effect */}
-      <Box
-        sx={{
-          position: "absolute",
-          width: { xs: 300, md: 600 },
-          height: { xs: 300, md: 600 },
-          background: "radial-gradient(circle, rgba(0, 128, 255, 0.4), transparent 70%)",
-          filter: "blur(160px)",
-          zIndex: 0,
-          animation: "pulse 8s infinite alternate ease-in-out",
-          "@keyframes pulse": {
-            "0%": { transform: "scale(1) translate(0, 0)", opacity: 0.8 },
-            "100%": { transform: "scale(1.2) translate(30px, -30px)", opacity: 0.6 },
-          },
-        }}
-      />
+    <main className="landing-page">
+      <header className="landing-header">
+        <Link to="/" className="brand" aria-label="Aatist Home">
+          <span className="brand-icon">A</span>
+          <span className="brand-text">atist</span>
+        </Link>
 
-      {/* Overlay */}
-      <Box
-        sx={{
-          position: "absolute",
-          inset: 0,
-          background: "radial-gradient(circle at center, rgba(255,255,255,0.03), transparent 70%)",
-          pointerEvents: "none",
-          zIndex: 1,
-        }}
-      />
+        <nav className="landing-nav" aria-label="Primary">
+          <Link to="/" className="nav-link active">
+            Home
+          </Link>
+          <Link to="/talents" className="nav-link">
+            Hire Talent
+          </Link>
+          <Link to="/opportunities" className="nav-link">
+            Opportunities
+          </Link>
+        </nav>
 
-      {/* Top navigation bar */}
-      <Box
-        sx={{
-          position: "absolute",
-          top: { xs: "1rem", md: "2rem" },
-          right: { xs: "1rem", md: "2rem" },
-          zIndex: 10,
-          display: "flex",
-          alignItems: "center",
-          gap: 2,
-        }}
-      >
-        {isAuthenticated ? (
-          <>
-            <Typography
-              variant="body1"
-              sx={{
-                color: "white",
-                fontSize: { xs: "0.9rem", md: "1rem" },
-                textShadow: "0 0 10px rgba(0, 150, 255, 0.6)",
-              }}
-            >
-              Welcome, {userDisplayName}!
-            </Typography>
-            <Button
-              variant="outlined"
-              onClick={handleDashboardClick}
-              sx={{
-                borderColor: "rgba(93, 224, 255, 0.3)",
-                color: "#5de0ff",
-                "&:hover": {
-                  borderColor: "rgba(93, 224, 255, 0.5)",
-                  background: "rgba(93, 224, 255, 0.1)",
-                },
-              }}
-            >
-              Dashboard
-            </Button>
-            <Button
-              variant="outlined"
-              onClick={logout}
-              sx={{
-                borderColor: "rgba(255, 255, 255, 0.3)",
-                color: "white",
-                "&:hover": {
-                  borderColor: "rgba(255, 255, 255, 0.5)",
-                  background: "rgba(255, 255, 255, 0.1)",
-                },
-              }}
-            >
-              Sign out
-            </Button>
-          </>
-        ) : (
-          <Button
-            variant="contained"
-            onClick={handleJoinClick}
-            sx={{
-              padding: { xs: "0.6rem 1.2rem", md: "0.75rem 1.5rem" },
-              background: "linear-gradient(135deg, #007bff 0%, #7f5dff 100%)",
-              color: "white",
-              fontSize: { xs: "0.9rem", md: "1rem" },
-              fontWeight: 600,
-              boxShadow: "0 4px 12px rgba(0, 128, 255, 0.4)",
-              "&:hover": {
-                transform: "translateY(-2px)",
-                boxShadow: "0 6px 16px rgba(0, 128, 255, 0.5)",
-                background: "linear-gradient(135deg, #0066cc 0%, #6b4dd9 100%)",
-              },
-              transition: "all 0.2s",
-            }}
+        <div className="nav-actions">
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Messages"
+            onClick={() => navigate("/messages")}
+            disabled={!isAuthenticated}
           >
-            Join Aatist
-          </Button>
-        )}
-      </Box>
+            <ChatBubbleOutlineIcon fontSize="small" />
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Notifications"
+            disabled={!isAuthenticated}
+          >
+            <NotificationsNoneIcon fontSize="small" />
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Account"
+            onClick={() => navigate(isAuthenticated ? "/dashboard" : "/auth/login")}
+          >
+            <AccountCircleIcon fontSize="small" />
+          </button>
+        </div>
+      </header>
 
-      {/* Main title */}
-      <Typography
-        ref={textRef}
-        variant="h1"
-        sx={{
-          position: "relative",
-          fontSize: { xs: "2.8rem", md: "4rem" },
-          fontWeight: 800,
-          textShadow: "0 0 25px rgba(0, 150, 255, 0.6)",
-          animation: "fadeIn 2s ease-out",
-          zIndex: 2,
-          color: "white",
-          "@keyframes fadeIn": {
-            from: { opacity: 0, transform: "translateY(10px)" },
-            to: { opacity: 1, transform: "translateY(0)" },
-          },
-        }}
+      <section
+        className="split-hero"
+        ref={heroRef}
+        onPointerMove={handleHeroPointerMove}
+        onPointerLeave={handleHeroPointerLeave}
+        onPointerDown={handleHeroPointerDown}
       >
-        Aatist.fi
-      </Typography>
+        <div
+          className={`side-indicator ${cursor.visible ? "visible" : ""} ${
+            activeSide === "client" ? "for-client" : "for-student"
+          }`}
+          style={{
+            left: `${cursor.x}px`,
+            top: `${cursor.y}px`,
+          }}
+          aria-hidden="true"
+        >
+          {activeSide === "client" ? "C" : "A"}
+        </div>
 
-      {/* Particle canvas */}
-      <Box
-        component="canvas"
-        ref={canvasRef}
-        sx={{
-          position: "relative",
-          width: "100%",
-          height: { xs: 180, md: 280 },
-          marginTop: 2,
-          zIndex: 2,
-          pointerEvents: "none",
-        }}
-      />
-    </Box>
+        <article className="panel client-panel">
+          <div className="panel-top">
+            <h2>For Client</h2>
+            <p>Publish, Find Services</p>
+          </div>
+          <button
+            type="button"
+            className="cta-button"
+            onClick={() => navigate(isAuthenticated ? "/talents" : "/auth/login/client")}
+          >
+            <span>Find Services</span>
+            <span aria-hidden="true">&rarr;</span>
+          </button>
+          <div className="hero-word hero-word-client" aria-hidden="true">
+            {CLIENT_LETTERS.map((letter, index) => (
+              <span
+                key={`${letter.char}-${index}`}
+                className="hero-letter"
+                ref={(el) => {
+                  letterRefs.current.client[index] = el;
+                }}
+              >
+                {letter.char}
+              </span>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel student-panel">
+          <div className="panel-top">
+            <h2>For Student</h2>
+            <p>Create Portfolio, Find Opportunities</p>
+          </div>
+          <button
+            type="button"
+            className="cta-button"
+            onClick={() => navigate("/opportunities")}
+          >
+            <span>Explore Opportunities</span>
+            <span aria-hidden="true">&rarr;</span>
+          </button>
+          <div className="hero-word hero-word-student" aria-hidden="true">
+            {STUDENT_LETTERS.map((letter, index) => (
+              <span
+                key={`${letter.char}-${index}`}
+                className="hero-letter"
+                ref={(el) => {
+                  letterRefs.current.student[index] = el;
+                }}
+              >
+                {letter.char}
+              </span>
+            ))}
+          </div>
+        </article>
+      </section>
+    </main>
   );
 }
+
+export default Landing;

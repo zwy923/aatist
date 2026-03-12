@@ -26,15 +26,13 @@ import {
 import {
     Search as SearchIcon,
     FilterList as FilterIcon,
-    WorkOutline as WorkIcon,
-    AccessTime as TimeIcon,
     School as SchoolIcon,
     Favorite as FavoriteIcon,
     FavoriteBorder as FavoriteBorderIcon,
     NavigateNext as ViewProfileIcon,
     Clear as ClearIcon
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import PageLayout from '../shared/components/PageLayout';
 import { profileApi } from '../features/profile/api/profile';
 import { useAuth } from '../features/auth/hooks/useAuth';
@@ -51,10 +49,6 @@ const FACULTIES = [
 const TalentCard = ({ student, onSave, isSaved }) => {
     const navigate = useNavigate();
 
-    // Status color logic (mock availability status based on weekly hours or custom field if added)
-    const isAvailable = student.weekly_hours > 0;
-    const statusColor = isAvailable ? "#4caf50" : "#f44336";
-
     return (
         <Card sx={{
             height: '100%',
@@ -62,13 +56,13 @@ const TalentCard = ({ student, onSave, isSaved }) => {
             flexDirection: 'column',
             position: 'relative',
             borderRadius: 4,
-            background: "rgba(255, 255, 255, 0.03)",
-            border: "1px solid rgba(255, 255, 255, 0.05)",
+            background: "#ffffff",
+            border: "1px solid #e5e7eb",
             transition: "transform 0.2s, box-shadow 0.2s",
             '&:hover': {
                 transform: "translateY(-4px)",
                 boxShadow: "0 12px 24px rgba(0,0,0,0.3)",
-                border: "1px solid rgba(93, 224, 255, 0.2)"
+                border: "1px solid rgba(25, 118, 210, 0.25)"
             }
         }}>
             <Box sx={{ p: 3, display: 'flex', alignItems: 'flex-start', gap: 2 }}>
@@ -79,16 +73,6 @@ const TalentCard = ({ student, onSave, isSaved }) => {
                     >
                         {student.name?.charAt(0)}
                     </Avatar>
-                    <Box sx={{
-                        position: 'absolute',
-                        bottom: -2,
-                        right: -2,
-                        width: 16,
-                        height: 16,
-                        borderRadius: '50%',
-                        bgcolor: statusColor,
-                        border: '3px solid #030617'
-                    }} />
                 </Box>
                 <Box sx={{ flex: 1 }}>
                     <Typography variant="h6" fontWeight="700" gutterBottom>
@@ -100,12 +84,9 @@ const TalentCard = ({ student, onSave, isSaved }) => {
                             {student.faculty || student.major || "No Field"}
                         </Typography>
                     </Stack>
-                    <Stack direction="row" spacing={0.5} alignItems="center" color="primary.main">
-                        <TimeIcon sx={{ fontSize: 16 }} />
-                        <Typography variant="caption" fontWeight="600">
-                            {student.weekly_hours ? `${student.weekly_hours} hrs/week` : "Not available"}
-                        </Typography>
-                    </Stack>
+                    <Typography variant="caption" color="text.secondary" fontWeight="600">
+                        {student.role === "alumni" ? "Alumni" : "Student"}
+                    </Typography>
                 </Box>
                 <IconButton
                     size="small"
@@ -137,8 +118,8 @@ const TalentCard = ({ student, onSave, isSaved }) => {
                             label={typeof skill === 'string' ? skill : skill.name}
                             size="small"
                             sx={{
-                                bgcolor: "rgba(93, 224, 255, 0.1)",
-                                color: "#5de0ff",
+                                bgcolor: "rgba(25, 118, 210, 0.1)",
+                                color: "#1976d2",
                                 fontWeight: 500,
                                 fontSize: '0.7rem'
                             }}
@@ -157,7 +138,7 @@ const TalentCard = ({ student, onSave, isSaved }) => {
                     fullWidth
                     variant="outlined"
                     endIcon={<ViewProfileIcon />}
-                    onClick={() => navigate(`/profile?id=${student.id}`)}
+                    onClick={() => navigate(`/users/${student.id}`)}
                     sx={{
                         borderRadius: 2,
                         textTransform: 'none',
@@ -181,7 +162,6 @@ const Talents = () => {
     const [error, setError] = useState(null);
     const [search, setSearch] = useState("");
     const [faculty, setFaculty] = useState("");
-    const [minHours, setMinHours] = useState("");
     const [showFilters, setShowFilters] = useState(false);
     const [savedIds, setSavedIds] = useState(new Set());
     const { user } = useAuth();
@@ -193,11 +173,16 @@ const Talents = () => {
             const params = {
                 q: search || undefined,
                 faculty: faculty || undefined,
-                min_hours: minHours ? parseInt(minHours) : undefined,
                 limit: 50
             };
             const response = await profileApi.searchUsers(params);
-            setStudents(response.data.data || []);
+            let list = response.data.data || [];
+            // Frontend defense: filter out current user (backend also excludes)
+            const myId = user?.id ?? user?.user_id;
+            if (myId) {
+                list = list.filter((s) => String(s.id) !== String(myId));
+            }
+            setStudents(list);
 
             // Also fetch saved items to show favorite state
             if (user) {
@@ -208,11 +193,14 @@ const Talents = () => {
             }
         } catch (err) {
             console.error("Failed to fetch talents:", err);
-            setError("Failed to load talent list. Please try again.");
+            const status = err?.response?.status;
+            setError(status === 401
+                ? "Please log in to search talents."
+                : "Failed to load talent list. Please try again.");
         } finally {
             setLoading(false);
         }
-    }, [search, faculty, minHours, user]);
+    }, [search, faculty, user]);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -243,7 +231,6 @@ const Talents = () => {
     const clearFilters = () => {
         setSearch("");
         setFaculty("");
-        setMinHours("");
     };
 
     return (
@@ -266,8 +253,8 @@ const Talents = () => {
                     p: 3,
                     mb: 4,
                     borderRadius: 4,
-                    background: "rgba(255, 255, 255, 0.03)",
-                    border: "1px solid rgba(255, 255, 255, 0.05)",
+                    background: "#ffffff",
+                    border: "1px solid #e5e7eb",
                     boxShadow: "none"
                 }}>
                     <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
@@ -322,23 +309,6 @@ const Talents = () => {
                                         </Select>
                                     </FormControl>
                                 </Grid>
-                                <Grid item xs={12} md={6}>
-                                    <FormControl fullWidth size="small">
-                                        <InputLabel>Minimum Availability (hrs/week)</InputLabel>
-                                        <Select
-                                            value={minHours}
-                                            label="Minimum Availability (hrs/week)"
-                                            onChange={(e) => setMinHours(e.target.value)}
-                                            sx={{ borderRadius: 2 }}
-                                        >
-                                            <MenuItem value="">Any Availability</MenuItem>
-                                            <MenuItem value="1">1+ hrs/week</MenuItem>
-                                            <MenuItem value="5">5+ hrs/week</MenuItem>
-                                            <MenuItem value="10">10+ hrs/week</MenuItem>
-                                            <MenuItem value="20">20+ hrs/week</MenuItem>
-                                        </Select>
-                                    </FormControl>
-                                </Grid>
                             </Grid>
                             <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
                                 <Button size="small" onClick={clearFilters} color="inherit">
@@ -356,7 +326,17 @@ const Talents = () => {
                 </Box>
 
                 {error && (
-                    <Alert severity="error" sx={{ mb: 4, borderRadius: 3 }}>{error}</Alert>
+                    <Alert
+                        severity="error"
+                        sx={{ mb: 4, borderRadius: 3 }}
+                        action={error.includes("log in") ? (
+                            <Button component={Link} to="/auth/login" color="inherit" size="small">
+                                Log in
+                            </Button>
+                        ) : null}
+                    >
+                        {error}
+                    </Alert>
                 )}
 
                 {loading ? (

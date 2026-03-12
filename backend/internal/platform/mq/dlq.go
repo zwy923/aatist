@@ -48,7 +48,7 @@ func buildQueueNames(prefix string) QueueWithDLQ {
 }
 
 // setupQueueWithDLQ creates main queue, DLQ, and retry queue with proper bindings
-// queuePrefix: e.g., "email.verification" or "notification.community"
+// queuePrefix: e.g., "email.verification" or "password.reset"
 func (r *RabbitMQ) setupQueueWithDLQ(queuePrefix string) error {
 	queues := buildQueueNames(queuePrefix)
 
@@ -120,12 +120,6 @@ func (r *RabbitMQ) setupQueueWithDLQ(queuePrefix string) error {
 	return nil
 }
 
-// SetupCommunityConsumerDLQ sets up DLQ infrastructure for a community event consumer
-func (r *RabbitMQ) SetupCommunityConsumerDLQ(serviceName string) error {
-	queuePrefix := fmt.Sprintf("%s.community", serviceName)
-	return r.setupQueueWithDLQ(queuePrefix)
-}
-
 // consumeDLQWithRetry consumes from DLQ and retries with stepped delays
 func (r *RabbitMQ) consumeDLQWithRetry(queues QueueWithDLQ, maxRetries int) {
 	msgs, err := r.channel.Consume(queues.DLQ, "", false, false, false, false, nil)
@@ -188,7 +182,7 @@ func (r *RabbitMQ) publishToRetryQueue(retryQueue string, originalMsg amqp.Deliv
 	}
 	headers[HeaderRetryCount] = retryCount
 
-	// Preserve original routing key for community events
+	// Preserve original routing key for traceability
 	if originalMsg.RoutingKey != "" {
 		headers["x-original-routing-key"] = originalMsg.RoutingKey
 	}

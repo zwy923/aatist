@@ -38,7 +38,7 @@ type AuthService interface {
 	Register(ctx context.Context, input RegisterInput) (*model.User, *Tokens, error)
 
 	// Login authenticates a user
-	Login(ctx context.Context, email, password, ip string) (*model.User, *Tokens, error)
+	Login(ctx context.Context, email, password, ip, loginType string) (*model.User, *Tokens, error)
 
 	// RefreshToken refreshes an access token using a refresh token
 	RefreshToken(ctx context.Context, refreshToken string) (*Tokens, error)

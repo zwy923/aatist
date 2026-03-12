@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/aatist/backend/internal/platform/auth"
 	"github.com/aatist/backend/pkg/errs"
@@ -16,27 +17,27 @@ const (
 	HeaderUserEmail = "X-User-Email"
 )
 
+func extractToken(c *gin.Context) string {
+	authHeader := c.GetHeader("Authorization")
+	const bearerPrefix = "Bearer "
+	if len(authHeader) >= len(bearerPrefix) && authHeader[:len(bearerPrefix)] == bearerPrefix {
+		t := strings.TrimSpace(authHeader[len(bearerPrefix):])
+		if t != "" {
+			return t
+		}
+	}
+	// WebSocket 握手无法带自定义头，允许从 query 取 token
+	if c.Request.Method == http.MethodGet && (c.Request.URL.Path == "/api/v1/ws" || strings.HasSuffix(c.Request.URL.Path, "/ws")) {
+		return c.Query("token")
+	}
+	return ""
+}
+
 // GatewayAuthMiddleware validates JWT access token and injects user info into headers
 // This is used in the API Gateway to forward user identity to downstream services
 func GatewayAuthMiddleware(jwt *auth.JWT) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Extract token from Authorization header
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			// For public endpoints, continue without authentication
-			c.Next()
-			return
-		}
-
-		// Parse "Bearer <token>"
-		const bearerPrefix = "Bearer "
-		if len(authHeader) < len(bearerPrefix) || authHeader[:len(bearerPrefix)] != bearerPrefix {
-			c.JSON(http.StatusUnauthorized, response.Error(errs.NewAppError(errs.ErrInvalidToken, http.StatusUnauthorized, "invalid authorization header format").WithCode(errs.CodeInvalidToken)))
-			c.Abort()
-			return
-		}
-
-		token := authHeader[len(bearerPrefix):]
+		token := extractToken(c)
 		if token == "" {
 			c.JSON(http.StatusUnauthorized, response.Error(errs.NewAppError(errs.ErrInvalidToken, http.StatusUnauthorized, "token required").WithCode(errs.CodeInvalidToken)))
 			c.Abort()

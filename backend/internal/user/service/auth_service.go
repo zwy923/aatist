@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
@@ -34,24 +33,18 @@ const (
 	refreshTokenKeyPrefix = "refresh_token:"
 
 	// Password policy
-	passwordMinLength = 10
-)
-
-var (
-	lowercaseRegex   = regexp.MustCompile(`[a-z]`)
-	uppercaseRegex   = regexp.MustCompile(`[A-Z]`)
-	numberRegex      = regexp.MustCompile(`[0-9]`)
-	specialCharRegex = regexp.MustCompile(`[!@#$%^&*()_\-+=\[\]{}|\\:;"'<>,.?/~]`)
+	passwordMinLength = 6
 )
 
 // authService implements AuthService
 type authService struct {
-	userRepo             repository.UserRepository
-	jwt                  *auth.JWT
-	redis                *cache.Redis
-	logger               *log.Logger
-	emailVerificationSvc *EmailVerificationService
-	autoVerifiedDomains  []string // School email domains that auto-verify student/alumni accounts
+	userRepo                 repository.UserRepository
+	jwt                      *auth.JWT
+	redis                    *cache.Redis
+	logger                   *log.Logger
+	emailVerificationSvc     *EmailVerificationService
+	autoVerifiedDomains      []string // School email domains that auto-verify student/alumni accounts
+	disableEmailVerification bool     // When true, skip verification requirement and treat new users as verified
 }
 
 // NewAuthService creates a new authentication service
@@ -62,6 +55,7 @@ func NewAuthService(
 	logger *log.Logger,
 	emailVerificationSvc *EmailVerificationService,
 	autoVerifiedDomains []string,
+	disableEmailVerification bool,
 ) AuthService {
 	if emailVerificationSvc == nil {
 		emailVerificationSvc = NewEmailVerificationService(userRepo, redis, logger)
@@ -71,12 +65,13 @@ func NewAuthService(
 		autoVerifiedDomains = []string{"@aalto.fi"}
 	}
 	return &authService{
-		userRepo:             userRepo,
-		jwt:                  jwt,
-		redis:                redis,
-		logger:               logger,
-		emailVerificationSvc: emailVerificationSvc,
-		autoVerifiedDomains:  autoVerifiedDomains,
+		userRepo:                 userRepo,
+		jwt:                      jwt,
+		redis:                    redis,
+		logger:                   logger,
+		emailVerificationSvc:     emailVerificationSvc,
+		autoVerifiedDomains:      autoVerifiedDomains,
+		disableEmailVerification: disableEmailVerification,
 	}
 }
 
@@ -153,6 +148,32 @@ func (s *authService) Register(ctx context.Context, input RegisterInput) (*model
 		role = model.RoleStudent
 	}
 
+	// Role-specific registration constraints aligned with registration flow:
+	// - student/alumni: require @aalto.fi email and academic profile fields
+	// - organization roles: require organization name + contact title
+	if role.IsStudentRole() {
+		if !strings.HasSuffix(normalizedEmail, "@aalto.fi") {
+			return nil, nil, errs.NewAppError(errs.ErrInvalidInput, 400, "student registration requires Aalto email (@aalto.fi)")
+		}
+		if input.School == nil || strings.TrimSpace(*input.School) == "" {
+			return nil, nil, errs.NewAppError(errs.ErrInvalidInput, 400, "school is required for student registration")
+		}
+		if input.Faculty == nil || strings.TrimSpace(*input.Faculty) == "" {
+			return nil, nil, errs.NewAppError(errs.ErrInvalidInput, 400, "department is required for student registration")
+		}
+		if input.Major == nil || strings.TrimSpace(*input.Major) == "" {
+			return nil, nil, errs.NewAppError(errs.ErrInvalidInput, 400, "program is required for student registration")
+		}
+	}
+	if role.IsOrgRole() {
+		if input.OrganizationName == nil || strings.TrimSpace(*input.OrganizationName) == "" {
+			return nil, nil, errs.NewAppError(errs.ErrInvalidInput, 400, "company is required for client registration")
+		}
+		if input.ContactTitle == nil || strings.TrimSpace(*input.ContactTitle) == "" {
+			return nil, nil, errs.NewAppError(errs.ErrInvalidInput, 400, "role is required for client registration")
+		}
+	}
+
 	// Check if email is from verified school domain (for role_verified)
 	// All users still need email verification, but school emails get role_verified = true
 	roleVerified := s.isAutoVerifiedEmail(normalizedEmail, role)
@@ -164,22 +185,23 @@ func (s *authService) Register(ctx context.Context, input RegisterInput) (*model
 	}
 
 	// Create user (store email in lowercase)
-	// All users need email verification (is_verified_email = false initially)
+	// When disableEmailVerification is true, treat new users as verified so they can login without verification
+	initialVerified := s.disableEmailVerification
 	user := &model.User{
-		Email:             normalizedEmail,
-		PasswordHash:      passwordHashPtr,
-		Name:              input.Name,
-		Role:              role,
-		ProfileVisibility: model.VisibilityPublic, // Default to public
+		Email:               normalizedEmail,
+		PasswordHash:        passwordHashPtr,
+		Name:                input.Name,
+		Role:                role,
+		ProfileVisibility:   model.VisibilityPublic,          // Default to public
 		PortfolioVisibility: model.PortfolioVisibilityPublic, // Default to public
-		IsVerifiedEmail:   false, // All users need email verification
-		RoleVerified:      roleVerified, // True if email is from verified school domain
-		FailedAttempts:    0,
+		IsVerifiedEmail:     initialVerified,                 // Verified when email verification is disabled, otherwise requires verification
+		RoleVerified:        roleVerified,                    // True if email is from verified school domain
+		FailedAttempts:      0,
 		// Student/Alumni fields
-		StudentID:          input.StudentID,
-		School:             input.School,
-		Faculty:            input.Faculty,
-		Major:              input.Major,
+		StudentID: input.StudentID,
+		School:    input.School,
+		Faculty:   input.Faculty,
+		Major:     input.Major,
 		// Organization fields
 		OrganizationName:       input.OrganizationName,
 		OrganizationBio:        input.OrganizationBio,
@@ -241,7 +263,7 @@ func (s *authService) Register(ctx context.Context, input RegisterInput) (*model
 }
 
 // Login authenticates a user
-func (s *authService) Login(ctx context.Context, email, password, ip string) (*model.User, *Tokens, error) {
+func (s *authService) Login(ctx context.Context, email, password, ip, loginType string) (*model.User, *Tokens, error) {
 	// Input validation
 	if err := s.validateEmail(email); err != nil {
 		return nil, nil, errs.NewAppError(err, 400, "invalid email format")
@@ -269,8 +291,8 @@ func (s *authService) Login(ctx context.Context, email, password, ip string) (*m
 		return nil, nil, errs.NewAppError(errs.ErrInvalidCredentials, 401, "invalid email or password")
 	}
 
-	// Check if email is verified
-	if !user.IsVerifiedEmail {
+	// Check if email is verified (skip when email verification is disabled)
+	if !s.disableEmailVerification && !user.IsVerifiedEmail {
 		s.logger.Warn("Login attempt with unverified email", zap.Int64("user_id", user.ID), zap.String("ip", ip))
 		metrics.LoginFailureTotal.Inc()
 		return nil, nil, errs.NewAppError(
@@ -300,6 +322,27 @@ func (s *authService) Login(ctx context.Context, email, password, ip string) (*m
 		s.logger.Warn("Login failed: invalid password", zap.Int64("user_id", user.ID), zap.String("ip", ip))
 		metrics.LoginFailureTotal.Inc()
 		return nil, nil, errs.NewAppError(errs.ErrInvalidCredentials, 401, "invalid email or password")
+	}
+
+	// Validate login flow after password verification to avoid
+	// "login success" logs when request is ultimately rejected.
+	normalizedLoginType := strings.ToLower(strings.TrimSpace(loginType))
+	switch normalizedLoginType {
+	case "", "client", "student":
+		// accepted values
+	default:
+		return nil, nil, errs.NewAppError(errs.ErrInvalidInput, 400, "invalid login_type, expected client or student")
+	}
+	if normalizedLoginType == "client" && user.Role.IsStudentRole() {
+		return nil, nil, errs.NewAppError(errs.ErrInvalidInput, 403, "please use student login for student accounts")
+	}
+	if normalizedLoginType == "student" {
+		if !user.Role.IsStudentRole() {
+			return nil, nil, errs.NewAppError(errs.ErrInvalidInput, 403, "please use client login for organization accounts")
+		}
+		if !strings.HasSuffix(strings.ToLower(user.Email), "@aalto.fi") {
+			return nil, nil, errs.NewAppError(errs.ErrInvalidInput, 403, "student login requires Aalto email (@aalto.fi)")
+		}
 	}
 
 	// Login successful - reset failed attempts and update last login
@@ -435,8 +478,18 @@ func (s *authService) VerifyEmail(ctx context.Context, token string) error {
 // Helper methods
 
 func (s *authService) validateEmail(email string) error {
-	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
-	if !emailRegex.MatchString(email) {
+	emailRegex := strings.Contains(email, "@")
+	if !emailRegex {
+		return fmt.Errorf("invalid email format")
+	}
+	if len(strings.Split(email, "@")) != 2 {
+		return fmt.Errorf("invalid email format")
+	}
+	if strings.TrimSpace(email) != email {
+		return fmt.Errorf("invalid email format")
+	}
+	parts := strings.Split(email, "@")
+	if parts[0] == "" || parts[1] == "" || !strings.Contains(parts[1], ".") {
 		return fmt.Errorf("invalid email format")
 	}
 	return nil
@@ -446,14 +499,6 @@ func (s *authService) validatePassword(password string) error {
 	if len(password) < passwordMinLength {
 		return fmt.Errorf("password must be at least %d characters", passwordMinLength)
 	}
-
-	if !lowercaseRegex.MatchString(password) ||
-		!uppercaseRegex.MatchString(password) ||
-		!numberRegex.MatchString(password) ||
-		!specialCharRegex.MatchString(password) {
-		return fmt.Errorf("password must include uppercase, lowercase, number, and symbol characters")
-	}
-
 	return nil
 }
 

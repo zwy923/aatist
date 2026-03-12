@@ -24,7 +24,7 @@ type RegisterProfile struct {
 
 type RegisterRequest struct {
 	Email    string           `json:"email" binding:"required,email"`
-	Password string           `json:"password" binding:"required,min=10"`
+	Password string           `json:"password" binding:"required,min=6"`
 	Name     string           `json:"name" binding:"required,min=1,max=100"`
 	Role     string           `json:"role"`
 	Profile  *RegisterProfile `json:"profile"`
@@ -32,8 +32,9 @@ type RegisterRequest struct {
 
 // LoginRequest represents login request
 type LoginRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required"`
+	Email     string `json:"email" binding:"required,email"`
+	Password  string `json:"password" binding:"required"`
+	LoginType string `json:"login_type,omitempty"` // "client" or "student" - validates role/email
 }
 
 // RefreshTokenRequest represents refresh token request
@@ -44,28 +45,31 @@ type RefreshTokenRequest struct {
 // UserResponse represents user information in response
 type UserResponse struct {
 	// Common fields
-	ID                int64   `json:"id"`
-	Email             string  `json:"email"`
-	Name              string  `json:"name"`
-	AvatarURL         *string `json:"avatar_url,omitempty"`
-	Role              string  `json:"role"`
-	Bio               *string `json:"bio,omitempty"`
-	ProfileVisibility string  `json:"profile_visibility"`
-	IsVerifiedEmail   bool    `json:"is_verified_email"`
-	RoleVerified      bool    `json:"role_verified"` // True if email is from verified school domain
-	OAuthProvider     *string `json:"oauth_provider,omitempty"`
-	LastLoginAt       *string `json:"last_login_at,omitempty"`
-	CreatedAt         string  `json:"created_at"`
+	ID                    int64   `json:"id"`
+	Email                 string  `json:"email"`
+	Name                  string  `json:"name"`
+	AvatarURL             *string `json:"avatar_url,omitempty"`
+	Role                  string  `json:"role"`
+	Bio                   *string `json:"bio,omitempty"`
+	Website               *string `json:"website,omitempty"`
+	LinkedIn              *string `json:"linkedin,omitempty"`
+	Behance               *string `json:"behance,omitempty"`
+	Languages             *string `json:"languages,omitempty"`
+	ProfessionalInterests *string `json:"professional_interests,omitempty"`
+	ProfileVisibility     string  `json:"profile_visibility"`
+	IsVerifiedEmail       bool    `json:"is_verified_email"`
+	RoleVerified          bool    `json:"role_verified"` // True if email is from verified school domain
+	OAuthProvider         *string `json:"oauth_provider,omitempty"`
+	LastLoginAt           *string `json:"last_login_at,omitempty"`
+	CreatedAt             string  `json:"created_at"`
 	// Student/Alumni fields
-	StudentID           *string                       `json:"student_id,omitempty"`
-	School              *string                       `json:"school,omitempty"`
-	Faculty             *string                       `json:"faculty,omitempty"`
-	Major               *string                       `json:"major,omitempty"`
-	WeeklyHours         *int                          `json:"weekly_hours,omitempty"`
-	WeeklyAvailability  model.WeeklyAvailabilityArray `json:"weekly_availability,omitempty"`
-	Skills              model.Skills                  `json:"skills,omitempty"`
-	Courses             model.Courses                 `json:"courses,omitempty"`
-	PortfolioVisibility string                        `json:"portfolio_visibility,omitempty"`
+	StudentID           *string       `json:"student_id,omitempty"`
+	School              *string       `json:"school,omitempty"`
+	Faculty             *string       `json:"faculty,omitempty"`
+	Major               *string       `json:"major,omitempty"`
+	Skills              model.Skills  `json:"skills,omitempty"`
+	Courses             model.Courses `json:"courses,omitempty"`
+	PortfolioVisibility string        `json:"portfolio_visibility,omitempty"`
 	// Organization fields
 	OrganizationName       *string `json:"organization_name,omitempty"`
 	OrganizationBio        *string `json:"organization_bio,omitempty"`
@@ -90,7 +94,7 @@ type ErrorResponse struct {
 // ChangePasswordRequest represents change password request
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"current_password" binding:"required"`
-	NewPassword     string `json:"new_password" binding:"required,min=10"`
+	NewPassword     string `json:"new_password" binding:"required,min=6"`
 }
 
 // CheckExistsResponse represents the response for check username/email existence
@@ -106,7 +110,7 @@ type ForgotPasswordRequest struct {
 // ResetPasswordRequest represents reset password request
 type ResetPasswordRequest struct {
 	Token       string `json:"token" binding:"required"`
-	NewPassword string `json:"new_password" binding:"required,min=10"`
+	NewPassword string `json:"new_password" binding:"required,min=6"`
 }
 
 // SkillInput represents a skill with level in request.
@@ -118,19 +122,23 @@ type SkillInput struct {
 // UpdateProfileRequest represents PATCH /users/me payload.
 type UpdateProfileRequest struct {
 	// Common fields
-	Name              *string `json:"name" binding:"omitempty,max=100"`
-	AvatarURL         *string `json:"avatar_url"`
-	Bio               *string `json:"bio" binding:"omitempty,max=2000"`
-	ProfileVisibility *string `json:"profile_visibility" binding:"omitempty,oneof=public aalto_only private"`
+	Name                   *string                 `json:"name" binding:"omitempty,max=100"`
+	AvatarURL              *string                 `json:"avatar_url"`
+	Bio                    *string                 `json:"bio" binding:"omitempty,max=2000"`
+	Website                *string                 `json:"website" binding:"omitempty,max=500"`
+	LinkedIn               *string                 `json:"linkedin" binding:"omitempty,max=500"`
+	Behance                *string                 `json:"behance" binding:"omitempty,max=500"`
+	Languages              *string                 `json:"languages" binding:"omitempty,max=500"`
+	ProfessionalInterests  *string                 `json:"professional_interests" binding:"omitempty,max=1000"`
+	GuidedProfileQuestions *map[string]interface{} `json:"guided_profile_questions"`
+	ProfileVisibility      *string                 `json:"profile_visibility" binding:"omitempty,oneof=public aalto_only private"`
 	// Student/Alumni fields
-	StudentID           *string                     `json:"student_id" binding:"omitempty,max=64"`
-	School              *string                     `json:"school" binding:"omitempty,max=255"`
-	Faculty             *string                     `json:"faculty" binding:"omitempty,max=255"`
-	Major               *string                     `json:"major" binding:"omitempty,max=255"`
-	WeeklyHours         *int                        `json:"weekly_hours" binding:"omitempty,min=0,max=168"`
-	WeeklyAvailability  *[]model.WeeklyAvailability `json:"weekly_availability"`
-	Skills              *[]SkillInput               `json:"skills"`
-	PortfolioVisibility *string                     `json:"portfolio_visibility" binding:"omitempty,oneof=public aalto_only private"`
+	StudentID           *string       `json:"student_id" binding:"omitempty,max=64"`
+	School              *string       `json:"school" binding:"omitempty,max=255"`
+	Faculty             *string       `json:"faculty" binding:"omitempty,max=255"`
+	Major               *string       `json:"major" binding:"omitempty,max=255"`
+	Skills              *[]SkillInput `json:"skills"`
+	PortfolioVisibility *string       `json:"portfolio_visibility" binding:"omitempty,oneof=public aalto_only private"`
 	// Organization fields
 	OrganizationName       *string `json:"organization_name" binding:"omitempty,max=255"`
 	OrganizationBio        *string `json:"organization_bio" binding:"omitempty,max=2000"`
@@ -161,18 +169,18 @@ func (r UpdateProfileRequest) ToServiceInput() service.UpdateProfileInput {
 		School:                 r.School,
 		Faculty:                r.Faculty,
 		Major:                  r.Major,
-		WeeklyHours:            r.WeeklyHours,
 		Bio:                    r.Bio,
+		Website:                r.Website,
+		LinkedIn:               r.LinkedIn,
+		Behance:                r.Behance,
+		Languages:              r.Languages,
+		ProfessionalInterests:  r.ProfessionalInterests,
+		GuidedProfileQuestions: r.GuidedProfileQuestions,
 		OrganizationName:       r.OrganizationName,
 		OrganizationBio:        r.OrganizationBio,
 		ContactTitle:           r.ContactTitle,
 		IsAffiliatedWithSchool: r.IsAffiliatedWithSchool,
 		OrgSize:                r.OrgSize,
-	}
-
-	if r.WeeklyAvailability != nil {
-		wa := model.WeeklyAvailabilityArray(*r.WeeklyAvailability)
-		input.WeeklyAvailability = &wa
 	}
 
 	if r.ProfileVisibility != nil {

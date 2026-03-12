@@ -19,11 +19,6 @@ const (
 	NotificationTypeProjectSaved NotificationType = "project_saved"
 	NotificationTypeComment      NotificationType = "comment"
 
-	// Community notifications
-	NotificationTypeCommunityLike    NotificationType = "community_like"
-	NotificationTypeCommunityComment NotificationType = "community_comment"
-	NotificationTypeCommunityMention NotificationType = "community_mention"
-
 	// Opportunity notifications
 	NotificationTypeOpportunityMatch NotificationType = "opportunity_match"
 

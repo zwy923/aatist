@@ -8,6 +8,37 @@ import (
 	"time"
 )
 
+// GuidedProfileQuestionsJSON stores optional private Q&A (JSONB)
+type GuidedProfileQuestionsJSON map[string]interface{}
+
+func (g GuidedProfileQuestionsJSON) Value() (driver.Value, error) {
+	if g == nil || len(g) == 0 {
+		return []byte("{}"), nil
+	}
+	return json.Marshal(g)
+}
+
+func (g *GuidedProfileQuestionsJSON) Scan(value interface{}) error {
+	if value == nil {
+		*g = nil
+		return nil
+	}
+	bytes, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("invalid type for guided_profile_questions: %T", value)
+	}
+	if len(bytes) == 0 {
+		*g = nil
+		return nil
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal(bytes, &m); err != nil {
+		return err
+	}
+	*g = m
+	return nil
+}
+
 // Role represents user role
 type Role string
 
@@ -126,6 +157,12 @@ type User struct {
 	AvatarURL         *string           `db:"avatar_url" json:"avatar_url,omitempty"`
 	Role              Role              `db:"role" json:"role"`
 	Bio               *string           `db:"bio" json:"bio,omitempty"`
+	Website           *string           `db:"website" json:"website,omitempty"`
+	LinkedIn          *string           `db:"linkedin" json:"linkedin,omitempty"`
+	Behance           *string           `db:"behance" json:"behance,omitempty"`
+	Languages         *string           `db:"languages" json:"languages,omitempty"`
+	ProfessionalInterests *string        `db:"professional_interests" json:"professional_interests,omitempty"`
+	GuidedProfileQuestions GuidedProfileQuestionsJSON `db:"guided_profile_questions" json:"guided_profile_questions,omitempty"` // Private
 	ProfileVisibility ProfileVisibility `db:"profile_visibility" json:"profile_visibility"`
 	IsVerifiedEmail   bool              `db:"is_verified_email" json:"is_verified_email"`
 	RoleVerified      bool              `db:"role_verified" json:"role_verified"` // True if email is from verified school domain
@@ -143,8 +180,6 @@ type User struct {
 	Major               *string                 `db:"major" json:"major,omitempty"`
 	Skills              Skills                  `db:"skills" json:"skills,omitempty"`
 	Courses             Courses                 `db:"courses" json:"courses,omitempty"`
-	WeeklyHours         *int                    `db:"weekly_hours" json:"weekly_hours,omitempty"`
-	WeeklyAvailability  WeeklyAvailabilityArray `db:"weekly_availability" json:"weekly_availability,omitempty"`
 	PortfolioVisibility PortfolioVisibility     `db:"portfolio_visibility" json:"portfolio_visibility"`
 	// Organization specific fields (org_person, org_team)
 	OrganizationName       *string `db:"organization_name" json:"organization_name,omitempty"`

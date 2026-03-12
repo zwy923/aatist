@@ -1,0 +1,27 @@
+# Dockerfile for chat-service
+FROM golang:1.22-alpine AS builder
+WORKDIR /app
+
+# Install git (for go modules that may use it)
+RUN apk --no-cache add git
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN go build -o chat-service ./cmd/chat-service
+
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates
+WORKDIR /app
+
+COPY --from=builder /app/chat-service .
+COPY --from=builder /app/configs ./configs
+
+ENV SERVICE_NAME=chat-service
+
+# 默认端口由配置文件或 HTTP_PORT 决定，容器内部建议暴露 8088
+EXPOSE 8088
+
+CMD ["./chat-service"]
+

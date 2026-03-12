@@ -80,6 +80,9 @@ func Load(configPath string) (*Config, error) {
 	if frontend := os.Getenv("FRONTEND_URL"); frontend != "" {
 		cfg.Email.FrontendURL = frontend
 	}
+	if v := os.Getenv("DISABLE_EMAIL_VERIFICATION"); v != "" {
+		cfg.Email.DisableEmailVerification = strings.EqualFold(v, "true") || v == "1"
+	}
 
 	// Set default values
 	if cfg.App.HTTPPort == 0 {

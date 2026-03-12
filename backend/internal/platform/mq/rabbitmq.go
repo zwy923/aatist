@@ -19,9 +19,6 @@ const (
 	EmailVerificationQueue = "email_verification"
 	PasswordResetQueue     = "password_reset"
 
-	// Exchanges
-	CommunityEventsExchange = "community_events"
-
 	defaultPublishConfirmTimeout = 5 * time.Second
 	defaultPrefetchCount         = 50
 )
@@ -56,22 +53,6 @@ func NewRabbitMQ(brokerURL string, confirmTimeout time.Duration, logger *log.Log
 	}
 	confirmations := channel.NotifyPublish(make(chan amqp.Confirmation, 1024))
 	returns := channel.NotifyReturn(make(chan amqp.Return, 1024))
-
-	// Declare community events exchange (topic)
-	err = channel.ExchangeDeclare(
-		CommunityEventsExchange,
-		"topic",
-		true,
-		false,
-		false, // internal
-		false,
-		nil,
-	)
-	if err != nil {
-		channel.Close()
-		conn.Close()
-		return nil, fmt.Errorf("failed to declare community exchange: %w", err)
-	}
 
 	if confirmTimeout <= 0 {
 		confirmTimeout = defaultPublishConfirmTimeout

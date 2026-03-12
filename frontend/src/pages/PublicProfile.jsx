@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
     Avatar,
     Box,
+    Button,
     Card,
     CardContent,
     CardMedia,
@@ -16,7 +17,9 @@ import {
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import EmailIcon from "@mui/icons-material/Email";
+import MessageIcon from "@mui/icons-material/Message";
 import SchoolIcon from "@mui/icons-material/School";
+import useAuthStore from "../shared/stores/authStore";
 import { profileApi, portfolioApi } from "../features/profile/api/profile";
 import PageLayout from "../shared/components/PageLayout";
 import { StateContainer } from "../shared/components/ui/StateContainer";
@@ -24,6 +27,9 @@ import { StateContainer } from "../shared/components/ui/StateContainer";
 export default function PublicProfile() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+    const user = useAuthStore((s) => s.user);
+    const myId = user?.id ?? user?.user_id;
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [profile, setProfile] = useState(null);
@@ -107,8 +113,29 @@ export default function PublicProfile() {
                                     direction="row"
                                     spacing={2}
                                     mt={3}
+                                    alignItems="center"
+                                    flexWrap="wrap"
                                     justifyContent={{ xs: "center", md: "flex-start" }}
                                 >
+                                    {isAuthenticated && id && Number(id) === Number(myId) && (
+                                        <Button
+                                            variant="contained"
+                                            onClick={() => navigate("/profile")}
+                                            sx={{ textTransform: "none", fontWeight: 600 }}
+                                        >
+                                            Edit Profile
+                                        </Button>
+                                    )}
+                                    {isAuthenticated && id && Number(id) !== Number(myId) && (
+                                        <Button
+                                            variant="contained"
+                                            startIcon={<MessageIcon />}
+                                            onClick={() => navigate(`/messages?user=${id}`)}
+                                            sx={{ textTransform: "none", fontWeight: 600 }}
+                                        >
+                                            Message
+                                        </Button>
+                                    )}
                                     {profile?.email && (
                                         <Chip icon={<EmailIcon />} label={profile.email} variant="outlined" />
                                     )}

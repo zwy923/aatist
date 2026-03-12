@@ -45,7 +45,7 @@ func (s *projectService) GetProject(ctx context.Context, id int64) (*model.Proje
 }
 
 func (s *projectService) GetPublicProjects(ctx context.Context, limit, offset int) ([]*model.Project, error) {
-	return s.projectRepo.FindAll(ctx, limit, offset)
+	return s.projectRepo.FindAllPublic(ctx, limit, offset)
 }
 
 func (s *projectService) CreateProject(ctx context.Context, userID int64, project *model.Project) error {

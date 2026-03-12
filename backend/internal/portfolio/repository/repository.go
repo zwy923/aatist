@@ -17,6 +17,9 @@ type ProjectRepository interface {
 	// FindAll finds all projects with pagination
 	FindAll(ctx context.Context, limit, offset int) ([]*model.Project, error)
 
+	// FindAllPublic finds projects whose owners have portfolio_visibility = 'public'
+	FindAllPublic(ctx context.Context, limit, offset int) ([]*model.Project, error)
+
 	// Create creates a new project
 	Create(ctx context.Context, project *model.Project) error
 

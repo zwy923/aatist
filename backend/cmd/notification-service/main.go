@@ -11,7 +11,6 @@ import (
 	"github.com/aatist/backend/internal/platform/cache"
 	"github.com/aatist/backend/internal/platform/middleware"
 	"github.com/aatist/backend/internal/platform/mq"
-	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
 
@@ -43,22 +42,20 @@ func main() {
 	}
 	defer postgres.Close()
 
-	// Initialize Redis (optional - used for batching)
+	// Initialize Redis (optional - used for caching)
 	var redisClient *cache.Redis
-	var redisCmd redis.Cmdable
 	redisClient, err = app.InitRedis(cfg.Redis.Addr, cfg.Redis.DB, logger)
 	if err != nil {
-		logger.Warn("Failed to initialize Redis - community batching disabled", zap.Error(err))
+		logger.Warn("Failed to initialize Redis", zap.Error(err))
 	} else if redisClient != nil {
 		defer redisClient.Close()
-		redisCmd = redisClient.GetClient()
 	}
 
-	// Initialize RabbitMQ (optional - used for community events)
+	// Initialize RabbitMQ (optional)
 	var rabbitMQ *mq.RabbitMQ
 	rabbitMQ, err = app.InitRabbitMQ(cfg.MQ.Broker, cfg.MQ.PublishConfirmTimeout, logger)
 	if err != nil {
-		logger.Warn("Failed to initialize RabbitMQ - community events disabled", zap.Error(err))
+		logger.Warn("Failed to initialize RabbitMQ", zap.Error(err))
 	} else if rabbitMQ != nil {
 		defer rabbitMQ.Close()
 	}
@@ -68,24 +65,6 @@ func main() {
 
 	// Initialize services
 	notificationService := service.NewNotificationService(notificationRepo)
-
-	if rabbitMQ != nil {
-		consumer := service.NewCommunityEventConsumer(notificationService, redisCmd, logger)
-		// Use SERVICE_NAME env var → queues: {SERVICE_NAME}.community, {SERVICE_NAME}.community.dlq, {SERVICE_NAME}.community.retry
-		serviceName := os.Getenv("SERVICE_NAME")
-		if serviceName == "" {
-			serviceName = "notification-service"
-		}
-		if err := rabbitMQ.ConsumeCommunityEvents(
-			serviceName,
-			[]string{"community.post.created", "community.post.liked", "community.post.commented"},
-			func(eventType string, payload []byte) error {
-				return consumer.HandleMessage(eventType, payload)
-			},
-		); err != nil {
-			logger.Warn("Failed to start community event consumer", zap.Error(err))
-		}
-	}
 
 	// Initialize handler
 	notificationHandler := handler.NewNotificationHandler(notificationService, logger)
