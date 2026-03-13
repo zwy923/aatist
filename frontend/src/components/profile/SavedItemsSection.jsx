@@ -34,9 +34,11 @@ const ITEM_TYPES = {
 export default function SavedItemsSection({ items, onRemove, onNavigate }) {
     const [filter, setFilter] = useState("all");
 
+    const getItemType = (item) => item.item_type || item.type;
+    const getTargetId = (item) => item.item_id ?? item.target_id ?? item.targetId;
     const filteredItems = filter === "all"
         ? items
-        : items.filter((item) => item.type === filter);
+        : items.filter((item) => getItemType(item) === filter);
 
     const handleRemove = async (id) => {
         if (!window.confirm("Are you sure you want to remove this item from saved?")) {
@@ -103,7 +105,8 @@ export default function SavedItemsSection({ items, onRemove, onNavigate }) {
             ) : (
                 <Grid container spacing={2}>
                     {filteredItems.map((item) => {
-                        const config = getItemConfig(item.type);
+                        const itemType = getItemType(item);
+                        const config = getItemConfig(itemType);
                         const IconComponent = config.icon;
 
                         return (
@@ -152,7 +155,7 @@ export default function SavedItemsSection({ items, onRemove, onNavigate }) {
                                                 <Stack direction="row" spacing={0.5}>
                                                     <IconButton
                                                         size="small"
-                                                        onClick={() => onNavigate(item.type, item.target_id || item.targetId)}
+                                                        onClick={() => onNavigate(itemType, getTargetId(item))}
                                                         sx={{ color: "text.secondary", "&:hover": { color: "primary.main" } }}
                                                     >
                                                         <OpenInNewIcon fontSize="small" />
@@ -170,7 +173,7 @@ export default function SavedItemsSection({ items, onRemove, onNavigate }) {
                                             {/* Content */}
                                             <Box>
                                                 <Typography variant="subtitle1" fontWeight={600} noWrap>
-                                                    {item.title || item.name || `Saved ${config.label}`}
+                                                    {item.title || item.name || `Saved ${config.label ?? itemType ?? "item"}`}
                                                 </Typography>
                                                 {item.description && (
                                                     <Typography
@@ -189,9 +192,9 @@ export default function SavedItemsSection({ items, onRemove, onNavigate }) {
                                             </Box>
 
                                             {/* Footer */}
-                                            {item.saved_at && (
+                                            {(item.saved_at || item.created_at) && (
                                                 <Typography variant="caption" color="text.secondary">
-                                                    Saved {new Date(item.saved_at).toLocaleDateString()}
+                                                    Saved {new Date(item.saved_at || item.created_at).toLocaleDateString()}
                                                 </Typography>
                                             )}
                                         </Stack>

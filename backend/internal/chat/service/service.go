@@ -46,6 +46,7 @@ type ChatService interface {
 	CreateMessage(ctx context.Context, conversationID string, fromUserID int64, content, createdAt string) (*model.ChatMessage, error)
 	ListConversations(ctx context.Context, userID int64, limit int) ([]*model.ConversationSummary, error)
 	ListMessages(ctx context.Context, conversationID string, userID int64, limit, offset int) ([]*model.ChatMessage, error)
+	DeleteConversation(ctx context.Context, conversationID string, userID int64) error
 }
 
 type chatService struct {
@@ -98,4 +99,15 @@ func (s *chatService) ListMessages(ctx context.Context, conversationID string, u
 		return nil, errs.NewAppError(errs.ErrUnauthorized, 403, "conversation access denied")
 	}
 	return s.repo.ListByConversation(ctx, conversationID, limit, offset)
+}
+
+func (s *chatService) DeleteConversation(ctx context.Context, conversationID string, userID int64) error {
+	conversationID = strings.TrimSpace(conversationID)
+	if conversationID == "" || userID <= 0 {
+		return errs.NewAppError(errs.ErrInvalidInput, 400, "invalid conversation id or user id")
+	}
+	if !participantInConversation(conversationID, userID) {
+		return errs.NewAppError(errs.ErrUnauthorized, 403, "conversation access denied")
+	}
+	return s.repo.DeleteConversation(ctx, conversationID)
 }

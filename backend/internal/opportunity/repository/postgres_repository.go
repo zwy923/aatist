@@ -10,6 +10,7 @@ import (
 	"github.com/aatist/backend/internal/opportunity/model"
 	"github.com/aatist/backend/pkg/errs"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 )
 
 const opportunitySelectColumns = `id, title, organization, category, budget_type, budget_value, 
@@ -50,6 +51,14 @@ func (r *postgresOpportunityRepository) Create(ctx context.Context, opp *model.O
 		opp.PublishedAt = now
 	}
 
+	languages := opp.Languages
+	if languages == nil {
+		languages = []string{}
+	}
+	tags := opp.Tags
+	if tags == nil {
+		tags = []string{}
+	}
 	err := r.db.GetContext(ctx, &opp.ID, query,
 		opp.Title,
 		opp.Organization,
@@ -58,12 +67,12 @@ func (r *postgresOpportunityRepository) Create(ctx context.Context, opp *model.O
 		opp.BudgetValue,
 		opp.Location,
 		opp.DurationMonths,
-		opp.Languages,
+		pq.Array(languages),
 		opp.StartDate,
 		opp.PublishedAt,
 		opp.Urgent,
 		opp.Description,
-		opp.Tags,
+		pq.Array(tags),
 		opp.CreatedBy,
 		opp.Status,
 		opp.CreatedAt,
@@ -85,7 +94,14 @@ func (r *postgresOpportunityRepository) Update(ctx context.Context, opp *model.O
 		RETURNING updated_at
 	`
 	opp.UpdatedAt = time.Now()
-
+	languages := opp.Languages
+	if languages == nil {
+		languages = []string{}
+	}
+	tags := opp.Tags
+	if tags == nil {
+		tags = []string{}
+	}
 	err := r.db.GetContext(ctx, &opp.UpdatedAt, query,
 		opp.Title,
 		opp.Organization,
@@ -94,11 +110,11 @@ func (r *postgresOpportunityRepository) Update(ctx context.Context, opp *model.O
 		opp.BudgetValue,
 		opp.Location,
 		opp.DurationMonths,
-		opp.Languages,
+		pq.Array(languages),
 		opp.StartDate,
 		opp.Urgent,
 		opp.Description,
-		opp.Tags,
+		pq.Array(tags),
 		opp.Status,
 		opp.UpdatedAt,
 		opp.ID,
@@ -176,7 +192,7 @@ func (r *postgresOpportunityRepository) List(ctx context.Context, filter Opportu
 	}
 
 	if len(filter.Languages) > 0 {
-		args = append(args, filter.Languages)
+		args = append(args, pq.Array(filter.Languages))
 		where = append(where, fmt.Sprintf("languages && $%d", len(args)))
 	}
 
@@ -273,7 +289,7 @@ func (r *postgresOpportunityRepository) Count(ctx context.Context, filter Opport
 	}
 
 	if len(filter.Languages) > 0 {
-		args = append(args, filter.Languages)
+		args = append(args, pq.Array(filter.Languages))
 		where = append(where, fmt.Sprintf("languages && $%d", len(args)))
 	}
 

@@ -12,4 +12,8 @@ export const messagesApi = {
   /** 发起新会话，返回 conversation_id（首次发消息前调用） */
   startConversation: (otherUserId) =>
     apiClient.post('/conversations/start', { other_user_id: otherUserId }),
+
+  /** 删除会话及其所有消息 */
+  deleteConversation: (conversationId) =>
+    apiClient.delete(`/conversations/${encodeURIComponent(conversationId)}`),
 };

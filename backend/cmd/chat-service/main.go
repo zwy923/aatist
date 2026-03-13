@@ -67,6 +67,7 @@ func main() {
 			conversations.POST("/start", chatHandler.StartConversationHandler)
 			conversations.GET("", chatHandler.GetConversationsHandler)
 			conversations.GET("/:id/messages", chatHandler.GetMessagesHandler)
+			conversations.DELETE("/:id", chatHandler.DeleteConversationHandler)
 		}
 	}
 

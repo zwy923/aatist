@@ -7,7 +7,9 @@ import {
   Chip,
   CircularProgress,
   Dialog,
+  DialogActions,
   DialogContent,
+  DialogContentText,
   DialogTitle,
   Divider,
   IconButton,
@@ -17,6 +19,8 @@ import {
   ListItemAvatar,
   ListItemButton,
   ListItemText,
+  Menu,
+  MenuItem,
   Paper,
   Stack,
   Typography,
@@ -30,6 +34,7 @@ import AddIcon from "@mui/icons-material/Add";
 import AttachFileIcon from "@mui/icons-material/AttachFile";
 import SendIcon from "@mui/icons-material/Send";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
+import DeleteIcon from "@mui/icons-material/Delete";
 import PageLayout from "../shared/components/PageLayout";
 import { useAuth } from "../features/auth/hooks/useAuth";
 import { useChat } from "../features/messages/ChatProvider";
@@ -115,6 +120,7 @@ const MessagesPage = () => {
   } = useChat();
   const lastSeenByUser = useChatUnreadStore((s) => s.lastSeenByUser);
   const lastSeenCount = (lastSeenByUser[myId] || {});
+  const removeConversationFromStore = useChatUnreadStore((s) => s.removeConversation);
 
   const [search, setSearch] = useState("");
   const [conversationsFromApi, setConversationsFromApi] = useState([]);
@@ -127,6 +133,9 @@ const MessagesPage = () => {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [drafts, setDrafts] = useState({});
+  const [moreMenuAnchor, setMoreMenuAnchor] = useState(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const loadConversations = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -253,6 +262,11 @@ const MessagesPage = () => {
     await startConversationWithUser(Number(otherUserId));
   };
 
+  const handleOpenDeleteConfirm = () => {
+    setMoreMenuAnchor(null);
+    setDeleteConfirmOpen(true);
+  };
+
   const targetUserId = searchParams.get("user");
   useEffect(() => {
     if (targetUserId && isAuthenticated) {
@@ -364,37 +378,25 @@ const MessagesPage = () => {
     [myId, activeConversation]
   );
 
-  useEffect(() => {
-    if (!activeConversationId || !mergedMessages.length) return;
-    markConversationAsRead(activeConversationId, mergedMessages.length);
-  }, [activeConversationId, mergedMessages.length, markConversationAsRead]);
-
-  const unreadByConversation = useMemo(() => {
-    const out = {};
-    const allConvIds = new Set([
-      ...Object.keys(messagesByConversation || {}),
-      ...Object.keys(historyByConversation || {}),
-      ...conversationList.map((c) => c.conversation_id || c.id).filter(Boolean),
-    ]);
-    allConvIds.forEach((convId) => {
-      const total =
-        convId === activeConversationId
-          ? mergedMessages.length
-          : (messagesByConversation[convId] || []).length +
-            (historyByConversation[convId] || []).length;
-      const seen = lastSeenCount[convId] || 0;
-      const diff = Math.max(0, total - seen);
-      if (diff > 0) out[convId] = diff;
-    });
-    return out;
-  }, [
-    messagesByConversation,
-    historyByConversation,
-    conversationList,
-    activeConversationId,
-    mergedMessages.length,
-    lastSeenCount,
-  ]);
+  const handleDeleteConversation = useCallback(async () => {
+    if (!activeConversationId || !isAuthenticated) return;
+    setDeleting(true);
+    try {
+      await messagesApi.deleteConversation(activeConversationId);
+      removeConversationFromStore(myId, activeConversationId);
+      setHistoryByConversation((prev) => {
+        const next = { ...prev };
+        delete next[activeConversationId];
+        return next;
+      });
+      await loadConversations();
+      setDeleteConfirmOpen(false);
+    } catch (e) {
+      console.warn("Delete conversation failed", e);
+    } finally {
+      setDeleting(false);
+    }
+  }, [activeConversationId, isAuthenticated, myId, removeConversationFromStore, loadConversations]);
 
   useEffect(() => {
     if (activeConversationId) loadHistory(activeConversationId);
@@ -426,6 +428,38 @@ const MessagesPage = () => {
   }, [historyMessages, wsMessages, myId]);
 
   const messages = mergedMessages;
+
+  useEffect(() => {
+    if (!activeConversationId || !mergedMessages.length) return;
+    markConversationAsRead(activeConversationId, mergedMessages.length);
+  }, [activeConversationId, mergedMessages.length, markConversationAsRead]);
+
+  const unreadByConversation = useMemo(() => {
+    const out = {};
+    const allConvIds = new Set([
+      ...Object.keys(messagesByConversation || {}),
+      ...Object.keys(historyByConversation || {}),
+      ...conversationList.map((c) => c.conversation_id || c.id).filter(Boolean),
+    ]);
+    allConvIds.forEach((convId) => {
+      const total =
+        convId === activeConversationId
+          ? mergedMessages.length
+          : (messagesByConversation[convId] || []).length +
+            (historyByConversation[convId] || []).length;
+      const seen = lastSeenCount[convId] || 0;
+      const diff = Math.max(0, total - seen);
+      if (diff > 0) out[convId] = diff;
+    });
+    return out;
+  }, [
+    messagesByConversation,
+    historyByConversation,
+    conversationList,
+    activeConversationId,
+    mergedMessages.length,
+    lastSeenCount,
+  ]);
 
   const handleSend = () => {
     const text = drafts[selectedId]?.trim();
@@ -764,10 +798,29 @@ const MessagesPage = () => {
                     label={onlineForConv ? "Online" : "Offline"}
                   />
                   <Tooltip title="More actions">
-                    <IconButton size="small" sx={{ color: "text.secondary" }}>
+                    <IconButton
+                      size="small"
+                      sx={{ color: "text.secondary" }}
+                      onClick={(e) => setMoreMenuAnchor(e.currentTarget)}
+                    >
                       <MoreVertIcon />
                     </IconButton>
                   </Tooltip>
+                  <Menu
+                    anchorEl={moreMenuAnchor}
+                    open={Boolean(moreMenuAnchor)}
+                    onClose={() => setMoreMenuAnchor(null)}
+                    anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+                    transformOrigin={{ vertical: "top", horizontal: "right" }}
+                  >
+                    <MenuItem
+                      onClick={handleOpenDeleteConfirm}
+                      sx={{ color: "error.main" }}
+                    >
+                      <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
+                      Delete conversation
+                    </MenuItem>
+                  </Menu>
                 </Stack>
               </Box>
 
@@ -1000,6 +1053,35 @@ const MessagesPage = () => {
           )}
         </Box>
       </DialogContent>
+    </Dialog>
+
+    <Dialog
+      open={deleteConfirmOpen}
+      onClose={() => !deleting && setDeleteConfirmOpen(false)}
+      maxWidth="xs"
+      fullWidth
+      PaperProps={{ sx: { borderRadius: 3 } }}
+    >
+      <DialogTitle>Delete conversation</DialogTitle>
+      <DialogContent>
+        <DialogContentText>
+          Delete this conversation and all messages? This cannot be undone.
+        </DialogContentText>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={() => setDeleteConfirmOpen(false)} disabled={deleting}>
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          color="error"
+          onClick={handleDeleteConversation}
+          disabled={deleting}
+          startIcon={deleting ? <CircularProgress size={16} color="inherit" /> : <DeleteIcon />}
+        >
+          {deleting ? "Deleting..." : "Delete"}
+        </Button>
+      </DialogActions>
     </Dialog>
     </>
   );

@@ -169,6 +169,69 @@ export default function PublicProfile() {
                         </Box>
                     )}
 
+                    {/* Services Section */}
+                    {profile?.services && profile.services.length > 0 && (
+                        <Box sx={{ mb: 6 }}>
+                            <Typography variant="h5" fontWeight={700} gutterBottom sx={{ mb: 2 }}>
+                                Services
+                            </Typography>
+                            <Stack spacing={2}>
+                                {profile.services.map((s) => (
+                                    <Paper
+                                        key={s.id}
+                                        sx={{
+                                            p: 2.5,
+                                            borderRadius: 2,
+                                            background: "rgba(255, 255, 255, 0.03)",
+                                            border: "1px solid rgba(255, 255, 255, 0.05)",
+                                        }}
+                                    >
+                                        <Stack spacing={1}>
+                                            <Typography variant="h6" fontWeight={600}>
+                                                {s.title || s.category}
+                                            </Typography>
+                                            {s.short_description && (
+                                                <Typography variant="body2" color="text.secondary">
+                                                    {s.short_description}
+                                                </Typography>
+                                            )}
+                                            {s.description && (
+                                                <Typography variant="body2" sx={{
+                                                    display: '-webkit-box',
+                                                    WebkitLineClamp: 3,
+                                                    WebkitBoxOrient: 'vertical',
+                                                    overflow: 'hidden',
+                                                }}>
+                                                    {s.description}
+                                                </Typography>
+                                            )}
+                                            <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center">
+                                                {s.price_type && (
+                                                    <Chip
+                                                        size="small"
+                                                        label={s.price_type}
+                                                        variant="outlined"
+                                                        sx={{ textTransform: 'capitalize' }}
+                                                    />
+                                                )}
+                                                {s.price_min != null && s.price_max != null && (
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        €{s.price_min}–€{s.price_max}
+                                                    </Typography>
+                                                )}
+                                                {s.price_min != null && s.price_max == null && (
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        From €{s.price_min}
+                                                    </Typography>
+                                                )}
+                                            </Stack>
+                                        </Stack>
+                                    </Paper>
+                                ))}
+                            </Stack>
+                        </Box>
+                    )}
+
                     {/* Portfolio Section */}
                     <Box>
                         <Typography variant="h5" fontWeight={700} gutterBottom sx={{ mb: 3 }}>

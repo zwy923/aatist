@@ -13,7 +13,9 @@ import WorkIcon from "@mui/icons-material/Work";
 import DesignServicesIcon from "@mui/icons-material/DesignServices";
 import BookmarkIcon from "@mui/icons-material/Bookmark";
 import SettingsIcon from "@mui/icons-material/Settings";
+import AssignmentIcon from "@mui/icons-material/Assignment";
 import { profileApi, portfolioApi } from "../features/profile/api/profile";
+import { opportunitiesApi } from "../features/opportunities/api/opportunities";
 import { useAuth } from "../features/auth/hooks/useAuth";
 import { useProfile } from "../features/profile/hooks/useProfile";
 import { StateContainer } from "../shared/components/ui/StateContainer";
@@ -21,14 +23,20 @@ import ProfileEditHeader from "../components/profile/ProfileEditHeader";
 import BasicInfoSection from "../components/profile/BasicInfoSection";
 import ServicesSection from "../components/profile/ServicesSection";
 import PortfolioSection from "../components/profile/PortfolioSection";
+import MyProjectsSection from "../components/profile/MyProjectsSection";
 import SavedItemsSection from "../components/profile/SavedItemsSection";
 import SecuritySettings from "../components/profile/SecuritySettings";
 import PageLayout from "../shared/components/PageLayout";
 
-const EDIT_TABS_BASE = [
+const STUDENT_TABS = [
   { id: "basic", label: "Basic Info", icon: <PersonIcon /> },
-  { id: "services", label: "Services", icon: <DesignServicesIcon /> }, // Students only
+  { id: "services", label: "Services", icon: <DesignServicesIcon /> },
   { id: "portfolio", label: "Portfolio", icon: <WorkIcon /> },
+];
+
+const CLIENT_TABS = [
+  { id: "basic", label: "Basic Info", icon: <PersonIcon /> },
+  { id: "my-projects", label: "My Projects", icon: <AssignmentIcon /> },
 ];
 
 const OTHER_TABS = [
@@ -37,9 +45,7 @@ const OTHER_TABS = [
 ];
 
 const getAllTabs = (isStudent) => {
-  const editTabs = isStudent
-    ? EDIT_TABS_BASE
-    : EDIT_TABS_BASE.filter((t) => t.id !== "services");
+  const editTabs = isStudent ? STUDENT_TABS : CLIENT_TABS;
   return [...editTabs, ...OTHER_TABS];
 };
 
@@ -65,6 +71,7 @@ export default function Profile() {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [profile, setProfile] = useState(null);
   const [portfolio, setPortfolio] = useState([]);
+  const [myProjects, setMyProjects] = useState([]);
   const [services, setServices] = useState([]);
   const [savedItems, setSavedItems] = useState([]);
 
@@ -99,6 +106,17 @@ export default function Profile() {
     }
   }, []);
 
+  const loadMyProjects = useCallback(async () => {
+    try {
+      const response = await opportunitiesApi.getMyOpportunities();
+      const data = response.data.data;
+      setMyProjects(Array.isArray(data) ? data : data?.items || []);
+    } catch (err) {
+      console.error("Failed to load my projects:", err);
+      setMyProjects([]);
+    }
+  }, []);
+
   const loadServices = useCallback(async () => {
     try {
       const response = await profileApi.getServices();
@@ -111,7 +129,24 @@ export default function Profile() {
   const loadSavedItems = useCallback(async () => {
     try {
       const response = await profileApi.getSavedItems();
-      setSavedItems(response.data.data?.items || []);
+      const items = response.data.data?.items || [];
+      const enriched = await Promise.all(
+        items.map(async (item) => {
+          const type = item.item_type || item.type;
+          const targetId = item.item_id ?? item.target_id ?? item.targetId;
+          if (type === "user" && targetId) {
+            try {
+              const u = await profileApi.getPublicProfile(targetId);
+              const d = u.data?.data;
+              return { ...item, name: d?.name || d?.username || `User ${targetId}` };
+            } catch (_) {
+              return { ...item, name: `User ${targetId}` };
+            }
+          }
+          return item;
+        })
+      );
+      setSavedItems(enriched);
     } catch (err) {
       console.error("Failed to load saved items:", err);
     }
@@ -125,7 +160,8 @@ export default function Profile() {
     loadProfile();
     loadServices();
     loadPortfolio();
-  }, [isAuthenticated, navigate, loadProfile, loadServices, loadPortfolio]);
+    if (!isStudentRole) loadMyProjects();
+  }, [isAuthenticated, navigate, loadProfile, loadServices, loadPortfolio, loadMyProjects, isStudentRole]);
 
   // Strict: if URL has id param for another user, redirect to view-only public profile
   useEffect(() => {
@@ -143,6 +179,9 @@ export default function Profile() {
       case "portfolio":
         loadPortfolio();
         break;
+      case "my-projects":
+        loadMyProjects();
+        break;
       case "services":
         loadServices();
         break;
@@ -152,7 +191,7 @@ export default function Profile() {
       default:
         break;
     }
-  }, [activeTab, isAuthenticated, loadPortfolio, loadServices, loadSavedItems]);
+  }, [activeTab, isAuthenticated, loadPortfolio, loadMyProjects, loadServices, loadSavedItems]);
 
   const handleProfileUpdate = async (updatedData) => {
     const result = await updateProfile(updatedData);
@@ -228,8 +267,6 @@ export default function Profile() {
     setSearchParams(newValue === "basic" ? {} : { tab: newValue });
   };
 
-  const isEditTab = EDIT_TABS_BASE.some((t) => t.id === activeTab);
-
   return (
     <PageLayout maxWidth="lg" variant="light">
         <StateContainer loading={loading || profileLoading} error={error} onRetry={loadProfile}>
@@ -237,7 +274,7 @@ export default function Profile() {
             <ProfileEditHeader
               profile={profile}
               services={services}
-              portfolio={portfolio}
+              portfolio={isStudentRole ? portfolio : myProjects}
               onNavigateBack={() => navigate("/dashboard")}
               onPreview={() => profile?.id && navigate(`/users/${profile.id}`)}
             />
@@ -279,6 +316,9 @@ export default function Profile() {
                     onUpdate={handleUpdatePortfolioItem}
                     onDelete={handleDeletePortfolioItem}
                   />
+                )}
+                {activeTab === "my-projects" && (
+                  <MyProjectsSection items={myProjects} onRefresh={loadMyProjects} />
                 )}
                 {activeTab === "saved" && (
                   <SavedItemsSection

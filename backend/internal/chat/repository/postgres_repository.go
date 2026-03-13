@@ -125,3 +125,13 @@ func (r *postgresChatRepository) ListConversationsForUser(ctx context.Context, u
 	}
 	return out, nil
 }
+
+// DeleteConversation deletes all messages in a conversation
+func (r *postgresChatRepository) DeleteConversation(ctx context.Context, conversationID string) error {
+	query := `DELETE FROM chat_messages WHERE conversation_id = $1`
+	_, err := r.db.ExecContext(ctx, query, conversationID)
+	if err != nil {
+		return fmt.Errorf("delete conversation: %w", err)
+	}
+	return nil
+}

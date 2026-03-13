@@ -140,8 +140,8 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess }) {
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
-      <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", pb: 1 }}>
-        <Typography variant="h6" fontWeight={700}>
+      <DialogTitle component="div" sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", pb: 1 }}>
+        <Typography variant="h6" component="span" fontWeight={700}>
           Post a Project Brief
         </Typography>
         <IconButton onClick={onClose} size="small" aria-label="close">

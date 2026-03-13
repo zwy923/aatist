@@ -34,6 +34,17 @@ export const useChatUnreadStore = create(
         const byConv = byUser[userId] || {};
         return byConv[conversationId] || 0;
       },
+
+      removeConversation: (userId, conversationId) => {
+        if (!userId || !conversationId) return;
+        set((state) => {
+          const byUser = { ...state.lastSeenByUser };
+          const byConv = { ...(byUser[userId] || {}) };
+          delete byConv[conversationId];
+          byUser[userId] = byConv;
+          return { lastSeenByUser: byUser };
+        });
+      },
     }),
     {
       name: 'chat-unread',

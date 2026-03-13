@@ -160,6 +160,7 @@ func registerProtectedRoutes(group *gin.RouterGroup, getTimeout func(string) tim
 				{"POST", "/conversations/start"},
 				{"GET", "/conversations"},
 				{"GET", "/conversations/:id/messages"},
+				{"DELETE", "/conversations/:id"},
 			},
 		},
 	}

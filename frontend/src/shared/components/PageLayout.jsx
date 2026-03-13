@@ -77,27 +77,33 @@ const PageLayout = ({ children, maxWidth = "xl" }) => {
 
         <div className="nav-actions">
           <Tooltip title={unreadCount > 0 ? `${unreadCount} unread messages` : "Messages"}>
-            <button
-              type="button"
-              className="icon-button"
-              aria-label={unreadCount > 0 ? `${unreadCount} unread messages` : "Messages"}
-              onClick={() => navigate("/messages")}
-              disabled={!isAuthenticated}
-            >
-              <Badge badgeContent={unreadCount > 0 ? unreadCount : 0} color="error" max={99}>
-                <ChatBubbleOutlineIcon fontSize="small" />
-              </Badge>
-            </button>
+            <span>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label={unreadCount > 0 ? `${unreadCount} unread messages` : "Messages"}
+                onClick={() => navigate("/messages")}
+                disabled={!isAuthenticated}
+              >
+                <Badge badgeContent={unreadCount > 0 ? unreadCount : 0} color="error" max={99}>
+                  <ChatBubbleOutlineIcon fontSize="small" />
+                </Badge>
+              </button>
+            </span>
           </Tooltip>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Notifications"
-            onClick={() => navigate("/dashboard")}
-            disabled={!isAuthenticated}
-          >
-            <NotificationsNoneIcon fontSize="small" />
-          </button>
+          <Tooltip title="Notifications">
+            <span>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Notifications"
+                onClick={() => navigate("/dashboard")}
+                disabled={!isAuthenticated}
+              >
+                <NotificationsNoneIcon fontSize="small" />
+              </button>
+            </span>
+          </Tooltip>
           <Tooltip title="Open account menu">
             <IconButton
               onClick={handleMenuOpen}

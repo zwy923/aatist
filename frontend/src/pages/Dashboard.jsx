@@ -83,58 +83,73 @@ export default function Dashboard() {
     navigate(`/opportunities?category=${categoryId}`);
   };
 
+  const getCoverUrl = (item) =>
+    item?.cover_image_url || item?.coverImageUrl || null;
+
+  const resolveImageUrl = (url) => {
+    if (!url || typeof url !== "string") return null;
+    if (url.startsWith("http://") || url.startsWith("https://")) return url;
+    const base = import.meta.env.VITE_STORAGE_URL || import.meta.env.VITE_API_URL?.replace(/\/api\/v1\/?$/, "") || "http://localhost:8080";
+    return url.startsWith("/") ? `${base}${url}` : `${base}/${url}`;
+  };
+
   const recentWorkItems =
     recentWork.length > 0
-      ? recentWork.map((item) => (
-          <Grid item xs={12} md={4} key={item.id}>
-            <Paper
-              onClick={() => item.id && navigate(`/opportunities/${item.id}`)}
-              sx={{
-                cursor: item.id ? "pointer" : "default",
-                borderRadius: 2,
-                overflow: "hidden",
-                border: "1px solid #e8e8e8",
-                "&:hover": item.id
-                  ? { boxShadow: "0 4px 16px rgba(0,0,0,0.1)" }
-                  : {},
-              }}
-            >
-              <Box
+      ? recentWork.map((item) => {
+          const coverUrl = resolveImageUrl(getCoverUrl(item));
+          const userId = item.user_id ?? item.userId;
+          return (
+            <Grid item xs={12} md={4} key={item.id}>
+              <Paper
+                onClick={() => userId && navigate(`/users/${userId}`)}
                 sx={{
-                  aspectRatio: "4/3",
-                  bgcolor: "#1a1a1a",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  cursor: userId ? "pointer" : "default",
+                  borderRadius: 2,
+                  overflow: "hidden",
+                  border: "1px solid #e8e8e8",
+                  "&:hover": userId
+                    ? { boxShadow: "0 4px 16px rgba(0,0,0,0.1)" }
+                    : {},
                 }}
               >
-                {item.cover_image_url ? (
-                  <Box
-                    component="img"
-                    src={item.cover_image_url}
-                    alt={item.title}
-                    sx={{ width: "100%", height: "100%", objectFit: "cover" }}
-                  />
-                ) : (
-                  <Typography
-                    variant="h4"
-                    fontWeight={700}
-                    sx={{ color: "rgba(255,255,255,0.15)" }}
-                  >
-                    {item.title?.[0]?.toUpperCase() || "P"}
-                  </Typography>
-                )}
-              </Box>
-              {item.title && (
-                <Box sx={{ p: 2 }}>
-                  <Typography fontWeight={600} color="#1a1a1a">
-                    {item.title}
-                  </Typography>
+                <Box
+                  sx={{
+                    aspectRatio: "4/3",
+                    bgcolor: "#1a1a1a",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    position: "relative",
+                  }}
+                >
+                  {coverUrl ? (
+                    <Box
+                      component="img"
+                      src={coverUrl}
+                      alt={item.title}
+                      sx={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  ) : (
+                    <Typography
+                      variant="h4"
+                      fontWeight={700}
+                      sx={{ color: "rgba(255,255,255,0.15)" }}
+                    >
+                      {item.title?.[0]?.toUpperCase() || "P"}
+                    </Typography>
+                  )}
                 </Box>
-              )}
-            </Paper>
-          </Grid>
-        ))
+                {item.title && (
+                  <Box sx={{ p: 2 }}>
+                    <Typography fontWeight={600} color="#1a1a1a">
+                      {item.title}
+                    </Typography>
+                  </Box>
+                )}
+              </Paper>
+            </Grid>
+          );
+        })
       : [1, 2, 3].map((i) => (
           <Grid item xs={12} md={4} key={i}>
             <Paper
