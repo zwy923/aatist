@@ -182,7 +182,7 @@ export default function Login() {
 
           <div className="social-row">
             <button type="button">G</button>
-            <button type="button">A!</button>
+            {isStudentMode && <button type="button">A!</button>}
           </div>
 
           <footer className="login-footer">
