@@ -146,6 +146,25 @@ func (h *ChatHandler) GetMessagesHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, response.Success(gin.H{"messages": list}))
 }
 
+// MarkConversationAsReadHandler marks a conversation as read for the current user
+func (h *ChatHandler) MarkConversationAsReadHandler(c *gin.Context) {
+	userID, err := middleware.GetUserID(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, response.Error(errs.ErrUnauthorized))
+		return
+	}
+	conversationID := strings.TrimSpace(c.Param("id"))
+	if conversationID == "" {
+		c.JSON(http.StatusBadRequest, response.Error(errs.NewAppError(errs.ErrInvalidInput, http.StatusBadRequest, "conversation id required").WithCode(errs.CodeInvalidInput)))
+		return
+	}
+	if err := h.chatSvc.MarkConversationAsRead(c.Request.Context(), userID, conversationID); err != nil {
+		h.respondServiceError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, response.Success(gin.H{"message": "marked as read"}))
+}
+
 // DeleteConversationHandler handles DELETE /conversations/:id - deletes all messages in the conversation
 func (h *ChatHandler) DeleteConversationHandler(c *gin.Context) {
 	userID, err := middleware.GetUserID(c)

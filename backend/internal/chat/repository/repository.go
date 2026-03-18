@@ -10,5 +10,6 @@ type ChatRepository interface {
 	Create(ctx context.Context, msg *model.ChatMessage) error
 	ListByConversation(ctx context.Context, conversationID string, limit, offset int) ([]*model.ChatMessage, error)
 	ListConversationsForUser(ctx context.Context, userID int64, limit int) ([]*model.ConversationSummary, error)
+	MarkConversationAsRead(ctx context.Context, userID int64, conversationID string) error
 	DeleteConversation(ctx context.Context, conversationID string) error
 }

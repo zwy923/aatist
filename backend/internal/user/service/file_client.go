@@ -85,11 +85,13 @@ func (c *httpFileServiceClient) UploadFile(ctx context.Context, userID int64, ro
 	}
 
 	req.Header.Set("Content-Type", writer.FormDataContentType())
-	// Gateway will automatically set internal call headers when proxying
-	// We need to set user identity headers for Gateway to forward to downstream services
 	req.Header.Set("X-User-ID", fmt.Sprintf("%d", userID))
 	req.Header.Set("X-User-Role", role)
 	req.Header.Set("X-User-Email", email)
+	if token := os.Getenv("INTERNAL_API_TOKEN"); token != "" {
+		req.Header.Set("X-Internal-Call", "true")
+		req.Header.Set("X-Internal-Token", token)
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {

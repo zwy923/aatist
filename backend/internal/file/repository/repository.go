@@ -31,5 +31,8 @@ type FileRepository interface {
 
 	// Update updates a file record
 	Update(ctx context.Context, file *model.File) error
+
+	// ClearReferencesByURL clears avatar_url, cover_image_url etc. in users/projects when a file is deleted
+	ClearReferencesByURL(ctx context.Context, url string, fileType model.FileType, userID int64) error
 }
 

@@ -48,18 +48,19 @@ func RegisterRoutes(router *gin.Engine, cfg *config.Config, logger *log.Logger, 
 	// ============================================
 	public := api.Group("")
 
-	// Auth routes (proxy to user-service)
-	authHandler := proxy.NewHandler("user-service", 8081, getServiceTimeout("user-service"), logger)
+	// Auth routes (proxy to backend monolith)
+	authHandler := proxy.NewHandler("backend", 8081, getServiceTimeout("backend"), logger)
 	public.GET("/auth/*path", authHandler)
 	public.POST("/auth/*path", authHandler)
 
 	registerPublicRoutes(public, getServiceTimeout, logger)
 
 	// ============================================
-	// INTERNAL API ROUTES
+	// INTERNAL API ROUTES (service-to-service only)
 	// ============================================
 	internal := api.Group("/internal")
-	internal.Use(middleware.InternalServiceMiddleware())
+	internal.Use(middleware.ValidateInternalCaller())  // Require X-Internal-Token when INTERNAL_API_TOKEN is set
+	internal.Use(middleware.InternalServiceMiddleware()) // Inject headers for downstream
 
 	registerInternalRoutes(internal, getServiceTimeout, logger)
 }
@@ -78,29 +79,24 @@ type ServiceRoutes struct {
 
 func registerProtectedRoutes(group *gin.RouterGroup, getTimeout func(string) time.Duration, logger *log.Logger) {
 	services := []ServiceRoutes{
+		// Backend monolith: user, portfolio, opportunity, notification
 		{
-			Name: "notification-service", Port: 8085,
+			Name: "backend", Port: 8081,
 			Routes: []RouteDef{
 				{"GET", "/notifications"},
 				{"GET", "/notifications/:id"},
-				// POST /notifications removed from public/protected, should be internal only
-				{"PATCH", "/notifications/read-all"}, // Bulk read
+				{"PATCH", "/notifications/read-all"},
 				{"PATCH", "/notifications/:id/read"},
 				{"DELETE", "/notifications/:id"},
-			},
-		},
-		{
-			Name: "user-service", Port: 8081,
-			Routes: []RouteDef{
-				{"GET", "/users/search"}, // Talent search (auth required, excludes self)
+				{"GET", "/users/search"},
 				{"GET", "/users/me"},
 				{"PATCH", "/users/me"},
 				{"POST", "/users/me/avatar"},
 				{"PATCH", "/users/me/password"},
 				{"GET", "/users/me/saved"},
 				{"POST", "/users/me/saved"},
-				{"DELETE", "/users/me/saved"},     // Support query params deletion
-				{"DELETE", "/users/me/saved/:id"}, // Changed to require ID
+				{"DELETE", "/users/me/saved"},
+				{"DELETE", "/users/me/saved/:id"},
 				{"POST", "/users/me/skills"},
 				{"DELETE", "/users/me/skills/:name"},
 				{"POST", "/users/me/courses"},
@@ -109,33 +105,10 @@ func registerProtectedRoutes(group *gin.RouterGroup, getTimeout func(string) tim
 				{"POST", "/users/me/services"},
 				{"PATCH", "/users/me/services/:id"},
 				{"DELETE", "/users/me/services/:id"},
-			},
-		},
-		{
-			Name: "portfolio-service", Port: 8082,
-			Routes: []RouteDef{
 				{"GET", "/users/me/portfolio"},
 				{"POST", "/users/me/portfolio"},
-				{"PATCH", "/users/me/portfolio/:id"}, // Changed PUT to PATCH
+				{"PATCH", "/users/me/portfolio/:id"},
 				{"DELETE", "/users/me/portfolio/:id"},
-			},
-		},
-		{
-			Name: "file-service", Port: 8086,
-			Routes: []RouteDef{
-				{"GET", "/files"},
-				{"GET", "/files/:id"},
-				{"GET", "/files/:id/download"},
-				{"POST", "/files"},
-				{"POST", "/files/upload"},
-				{"POST", "/files/presigned-upload"},
-				{"POST", "/files/confirm-upload"},
-				{"DELETE", "/files/:id"},
-			},
-		},
-		{
-			Name: "opp-service", Port: 8083,
-			Routes: []RouteDef{
 				{"GET", "/opportunities"},
 				{"GET", "/opportunities/:id"},
 				{"POST", "/opportunities"},
@@ -155,11 +128,26 @@ func registerProtectedRoutes(group *gin.RouterGroup, getTimeout func(string) tim
 			},
 		},
 		{
+			Name: "file-service", Port: 8086,
+			Routes: []RouteDef{
+				{"GET", "/files"},
+				{"GET", "/files/:id"},
+				{"GET", "/files/:id/download"},
+				{"POST", "/files"},
+				{"POST", "/files/upload"},
+				{"POST", "/files/presigned-upload"},
+				{"POST", "/files/confirm-upload"},
+				{"DELETE", "/files/:id"},
+			},
+		},
+		{
 			Name: "chat-service", Port: 8088,
 			Routes: []RouteDef{
 				{"POST", "/conversations/start"},
 				{"GET", "/conversations"},
 				{"GET", "/conversations/:id/messages"},
+				{"PUT", "/conversations/:id/read"},
+				{"PATCH", "/conversations/:id/read"},
 				{"DELETE", "/conversations/:id"},
 			},
 		},
@@ -176,24 +164,17 @@ func registerProtectedRoutes(group *gin.RouterGroup, getTimeout func(string) tim
 func registerPublicRoutes(group *gin.RouterGroup, getTimeout func(string) time.Duration, logger *log.Logger) {
 	services := []ServiceRoutes{
 		{
-			Name: "user-service", Port: 8081,
+			Name: "backend", Port: 8081,
 			Routes: []RouteDef{
 				{"GET", "/users/check-username"},
 				{"GET", "/users/check-email"},
 				{"GET", "/users/:id"},
 				{"GET", "/users/:id/summary"},
-				// Dashboard stats
 				{"GET", "/stats/overview"},
 				{"GET", "/skills/popular"},
-				// Metadata search
 				{"GET", "/skills"},
 				{"GET", "/courses"},
 				{"GET", "/tags"},
-			},
-		},
-		{
-			Name: "portfolio-service", Port: 8082,
-			Routes: []RouteDef{
 				{"GET", "/portfolio"},
 				{"GET", "/portfolio/:id"},
 				{"GET", "/users/:id/portfolio"},
@@ -221,15 +202,15 @@ func registerInternalRoutes(group *gin.RouterGroup, getTimeout func(string) time
 
 	configs := []InternalConfig{
 		{
-			GroupPath: "/user", ServiceName: "user-service", Port: 8081,
+			GroupPath: "/user", ServiceName: "backend", Port: 8081,
 			RewriteFrom: "/api/v1/internal/user", RewriteTo: "/api/v1",
 		},
 		{
-			GroupPath: "/notification", ServiceName: "notification-service", Port: 8085,
+			GroupPath: "/notification", ServiceName: "backend", Port: 8081,
 			RewriteFrom: "/api/v1/internal/notification", RewriteTo: "/api/v1",
 		},
 		{
-			GroupPath: "/portfolio", ServiceName: "portfolio-service", Port: 8082,
+			GroupPath: "/portfolio", ServiceName: "backend", Port: 8081,
 			RewriteFrom: "/api/v1/internal/portfolio", RewriteTo: "/api/v1/portfolio",
 		},
 		{

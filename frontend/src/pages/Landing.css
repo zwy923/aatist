@@ -8,7 +8,7 @@
 
 .landing-header {
   height: 56px;
-  background: #0a0a0a;
+  background: #000;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   padding: 0 16px;
   display: flex;
@@ -69,6 +69,31 @@
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.nav-btn {
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: opacity 0.2s ease;
+}
+
+.nav-btn:hover {
+  opacity: 0.9;
+}
+
+.nav-btn-signup {
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  color: #fff;
+}
+
+.nav-btn-login {
+  background: #31aaf9;
+  border: none;
+  color: #0a0a0a;
 }
 
 .icon-button {
@@ -208,11 +233,11 @@
   position: absolute;
   left: 24px;
   bottom: -18px;
-  font-size: 160px;
+  font-size: 240px;
   font-weight: 900;
   line-height: 1;
-  width: 520px;
-  height: 240px;
+  width: 780px;
+  height: 360px;
   opacity: 0.96;
   pointer-events: none;
   z-index: 2;
@@ -236,6 +261,10 @@
 
 .hero-letter:nth-child(odd) { animation-delay: 0s; }
 .hero-letter:nth-child(even) { animation-delay: 0.5s; }
+
+.hero-letter-large {
+  font-size: 1.15em;
+}
 
 @keyframes hero-letter-pulse {
   0%, 100% { opacity: 0.92; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.15)); }
@@ -265,8 +294,7 @@
   pointer-events: none;
   z-index: 12;
   transition: opacity 150ms ease, transform 150ms ease, background 180ms ease;
-  border: 2px solid rgba(255, 255, 255, 0.4);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
   mix-blend-mode: normal;
 }
 
@@ -310,9 +338,9 @@
   }
 
   .hero-word {
-    font-size: 108px;
-    width: 400px;
-    height: 180px;
+    font-size: 162px;
+    width: 600px;
+    height: 270px;
   }
 }
 
@@ -349,12 +377,12 @@
   }
 
   .hero-word {
-    font-size: 110px;
+    font-size: 165px;
     left: 24px;
     bottom: 16px;
     pointer-events: none;
-    width: 380px;
-    height: 180px;
+    width: 570px;
+    height: 270px;
   }
 
   .side-indicator {

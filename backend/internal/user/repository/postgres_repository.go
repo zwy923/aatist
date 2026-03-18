@@ -444,6 +444,20 @@ func (r *postgresRepository) SearchUsers(ctx context.Context, filter UserSearchF
 		argIdx++
 	}
 
+	// Filter by School
+	if filter.School != "" {
+		clauses = append(clauses, fmt.Sprintf("school ILIKE $%d", argIdx))
+		args = append(args, "%"+filter.School+"%")
+		argIdx++
+	}
+
+	// Filter by Major
+	if filter.Major != "" {
+		clauses = append(clauses, fmt.Sprintf("major ILIKE $%d", argIdx))
+		args = append(args, "%"+filter.Major+"%")
+		argIdx++
+	}
+
 	// Talent search: only students/alumni; never show client roles (org_person, org_team)
 	if filter.Role != "" {
 		// If explicit role given, still exclude clients

@@ -79,8 +79,15 @@ apiClient.interceptors.response.use(
             isRefreshing = true;
 
             try {
-                // Attempt to refresh token
+                // 无 refresh_token 时直接登出，避免发起无效请求导致 400
                 const refreshToken = localStorage.getItem('refresh_token');
+                if (!refreshToken || !refreshToken.trim()) {
+                    processQueue(new Error('No refresh token'), null);
+                    isRefreshing = false;
+                    useAuthStore.getState().logout();
+                    return Promise.reject(error);
+                }
+
                 const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
                     refresh_token: refreshToken
                 }, {

@@ -1,41 +1,42 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
     Box,
     Typography,
     Grid,
     Card,
-    CardContent,
     Avatar,
     Chip,
     Stack,
     TextField,
-    InputAdornment,
     Button,
     IconButton,
     CircularProgress,
     Alert,
-    Tooltip,
-    Select,
-    MenuItem,
-    FormControl,
-    InputLabel,
     Collapse,
     Paper,
-    Divider
+    Divider,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem
 } from '@mui/material';
 import {
     Search as SearchIcon,
     FilterList as FilterIcon,
-    School as SchoolIcon,
-    Favorite as FavoriteIcon,
-    FavoriteBorder as FavoriteBorderIcon,
-    NavigateNext as ViewProfileIcon,
-    Clear as ClearIcon
+    CheckCircle as VerifiedIcon,
+    Help as HelpIcon,
+    AttachMoney as AttachMoneyIcon,
+    Message as MessageIcon,
+    KeyboardArrowUp as ArrowUpIcon,
+    ArrowForward as ArrowForwardIcon,
+    CloudUpload as CloudUploadIcon
 } from '@mui/icons-material';
 import { useNavigate, Link } from 'react-router-dom';
 import PageLayout from '../shared/components/PageLayout';
-import { profileApi } from '../features/profile/api/profile';
+import { profileApi, portfolioApi } from '../features/profile/api/profile';
 import { useAuth } from '../features/auth/hooks/useAuth';
+
+import './Talents.css';
 
 const FACULTIES = [
     "Arts, Design and Architecture",
@@ -46,151 +47,287 @@ const FACULTIES = [
     "Science"
 ];
 
-const TalentCard = ({ student, onSave, isSaved }) => {
+const SCHOOLS = ["Aalto University", ...FACULTIES, "Other"];
+
+const PROGRAMS = ["Design", "Engineering", "Business", "Arts", "Science", "Other"];
+
+const BUDGET_RANGES = [
+    { value: "", label: "Any" },
+    { value: "0-500", label: "Under €500" },
+    { value: "500-1500", label: "€500 - €1,500" },
+    { value: "1500-5000", label: "€1,500 - €5,000" },
+    { value: "5000+", label: "€5,000+" }
+];
+
+const CATEGORIES = [
+    {
+        main: "Graphic & Illustration",
+        items: ["Graphic & Illustration", "Pitch deck & presentation", "Poster Design", "Social media post design", "Print & Packaging"]
+    },
+    {
+        main: "Branding",
+        items: ["LOGO Design", "Brand Design", "LOGO + Brand Design"]
+    },
+    {
+        main: "Web Design",
+        items: ["Website Design", "APP Design"]
+    },
+    {
+        main: "Photography",
+        items: ["Product Photography", "Team Photography", "Event Photography"]
+    },
+    {
+        main: "Video & Motion",
+        items: ["Startup Promo Video", "Animated explainer Video", "Video Editing", "Social Media Short Video", "Event Video Documentation"]
+    },
+    {
+        main: "Creative Styling",
+        items: ["Team Outfit Design", "Makeup for photoshoots", "Creative/Artistic Makeup"]
+    },
+    {
+        main: "Exhibition & Spatial Design",
+        items: ["Exhibition Design", "Booth Design"]
+    }
+];
+
+const ALL_SUGGESTIONS = [...new Set(CATEGORIES.flatMap((g) => g.items))];
+
+const highlightMatch = (text, query) => {
+    if (!query.trim()) return <span style={{ color: '#6b7280' }}>{text}</span>;
+    const q = query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(`(${q})`, 'gi');
+    const parts = text.split(re);
+    return parts.map((part, i) =>
+        i % 2 === 1 ? (
+            <strong key={i} style={{ fontWeight: 700, color: '#374151' }}>{part}</strong>
+        ) : (
+            <span key={i} style={{ color: '#6b7280' }}>{part}</span>
+        )
+    );
+};
+
+const formatPrice = (s) => {
+    if (s.price_min != null && s.price_max != null) return `€${s.price_min}–€${s.price_max}`;
+    if (s.price_min != null) {
+        if (s.price_type === 'project') return `€${s.price_min} / project`;
+        if (s.price_type === 'hourly') return `€${s.price_min} / hr`;
+        return `From €${s.price_min}`;
+    }
+    if (s.price_type === 'hourly') return '€/hr';
+    if (s.price_type === 'project') return '€/project';
+    return s.price_type || 'Negotiable';
+};
+
+const TalentCard = ({ student }) => {
     const navigate = useNavigate();
+    const [profile, setProfile] = useState(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            try {
+                const [profileRes] = await Promise.allSettled([
+                    profileApi.getPublicProfile(student.id),
+                ]);
+                if (cancelled) return;
+                if (profileRes.status === 'fulfilled') {
+                    setProfile(profileRes.value.data?.data || null);
+                }
+            } catch {
+                if (!cancelled) setProfile(null);
+            }
+        };
+        load();
+        return () => { cancelled = true; };
+    }, [student.id]);
+
+    const services = profile?.services || [];
+    const primaryService = services[0];
+    const offers = [...(student.skills || []).map(s => typeof s === 'string' ? s : s?.name).filter(Boolean), ...services.map(s => s.category || s.title).filter(Boolean)];
+    const uniqueOffers = [...new Set(offers)];
+    const displayedOffers = uniqueOffers.slice(0, 5);
+    const moreOffers = uniqueOffers.length - 5;
+
+    const educationLine = [student.school, student.faculty || student.major].filter(Boolean).join(', ') || 'Student';
 
     return (
-        <Card sx={{
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            position: 'relative',
-            borderRadius: 4,
-            background: "#ffffff",
-            border: "1px solid #e5e7eb",
-            transition: "transform 0.2s, box-shadow 0.2s",
-            '&:hover': {
-                transform: "translateY(-4px)",
-                boxShadow: "0 12px 24px rgba(0,0,0,0.3)",
-                border: "1px solid rgba(25, 118, 210, 0.25)"
-            }
+        <Card className="talent-result-card" sx={{
+            borderRadius: 2,
+            background: '#fff',
+            border: '1px solid #e5e7eb',
+            overflow: 'hidden',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.08)'
         }}>
-            <Box sx={{ p: 3, display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                <Box sx={{ position: 'relative' }}>
-                    <Avatar
-                        src={student.avatar_url}
-                        sx={{ width: 80, height: 80, borderRadius: 3, fontSize: '2rem' }}
-                    >
-                        {student.name?.charAt(0)}
-                    </Avatar>
-                </Box>
-                <Box sx={{ flex: 1 }}>
-                    <Typography variant="h6" fontWeight="700" gutterBottom>
-                        {student.name}
-                    </Typography>
-                    <Stack direction="row" spacing={0.5} alignItems="center" color="text.secondary" sx={{ mb: 1 }}>
-                        <SchoolIcon sx={{ fontSize: 16 }} />
-                        <Typography variant="body2" noWrap sx={{ maxWidth: 150 }}>
-                            {student.faculty || student.major || "No Field"}
-                        </Typography>
-                    </Stack>
-                    <Typography variant="caption" color="text.secondary" fontWeight="600">
-                        {student.role === "alumni" ? "Alumni" : "Student"}
-                    </Typography>
-                </Box>
-                <IconButton
-                    size="small"
-                    onClick={(e) => { e.stopPropagation(); onSave(student.id); }}
-                    sx={{ color: isSaved ? 'secondary.main' : 'text.disabled' }}
+            {/* Left: Profile */}
+            <div className="talent-card-left">
+                <Avatar
+                    src={student.avatar_url}
+                    className="talent-card-avatar"
+                    sx={{ width: 100, height: 100, borderRadius: 1, bgcolor: '#e0e0e0' }}
                 >
-                    {isSaved ? <FavoriteIcon /> : <FavoriteBorderIcon />}
-                </IconButton>
-            </Box>
-
-            <Divider sx={{ mx: 2, opacity: 0.1 }} />
-
-            <CardContent sx={{ flexGrow: 1, pt: 2 }}>
-                <Typography variant="body2" color="text.secondary" sx={{
-                    mb: 2,
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden',
-                    height: 40
-                }}>
-                    {student.bio || "No bio description provided."}
-                </Typography>
-
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8 }}>
-                    {student.skills?.slice(0, 4).map((skill, index) => (
-                        <Chip
-                            key={index}
-                            label={typeof skill === 'string' ? skill : skill.name}
-                            size="small"
-                            sx={{
-                                bgcolor: "rgba(25, 118, 210, 0.1)",
-                                color: "#1976d2",
-                                fontWeight: 500,
-                                fontSize: '0.7rem'
-                            }}
-                        />
-                    ))}
-                    {student.skills?.length > 4 && (
-                        <Typography variant="caption" color="text.disabled" sx={{ mt: 0.5 }}>
-                            +{student.skills.length - 4} more
-                        </Typography>
+                    {student.name?.charAt(0)}
+                </Avatar>
+                <div className="talent-card-name">
+                    {student.name}
+                    {(profile?.is_verified_email || profile?.role_verified) && (
+                        <VerifiedIcon sx={{ fontSize: 20, color: '#22c55e' }} />
                     )}
-                </Box>
-            </CardContent>
+                </div>
+                <div className="talent-card-education">{educationLine}</div>
+                <div className="talent-card-available">
+                    <span className="talent-card-available-dot" />
+                    Available
+                </div>
+                <div className="talent-card-buttons">
+                    <button
+                        type="button"
+                        className="talent-card-btn-contact"
+                        onClick={() => navigate(`/messages?user=${student.id}`)}
+                    >
+                        Contact
+                    </button>
+                    <button
+                        type="button"
+                        className="talent-card-btn-profile"
+                        onClick={() => navigate(`/users/${student.id}`)}
+                    >
+                        View Profile
+                    </button>
+                </div>
+            </div>
 
-            <Box sx={{ p: 2, mt: 'auto' }}>
-                <Button
-                    fullWidth
-                    variant="outlined"
-                    endIcon={<ViewProfileIcon />}
-                    onClick={() => navigate(`/users/${student.id}`)}
-                    sx={{
-                        borderRadius: 2,
-                        textTransform: 'none',
-                        borderColor: "rgba(93, 224, 255, 0.3)",
-                        '&:hover': {
-                            borderColor: "primary.main",
-                            bgcolor: "rgba(93, 224, 255, 0.05)"
-                        }
-                    }}
-                >
-                    View Profile
-                </Button>
-            </Box>
+            {/* Right: Offers + Service */}
+            <div className="talent-card-right">
+                {/* Offers */}
+                <div className="talent-card-offers-section">
+                    <div className="talent-card-offers-label">
+                        Offers <HelpIcon sx={{ fontSize: 16, color: '#999' }} />
+                    </div>
+                    <div className="talent-card-offers-pills">
+                        {displayedOffers.map((o, i) => (
+                            <span key={i} className="talent-card-offers-pill">
+                                {typeof o === 'string' ? o : o}
+                            </span>
+                        ))}
+                        {moreOffers > 0 && (
+                            <span className="talent-card-offers-pill">+{moreOffers}</span>
+                        )}
+                    </div>
+                </div>
+
+                {/* Service */}
+                <div className="talent-card-service-section">
+                    <div className="talent-card-service-label">
+                        Service <AttachMoneyIcon sx={{ fontSize: 16, color: '#999' }} />
+                    </div>
+                    {primaryService ? (
+                        <>
+                            <div className="talent-card-service-gallery">
+                                {(primaryService.media_urls || []).slice(0, 3).map((url, i) => (
+                                    <Box key={i} component="img" src={url} alt="" sx={{ width: 80, height: 100, objectFit: 'cover', borderRadius: 1 }} />
+                                ))}
+                                {(!primaryService.media_urls || primaryService.media_urls.length === 0) && (
+                                    <>
+                                        <div className="talent-card-service-thumb" />
+                                        <div className="talent-card-service-thumb" />
+                                        <div className="talent-card-service-thumb" />
+                                    </>
+                                )}
+                            </div>
+                            <div className="talent-card-service-title">
+                                {primaryService.title || primaryService.category || 'Service'}
+                            </div>
+                            <div className="talent-card-service-desc">
+                                {primaryService.short_description || primaryService.description || primaryService.experience_summary || ''}
+                            </div>
+                            <div className="talent-card-service-price">
+                                {formatPrice(primaryService)}
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="talent-card-service-gallery">
+                                <div className="talent-card-service-thumb" />
+                                <div className="talent-card-service-thumb" />
+                                <div className="talent-card-service-thumb" />
+                            </div>
+                            <div className="talent-card-service-title">No service listed</div>
+                            <div className="talent-card-service-desc">This talent has not added services yet.</div>
+                        </>
+                    )}
+                </div>
+            </div>
         </Card>
     );
 };
 
 const Talents = () => {
     const [students, setStudents] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [search, setSearch] = useState("");
     const [faculty, setFaculty] = useState("");
+    const [school, setSchool] = useState("");
+    const [program, setProgram] = useState("");
+    const [service, setService] = useState("");
+    const [budget, setBudget] = useState("");
     const [showFilters, setShowFilters] = useState(false);
-    const [savedIds, setSavedIds] = useState(new Set());
+    const [talentType, setTalentType] = useState('service'); // 'service' | 'student'
+    const [hasSearched, setHasSearched] = useState(false);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [showScrollTop, setShowScrollTop] = useState(false);
+    const resultsRef = useRef(null);
+    const searchWrapperRef = useRef(null);
     const { user } = useAuth();
 
-    const fetchTalents = useCallback(async () => {
+    const suggestions = search.trim()
+        ? ALL_SUGGESTIONS.filter((s) => s.toLowerCase().includes(search.trim().toLowerCase())).slice(0, 8)
+        : [];
+
+    const heroRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (searchWrapperRef.current && !searchWrapperRef.current.contains(e.target)) {
+                setShowSuggestions(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    useEffect(() => {
+        const onScroll = () => setShowScrollTop(window.scrollY > 400);
+        window.addEventListener('scroll', onScroll);
+        return () => window.removeEventListener('scroll', onScroll);
+    }, []);
+
+    useEffect(() => {
+        if (showSuggestions && search.trim() && heroRef.current) {
+            heroRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, [showSuggestions, search.trim()]);
+
+    const fetchTalents = useCallback(async (query, facultyFilter, schoolFilter, programFilter, serviceFilter) => {
         setLoading(true);
         setError(null);
         try {
+            const qParts = [query].filter(Boolean);
+            if (serviceFilter) qParts.push(serviceFilter);
             const params = {
-                q: search || undefined,
-                faculty: faculty || undefined,
+                q: qParts.length ? qParts.join(" ") : undefined,
+                faculty: facultyFilter || undefined,
+                school: schoolFilter || undefined,
+                major: programFilter || undefined,
                 limit: 50
             };
             const response = await profileApi.searchUsers(params);
             let list = response.data.data || [];
-            // Frontend defense: filter out current user (backend also excludes)
             const myId = user?.id ?? user?.user_id;
             if (myId) {
                 list = list.filter((s) => String(s.id) !== String(myId));
             }
             setStudents(list);
-
-            // Also fetch saved items to show favorite state
-            if (user) {
-                const savedResp = await profileApi.getSavedItems({ type: 'user' });
-                const items = savedResp.data.data?.items || [];
-                const ids = new Set(items.map(item => item.item_id));
-                setSavedIds(ids);
-            }
         } catch (err) {
             console.error("Failed to fetch talents:", err);
             const status = err?.response?.status;
@@ -200,171 +337,332 @@ const Talents = () => {
         } finally {
             setLoading(false);
         }
-    }, [search, faculty, user]);
+    }, [user]);
 
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            fetchTalents();
-        }, 300);
-        return () => clearTimeout(timer);
-    }, [fetchTalents]);
-
-    const handleSaveToggle = async (studentId) => {
-        if (!user) return;
-        try {
-            if (savedIds.has(studentId)) {
-                await profileApi.removeSavedItemByTarget('user', studentId);
-                setSavedIds(prev => {
-                    const next = new Set(prev);
-                    next.delete(studentId);
-                    return next;
-                });
-            } else {
-                await profileApi.saveItem('user', studentId);
-                setSavedIds(prev => new Set(prev).add(studentId));
-            }
-        } catch (err) {
-            console.error("Failed to toggle save student:", err);
-        }
+    const handleSearch = () => {
+        setHasSearched(true);
+        fetchTalents(search, faculty, school, program, service);
+        resultsRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
-    const clearFilters = () => {
-        setSearch("");
-        setFaculty("");
+    const handleCategoryClick = (tag) => {
+        setSearch(tag);
+        setHasSearched(true);
+        fetchTalents(tag, faculty, school, program, service);
+        resultsRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    const applyStudentFilters = (overrides = {}) => {
+        const s = overrides.service ?? service;
+        const sch = overrides.school ?? school;
+        const p = overrides.program ?? program;
+        fetchTalents(search, faculty, sch, p, s);
     };
 
     return (
-        <PageLayout>
-            <Box sx={{ mb: 6 }}>
-                <Box sx={{ mb: 4 }}>
-                    <Typography variant="h3" fontWeight="800" gutterBottom sx={{
-                        background: "linear-gradient(45deg, #5de0ff, #0072ff)",
-                        WebkitBackgroundClip: "text",
-                        WebkitTextFillColor: "transparent"
-                    }}>
-                        Talent Search
-                    </Typography>
-                    <Typography variant="body1" color="text.secondary">
-                        Discover amazing students and collaborators for your next project.
-                    </Typography>
-                </Box>
-
-                <Paper sx={{
-                    p: 3,
-                    mb: 4,
-                    borderRadius: 4,
-                    background: "#ffffff",
-                    border: "1px solid #e5e7eb",
-                    boxShadow: "none"
-                }}>
-                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
-                        <TextField
-                            fullWidth
-                            placeholder="Search by name, skills, or field..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <SearchIcon color="primary" />
-                                    </InputAdornment>
-                                ),
-                                endAdornment: search && (
-                                    <InputAdornment position="end">
-                                        <IconButton size="small" onClick={() => setSearch("")}>
-                                            <ClearIcon />
-                                        </IconButton>
-                                    </InputAdornment>
-                                )
-                            }}
-                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
-                        />
-                        <Button
-                            variant={showFilters ? "contained" : "outlined"}
-                            startIcon={<FilterIcon />}
-                            onClick={() => setShowFilters(!showFilters)}
-                            sx={{ borderRadius: 3, px: 3, height: 56, minWidth: 150 }}
-                        >
-                            Filters
-                        </Button>
-                    </Stack>
-
-                    <Collapse in={showFilters}>
-                        <Box sx={{ pt: 3 }}>
-                            <Divider sx={{ mb: 3, opacity: 0.1 }} />
-                            <Grid container spacing={3}>
-                                <Grid item xs={12} md={6}>
-                                    <FormControl fullWidth size="small">
-                                        <InputLabel>Faculty / School</InputLabel>
-                                        <Select
-                                            value={faculty}
-                                            label="Faculty / School"
-                                            onChange={(e) => setFaculty(e.target.value)}
-                                            sx={{ borderRadius: 2 }}
+        <PageLayout noContainer>
+            <Box className={showSuggestions && search.trim() ? 'talents-page-compact' : ''} sx={{ background: '#fff', minHeight: 'calc(100vh - 56px)', display: 'flex', flexDirection: 'column' }}>
+                {/* Hero - 60vh default, 90vh when suggestions open (9:1 ratio) */}
+                <section className={`talents-hero ${showSuggestions && search.trim() ? 'talents-hero-expanded' : ''}`} ref={heroRef}>
+                    <div className="talents-hero-content">
+                        <h1 className="talents-hero-title">
+                            Inside <span className="highlight">A</span>alto Find the right talent for your project
+                        </h1>
+                        <div className="talents-hero-toggle">
+                            <span
+                                className={talentType === 'service' ? 'active' : ''}
+                                onClick={() => setTalentType('service')}
+                            >
+                                Service
+                            </span>
+                            <span>|</span>
+                            <span
+                                className={talentType === 'student' ? 'active' : ''}
+                                onClick={() => setTalentType('student')}
+                            >
+                                Student
+                            </span>
+                        </div>
+                        <div className="talents-hero-search-wrapper" ref={searchWrapperRef}>
+                            {talentType === 'student' ? (
+                                <div className="talents-hero-search talents-hero-search-with-filters">
+                                    <div className="talents-hero-search-input-row">
+                                        <input
+                                            type="text"
+                                            placeholder="Search by Major, Program, Name..."
+                                            value={search}
+                                            onChange={(e) => setSearch(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                                            autoComplete="off"
+                                        />
+                                        <button type="button" className="talents-hero-search-btn" onClick={handleSearch} aria-label="Search">
+                                            <SearchIcon sx={{ fontSize: 22 }} />
+                                        </button>
+                                    </div>
+                                    <div className="talents-hero-filters">
+                                        <span className="talents-hero-filter-label">Filter:</span>
+                                        <select
+                                            value={service}
+                                            onChange={(e) => { setService(e.target.value); applyStudentFilters({ service: e.target.value }); }}
+                                            className="talents-hero-filter-select"
                                         >
-                                            <MenuItem value="">Any Faculty</MenuItem>
-                                            {FACULTIES.map(f => (
-                                                <MenuItem key={f} value={f}>{f}</MenuItem>
+                                            <option value="">Service</option>
+                                            {ALL_SUGGESTIONS.slice(0, 12).map((s) => (
+                                                <option key={s} value={s}>{s}</option>
                                             ))}
-                                        </Select>
-                                    </FormControl>
-                                </Grid>
-                            </Grid>
-                            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
-                                <Button size="small" onClick={clearFilters} color="inherit">
-                                    Clear all filters
-                                </Button>
-                            </Box>
-                        </Box>
-                    </Collapse>
-                </Paper>
+                                        </select>
+                                        <select
+                                            value={budget}
+                                            onChange={(e) => setBudget(e.target.value)}
+                                            className="talents-hero-filter-select"
+                                        >
+                                            {BUDGET_RANGES.map((b) => (
+                                                <option key={b.value || 'any'} value={b.value}>{b.label}</option>
+                                            ))}
+                                        </select>
+                                        <select
+                                            value={school}
+                                            onChange={(e) => { setSchool(e.target.value); applyStudentFilters({ school: e.target.value }); }}
+                                            className="talents-hero-filter-select"
+                                        >
+                                            <option value="">School</option>
+                                            {SCHOOLS.map((s) => (
+                                                <option key={s} value={s}>{s}</option>
+                                            ))}
+                                        </select>
+                                        <select
+                                            value={program}
+                                            onChange={(e) => { setProgram(e.target.value); applyStudentFilters({ program: e.target.value }); }}
+                                            className="talents-hero-filter-select"
+                                        >
+                                            <option value="">Program</option>
+                                            {PROGRAMS.map((p) => (
+                                                <option key={p} value={p}>{p}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="talents-hero-search">
+                                    <input
+                                        type="text"
+                                        placeholder="Search for ..."
+                                        value={search}
+                                        onChange={(e) => {
+                                            setSearch(e.target.value);
+                                            setShowSuggestions(true);
+                                        }}
+                                        onFocus={() => search.trim() && setShowSuggestions(true)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                                        autoComplete="off"
+                                    />
+                                    <button type="button" className="talents-hero-search-btn" onClick={handleSearch} aria-label="Search">
+                                        <SearchIcon sx={{ fontSize: 22 }} />
+                                    </button>
+                                </div>
+                            )}
+                            {talentType === 'service' && showSuggestions && search.trim() && (
+                                <div className="talents-search-suggestions">
+                                    <div className="talents-search-suggestions-header">Suggestions</div>
+                                    {suggestions.length > 0 ? (
+                                        <ul className="talents-search-suggestions-list">
+                                            {suggestions.map((s) => (
+                                                <li
+                                                    key={s}
+                                                    className="talents-search-suggestion-item"
+                                                    onClick={() => {
+                                                        setSearch(s);
+                                                        setShowSuggestions(false);
+                                                        setHasSearched(true);
+                                                        fetchTalents(s, faculty, school, program, service);
+                                                        resultsRef.current?.scrollIntoView({ behavior: 'smooth' });
+                                                    }}
+                                                >
+                                                    {highlightMatch(s, search)}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <div className="talents-search-suggestions-empty">
+                                            No matching services
+                                        </div>
+                                    )}
+                                    <div className="talents-search-suggestions-footer">
+                                        <p>Can't find what you're looking for? Post a request and let the right talent reach out to you directly.</p>
+                                        <Button
+                                            component={Link}
+                                            to="/opportunities"
+                                            className="talents-post-request-btn"
+                                            endIcon={<span aria-hidden>→</span>}
+                                        >
+                                            Post a request
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </section>
 
-                <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="body2" color="text.secondary" fontWeight="500">
-                        {loading ? "Searching..." : `${students.length} students found`}
-                    </Typography>
-                </Box>
+                {/* Categories - full grid, hidden when suggestions open */}
+                <section className={`talents-categories ${!hasSearched ? 'talents-categories-fill' : ''} ${showSuggestions && search.trim() ? 'talents-categories-collapsed' : ''}`}>
+                    <div className="talents-categories-grid">
+                        {CATEGORIES.map((group) => (
+                            <div key={group.main} className="talents-category-group">
+                                <span className="talents-category-main">{group.main}</span>
+                                <div className="talents-category-items">
+                                    {group.items.map((tag) => (
+                                        <span
+                                            key={tag}
+                                            className="talents-category-tag"
+                                            onClick={() => handleCategoryClick(tag)}
+                                            role="button"
+                                            tabIndex={0}
+                                            onKeyDown={(e) => e.key === 'Enter' && handleCategoryClick(tag)}
+                                        >
+                                            {tag}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </section>
 
-                {error && (
-                    <Alert
-                        severity="error"
-                        sx={{ mb: 4, borderRadius: 3 }}
-                        action={error.includes("log in") ? (
-                            <Button component={Link} to="/auth/login" color="inherit" size="small">
-                                Log in
-                            </Button>
-                        ) : null}
+                {/* Results section - shown when user has searched */}
+                {hasSearched && (
+                    <Box
+                        ref={resultsRef}
+                        className="talents-results-area"
+                        sx={{
+                            pt: 3,
+                            px: { xs: 2, md: 4 },
+                            pb: 3,
+                        }}
                     >
-                        {error}
-                    </Alert>
+                        <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
+                            {/* Page header: category + result count */}
+                            <div className="talents-page-header">
+                                <div className="talents-page-header-tab">
+                                    {search || 'All Services'}
+                                    <span className="talents-page-header-count">{students.length}</span>
+                                </div>
+                            </div>
+
+                            {talentType !== 'student' && (
+                            <Collapse in={showFilters}>
+                                <Paper sx={{ p: 3, mb: 4, borderRadius: 3 }}>
+                                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
+                                        <TextField
+                                            fullWidth
+                                            size="small"
+                                            placeholder="Search by name, skills..."
+                                            value={search}
+                                            onChange={(e) => setSearch(e.target.value)}
+                                            sx={{ maxWidth: 320 }}
+                                        />
+                                        <FormControl size="small" sx={{ minWidth: 200 }}>
+                                            <InputLabel>Faculty</InputLabel>
+                                            <Select
+                                                value={faculty}
+                                                label="Faculty"
+                                                onChange={(e) => setFaculty(e.target.value)}
+                                            >
+                                                <MenuItem value="">Any Faculty</MenuItem>
+                                                {FACULTIES.map(f => (
+                                                    <MenuItem key={f} value={f}>{f}</MenuItem>
+                                                ))}
+                                            </Select>
+                                        </FormControl>
+                                        <Button variant="contained" onClick={() => fetchTalents(search, faculty, school, program, service)}>
+                                            Apply
+                                        </Button>
+                                    </Stack>
+                                </Paper>
+                            </Collapse>
+                            )}
+
+                            {error && (
+                                <Alert severity="error" sx={{ mb: 4 }} action={
+                                    error.includes("log in") ? (
+                                        <Button component={Link} to="/auth/login" color="inherit" size="small">
+                                            Log in
+                                        </Button>
+                                    ) : null
+                                }>
+                                    {error}
+                                </Alert>
+                            )}
+
+                            {loading ? (
+                                <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
+                                    <CircularProgress />
+                                </Box>
+                            ) : (
+                                <Stack spacing={3} sx={{ mb: 4 }}>
+                                    {students.map((student) => (
+                                        <TalentCard
+                                            key={student.id}
+                                            student={student}
+                                        />
+                                    ))}
+                                    {students.length === 0 && !loading && (
+                                        <Box sx={{ textAlign: 'center', py: 10, opacity: 0.6 }}>
+                                            <Typography variant="h6">No students match your search</Typography>
+                                            <Typography variant="body2">Try different keywords or categories</Typography>
+                                        </Box>
+                                    )}
+                                </Stack>
+                            )}
+                        </Box>
+                        {/* Spacer for fixed bottom banner - ensures last card is not obscured */}
+                        <Box sx={{ height: 220, minHeight: 220, flexShrink: 0 }} aria-hidden />
+                    </Box>
                 )}
 
-                {loading ? (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
-                        <CircularProgress />
-                    </Box>
-                ) : (
-                    <Grid container spacing={3}>
-                        {students.map((student) => (
-                            <Grid item xs={12} sm={6} lg={4} key={student.id}>
-                                <TalentCard
-                                    student={student}
-                                    isSaved={savedIds.has(student.id)}
-                                    onSave={handleSaveToggle}
-                                />
-                            </Grid>
-                        ))}
-                        {students.length === 0 && !loading && (
-                            <Grid item xs={12}>
-                                <Box sx={{ textAlign: 'center', py: 10, opacity: 0.5 }}>
-                                    <Typography variant="h5">No students match your search criteria</Typography>
-                                    <Typography>Try adjusting your keywords or filters</Typography>
-                                </Box>
-                            </Grid>
-                        )}
-                    </Grid>
+                {/* Bottom overlay: Post request banner */}
+                {hasSearched && (
+                    <>
+                        <Link
+                            to="/opportunities"
+                            className="talents-upload-float"
+                            aria-label="Post a request"
+                        >
+                            <CloudUploadIcon sx={{ fontSize: 28 }} />
+                        </Link>
+                        <Link
+                            to="/opportunities"
+                            className="talents-post-request-banner"
+                            style={{ textDecoration: 'none', color: 'inherit' }}
+                        >
+                            <div className="talents-post-request-text">
+                                <strong>Can&apos;t find what you&apos;re looking for?</strong>
+                                <span>Post a request and let the right talent reach out to you directly.</span>
+                            </div>
+                            <span className="talents-post-request-arrow">
+                                <ArrowForwardIcon sx={{ fontSize: 24 }} />
+                            </span>
+                        </Link>
+                    </>
                 )}
             </Box>
+
+            {showScrollTop && hasSearched && (
+                <IconButton
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    sx={{
+                        position: 'fixed',
+                        bottom: 24,
+                        right: 24,
+                        bgcolor: '#22c55e',
+                        color: '#fff',
+                        '&:hover': { bgcolor: '#16a34a' }
+                    }}
+                    aria-label="Scroll to top"
+                >
+                    <ArrowUpIcon />
+                </IconButton>
+            )}
         </PageLayout>
     );
 };

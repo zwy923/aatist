@@ -30,7 +30,7 @@ const isLinkActive = (pathname, linkPath) => {
   return pathname === linkPath || pathname.startsWith(`${linkPath}/`);
 };
 
-const PageLayout = ({ children, maxWidth = "xl" }) => {
+const PageLayout = ({ children, maxWidth = "xl", noContainer = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout, isAuthenticated } = useAuth();
@@ -76,55 +76,67 @@ const PageLayout = ({ children, maxWidth = "xl" }) => {
         </nav>
 
         <div className="nav-actions">
-          <Tooltip title={unreadCount > 0 ? `${unreadCount} unread messages` : "Messages"}>
-            <span>
-              <button
-                type="button"
-                className="icon-button"
-                aria-label={unreadCount > 0 ? `${unreadCount} unread messages` : "Messages"}
-                onClick={() => navigate("/messages")}
-                disabled={!isAuthenticated}
-              >
-                <Badge badgeContent={unreadCount > 0 ? unreadCount : 0} color="error" max={99}>
-                  <ChatBubbleOutlineIcon fontSize="small" />
-                </Badge>
-              </button>
-            </span>
-          </Tooltip>
-          <Tooltip title="Notifications">
-            <span>
-              <button
-                type="button"
-                className="icon-button"
-                aria-label="Notifications"
-                onClick={() => navigate("/dashboard")}
-                disabled={!isAuthenticated}
-              >
-                <NotificationsNoneIcon fontSize="small" />
-              </button>
-            </span>
-          </Tooltip>
-          <Tooltip title="Open account menu">
-            <IconButton
-              onClick={handleMenuOpen}
-              size="small"
-              className="icon-button"
-              aria-label="Account"
-            >
-              <Avatar
-                sx={{
-                  width: 26,
-                  height: 26,
-                  bgcolor: "transparent",
-                  color: "inherit",
-                  fontSize: "0.95rem",
-                  fontWeight: 700,
-                }}
-              >
-                {userDisplayName?.[0]?.toUpperCase?.() || "U"}
-              </Avatar>
-            </IconButton>
-          </Tooltip>
+          {isAuthenticated ? (
+            <>
+              <Tooltip title={unreadCount > 0 ? `${unreadCount} unread messages` : "Messages"}>
+                <span>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label={unreadCount > 0 ? `${unreadCount} unread messages` : "Messages"}
+                    onClick={() => navigate("/messages")}
+                  >
+                    <Badge badgeContent={unreadCount > 0 ? unreadCount : 0} color="error" max={99}>
+                      <ChatBubbleOutlineIcon fontSize="small" />
+                    </Badge>
+                  </button>
+                </span>
+              </Tooltip>
+              <Tooltip title="Notifications">
+                <span>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label="Notifications"
+                    onClick={() => navigate("/dashboard")}
+                  >
+                    <NotificationsNoneIcon fontSize="small" />
+                  </button>
+                </span>
+              </Tooltip>
+              <Tooltip title="Open account menu">
+                <IconButton
+                  onClick={handleMenuOpen}
+                  size="small"
+                  className="icon-button"
+                  aria-label="Account"
+                >
+                  <Avatar
+                    sx={{
+                      width: 26,
+                      height: 26,
+                      bgcolor: "transparent",
+                      color: "inherit",
+                      fontSize: "0.95rem",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {userDisplayName?.[0]?.toUpperCase?.() || "U"}
+                  </Avatar>
+                </IconButton>
+              </Tooltip>
+            </>
+          ) : (
+            <>
+              <Link to="/auth/register" className="nav-btn nav-btn-signup">
+                Sign up
+              </Link>
+              <Link to="/auth/login" className="nav-btn nav-btn-login">
+                Log in
+              </Link>
+            </>
+          )}
+          {isAuthenticated && (
           <Menu
             anchorEl={menuAnchorEl}
             open={isMenuOpen}
@@ -180,11 +192,12 @@ const PageLayout = ({ children, maxWidth = "xl" }) => {
               Logout
             </MenuItem>
           </Menu>
+          )}
         </div>
       </header>
 
-      <Box sx={{ py: 4 }}>
-        <Container maxWidth={maxWidth}>{children}</Container>
+      <Box sx={{ py: noContainer ? 0 : 4 }}>
+        {noContainer ? children : <Container maxWidth={maxWidth}>{children}</Container>}
       </Box>
     </Box>
   );

@@ -147,3 +147,21 @@ func (r *postgresFileRepository) Update(ctx context.Context, file *model.File) e
 	}
 	return nil
 }
+
+// ClearReferencesByURL clears avatar_url, cover_image_url etc. when a file is deleted
+func (r *postgresFileRepository) ClearReferencesByURL(ctx context.Context, url string, fileType model.FileType, userID int64) error {
+	switch fileType {
+	case model.FileTypeAvatar:
+		_, err := r.db.ExecContext(ctx,
+			`UPDATE users SET avatar_url = NULL, updated_at = NOW() WHERE avatar_url = $1 AND id = $2`,
+			url, userID)
+		return err
+	case model.FileTypeProjectCover:
+		_, err := r.db.ExecContext(ctx,
+			`UPDATE projects SET cover_image_url = NULL, updated_at = NOW() WHERE cover_image_url = $1 AND user_id = $2`,
+			url, userID)
+		return err
+	default:
+		return nil
+	}
+}

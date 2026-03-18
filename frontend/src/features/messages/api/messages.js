@@ -13,6 +13,10 @@ export const messagesApi = {
   startConversation: (otherUserId) =>
     apiClient.post('/conversations/start', { other_user_id: otherUserId }),
 
+  /** 将会话标记为已读 */
+  markConversationAsRead: (conversationId) =>
+    apiClient.put(`/conversations/${encodeURIComponent(conversationId)}/read`),
+
   /** 删除会话及其所有消息 */
   deleteConversation: (conversationId) =>
     apiClient.delete(`/conversations/${encodeURIComponent(conversationId)}`),

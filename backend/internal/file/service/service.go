@@ -169,6 +169,18 @@ func (s *fileService) DeleteFile(ctx context.Context, id int64, userID int64) er
 		return errs.NewAppError(errs.ErrForbidden, 403, "file does not belong to user").WithCode(errs.CodeForbidden)
 	}
 
+	// Clear references (avatar_url, cover_image_url) before deletion
+	if err := s.fileRepo.ClearReferencesByURL(ctx, file.URL, file.Type, file.UserID); err != nil {
+		if s.logger != nil {
+			s.logger.Warn("failed to clear file references",
+				zap.Int64("file_id", id),
+				zap.String("url", file.URL),
+				zap.Error(err),
+			)
+		}
+		// Continue with deletion; references may be stale
+	}
+
 	// Delete from S3 first (before DB deletion to maintain consistency)
 	// If S3 deletion fails, we still want to log it but continue with DB deletion
 	// to maintain idempotency (if called again, DB delete will be no-op)

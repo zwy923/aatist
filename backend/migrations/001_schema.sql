@@ -340,6 +340,16 @@ CREATE INDEX IF NOT EXISTS idx_chat_messages_conversation_created
 CREATE INDEX IF NOT EXISTS idx_chat_messages_from_user
     ON chat_messages (from_user_id, created_at DESC);
 
+-- 会话已读状态：用于计算未读消息数
+CREATE TABLE IF NOT EXISTS chat_conversation_read (
+    user_id BIGINT NOT NULL,
+    conversation_id VARCHAR(64) NOT NULL,
+    last_read_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, conversation_id)
+);
+CREATE INDEX IF NOT EXISTS idx_chat_conversation_read_user
+    ON chat_conversation_read (user_id);
+
 -- ========== 用户服务 ==========
 CREATE TABLE IF NOT EXISTS user_services (
     id BIGSERIAL PRIMARY KEY,

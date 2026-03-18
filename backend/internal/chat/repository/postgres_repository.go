@@ -99,31 +99,69 @@ func (r *postgresChatRepository) ListConversationsForUser(ctx context.Context, u
 			FROM chat_messages
 			WHERE conversation_id LIKE $1 OR conversation_id LIKE $2
 			ORDER BY conversation_id, created_at DESC
+		),
+		other_ids AS (
+			SELECT c.conversation_id, c.content AS last_message, c.created_at AS last_at,
+				CASE WHEN c.conversation_id LIKE $1 THEN SPLIT_PART(c.conversation_id, '_', 2)::BIGINT
+				     ELSE SPLIT_PART(c.conversation_id, '_', 1)::BIGINT END AS other_user_id
+			FROM conv_last c
+			ORDER BY last_at DESC LIMIT $3
 		)
-		SELECT conversation_id, content AS last_message, created_at AS last_at FROM conv_last
-		ORDER BY last_at DESC LIMIT $3`
+		SELECT o.conversation_id, o.last_message, o.last_at, o.other_user_id,
+			COALESCE(u.name, '') AS other_user_name,
+			COALESCE(u.avatar_url, '') AS other_user_avatar,
+			COALESCE(u.organization_name, '') AS organization_name,
+			(SELECT COUNT(*)::INT FROM chat_messages m
+			 WHERE m.conversation_id = o.conversation_id
+			   AND m.from_user_id != $4
+			   AND m.created_at > COALESCE(
+				   (SELECT r.last_read_at FROM chat_conversation_read r
+				    WHERE r.user_id = $4 AND r.conversation_id = o.conversation_id),
+				   '1970-01-01'::timestamptz
+			   )) AS unread_count
+		FROM other_ids o
+		LEFT JOIN users u ON u.id = o.other_user_id
+		ORDER BY o.last_at DESC`
 	var rows []struct {
-		ConversationID string    `db:"conversation_id"`
-		LastMessage    string    `db:"last_message"`
-		LastAt         time.Time `db:"last_at"`
+		ConversationID   string    `db:"conversation_id"`
+		LastMessage      string    `db:"last_message"`
+		LastAt           time.Time `db:"last_at"`
+		OtherUserID      int64     `db:"other_user_id"`
+		OtherUserName    string    `db:"other_user_name"`
+		OtherUserAvatar  string    `db:"other_user_avatar"`
+		OrganizationName string    `db:"organization_name"`
+		UnreadCount      int       `db:"unread_count"`
 	}
-	if err := r.db.SelectContext(ctx, &rows, query, userPrefix, userSuffix, limit); err != nil {
+	if err := r.db.SelectContext(ctx, &rows, query, userPrefix, userSuffix, limit, userID); err != nil {
 		return nil, fmt.Errorf("list conversations: %w", err)
 	}
 	out := make([]*model.ConversationSummary, 0, len(rows))
 	for _, row := range rows {
-		otherID, ok := otherUserFromConversation(row.ConversationID, userID)
-		if !ok {
-			continue
-		}
 		out = append(out, &model.ConversationSummary{
-			ConversationID: row.ConversationID,
-			OtherUserID:    otherID,
-			LastMessage:    row.LastMessage,
-			LastAt:         row.LastAt,
+			ConversationID:   row.ConversationID,
+			OtherUserID:      row.OtherUserID,
+			OtherUserName:    row.OtherUserName,
+			OtherUserAvatar:  row.OtherUserAvatar,
+			OrganizationName: row.OrganizationName,
+			LastMessage:      row.LastMessage,
+			LastAt:           row.LastAt,
+			UnreadCount:      row.UnreadCount,
 		})
 	}
 	return out, nil
+}
+
+func (r *postgresChatRepository) MarkConversationAsRead(ctx context.Context, userID int64, conversationID string) error {
+	query := `
+		INSERT INTO chat_conversation_read (user_id, conversation_id, last_read_at)
+		VALUES ($1, $2, NOW())
+		ON CONFLICT (user_id, conversation_id)
+		DO UPDATE SET last_read_at = NOW()`
+	_, err := r.db.ExecContext(ctx, query, userID, conversationID)
+	if err != nil {
+		return fmt.Errorf("mark conversation as read: %w", err)
+	}
+	return nil
 }
 
 // DeleteConversation deletes all messages in a conversation

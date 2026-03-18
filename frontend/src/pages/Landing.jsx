@@ -7,24 +7,26 @@ import { useAuth } from "../features/auth/hooks/useAuth";
 import "./Landing.css";
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
-const DISTURB_RADIUS = 170;
+const DISTURB_RADIUS = 255;
 
+// CLIENT: stacked, tilted, overlapping — C bottom-left, L by C right-tilt, I between L-E heavy left, E center, N floating above ~30° right, T right
 const CLIENT_LETTERS = [
-  { char: "C", x: 0, y: 72, r: -31 },
-  { char: "L", x: 76, y: 40, r: -27 },
-  { char: "I", x: 145, y: 25, r: -17 },
-  { char: "E", x: 212, y: 6, r: -3 },
-  { char: "N", x: 286, y: -10, r: 9 },
-  { char: "T", x: 355, y: 6, r: 15 },
+  { char: "C", x: 20, y: 80, r: -20 },
+  { char: "L", x: 100, y: 60, r: 22 },
+  { char: "I", x: 220, y: 20, r: -38 },
+  { char: "E", x: 340, y: 90, r: -5 },
+  { char: "N", x: 440, y: -30, r: 28 },
+  { char: "T", x: 540, y: 70, r: -10 },
 ];
 
+// AATIST: A1 left, A2 heavy left overlap A1, T1 right on A2, I vertical between T-S, S large left, T2 right largest
 const STUDENT_LETTERS = [
-  { char: "A", x: 0, y: 78, r: -11 },
-  { char: "A", x: 76, y: 60, r: -3 },
-  { char: "T", x: 146, y: 35, r: 7 },
-  { char: "I", x: 220, y: 25, r: 8 },
-  { char: "S", x: 286, y: 31, r: 10 },
-  { char: "T", x: 355, y: 36, r: 7 },
+  { char: "A", x: 20, y: 70, r: 10 },
+  { char: "A", x: 120, y: 40, r: -32 },
+  { char: "T", x: 240, y: 10, r: 24 },
+  { char: "I", x: 360, y: 50, r: -3 },
+  { char: "S", x: 460, y: 80, r: -18 },
+  { char: "T", x: 560, y: 30, r: 5, scale: 1.15 },
 ];
 
 const createLetterPhysics = (letters) =>
@@ -76,12 +78,12 @@ function Landing() {
           state.vy *= 0.9;
           state.va *= 0.86;
 
-          if (state.y > 86) {
-            state.y = 86;
+          if (state.y > 100) {
+            state.y = 100;
             state.vy *= -0.48;
           }
-          if (Math.abs(state.x) > 96) {
-            state.x = clamp(state.x, -96, 96);
+          if (Math.abs(state.x) > 120) {
+            state.x = clamp(state.x, -120, 120);
             state.vx *= -0.46;
           }
 
@@ -175,31 +177,42 @@ function Landing() {
         </nav>
 
         <div className="nav-actions">
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Messages"
-            onClick={() => navigate("/messages")}
-            disabled={!isAuthenticated}
-          >
-            <ChatBubbleOutlineIcon fontSize="small" />
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Notifications"
-            disabled={!isAuthenticated}
-          >
-            <NotificationsNoneIcon fontSize="small" />
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Account"
-            onClick={() => navigate(isAuthenticated ? "/dashboard" : "/auth/login")}
-          >
-            <AccountCircleIcon fontSize="small" />
-          </button>
+          {isAuthenticated ? (
+            <>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Messages"
+                onClick={() => navigate("/messages")}
+              >
+                <ChatBubbleOutlineIcon fontSize="small" />
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Notifications"
+              >
+                <NotificationsNoneIcon fontSize="small" />
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Account"
+                onClick={() => navigate("/dashboard")}
+              >
+                <AccountCircleIcon fontSize="small" />
+              </button>
+            </>
+          ) : (
+            <>
+              <Link to="/auth/register" className="nav-btn nav-btn-signup">
+                Sign up
+              </Link>
+              <Link to="/auth/login" className="nav-btn nav-btn-login">
+                Log in
+              </Link>
+            </>
+          )}
         </div>
       </header>
 
@@ -226,7 +239,7 @@ function Landing() {
         <article className="panel client-panel">
           <div className="panel-top">
             <h2>For Client</h2>
-            <p>Publish, Find Services</p>
+            <p>Post, find services</p>
           </div>
           <button
             type="button"
@@ -254,7 +267,7 @@ function Landing() {
         <article className="panel student-panel">
           <div className="panel-top">
             <h2>For Student</h2>
-            <p>Create Portfolio, Find Opportunities</p>
+            <p>Create portfolio, find opportunities</p>
           </div>
           <button
             type="button"
@@ -268,7 +281,7 @@ function Landing() {
             {STUDENT_LETTERS.map((letter, index) => (
               <span
                 key={`${letter.char}-${index}`}
-                className="hero-letter"
+                className={`hero-letter ${letter.scale ? "hero-letter-large" : ""}`}
                 ref={(el) => {
                   letterRefs.current.student[index] = el;
                 }}

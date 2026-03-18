@@ -53,9 +53,12 @@ func (c *HTTPUserServiceClient) CheckProfileVisibility(ctx context.Context, user
 		return false, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Forward viewer email if available (for aalto_only check)
 	if viewerEmail != nil {
 		req.Header.Set("X-User-Email", *viewerEmail)
+	}
+	if token := os.Getenv("INTERNAL_API_TOKEN"); token != "" {
+		req.Header.Set("X-Internal-Call", "true")
+		req.Header.Set("X-Internal-Token", token)
 	}
 
 	resp, err := c.client.Do(req)

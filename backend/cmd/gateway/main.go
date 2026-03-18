@@ -46,6 +46,9 @@ func main() {
 		zap.String("env", cfg.App.Env),
 		zap.Int("port", cfg.App.HTTPPort),
 	)
+	if (cfg.App.Env == "production" || cfg.App.Env == "prod") && os.Getenv("INTERNAL_API_TOKEN") == "" {
+		logger.Warn("INTERNAL_API_TOKEN is not set in production; internal routes are less secure")
+	}
 
 	// Initialize JWT
 	jwt := auth.NewJWT(cfg.JWT.Secret, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL)

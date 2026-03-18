@@ -15,10 +15,11 @@ import (
 )
 
 const (
-	writeWait      = 10 * time.Second
-	pongWait       = 60 * time.Second
-	pingPeriod     = (pongWait * 9) / 10
-	maxMessageSize = 512 * 1024
+	writeWait           = 10 * time.Second
+	pongWait            = 60 * time.Second
+	pingPeriod          = (pongWait * 9) / 10
+	maxMessageSize      = 512 * 1024
+	maxContentLength   = 4096
 )
 
 type connection struct {
@@ -56,6 +57,10 @@ func (c *connection) readPump() {
 		case "message":
 			if msg.ConversationID == "" || msg.Content == "" {
 				c.sendServerMessage(ServerMessage{Type: "error", Error: "conversation_id and content required"})
+				continue
+			}
+			if len(msg.Content) > maxContentLength {
+				c.sendServerMessage(ServerMessage{Type: "error", Error: "content too long"})
 				continue
 			}
 			otherID := c.hub.otherUserInConversation(msg.ConversationID, c.userID)

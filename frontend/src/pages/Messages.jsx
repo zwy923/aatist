@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Avatar,
   Badge,
@@ -105,19 +105,21 @@ const MessageBubble = ({ fromMe, children, timestamp }) => {
 };
 
 const MessagesPage = () => {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, isAuthenticated } = useAuth();
   const myId = user?.id ?? user?.user_id;
+  const chat = useChat();
   const {
-    connectionStatus,
-    sendMessage,
-    getMessages,
-    isUserOnline,
-    sendTyping,
-    isTyping,
-    messagesByConversation,
-    markConversationAsRead,
-  } = useChat();
+    connectionStatus = "closed",
+    sendMessage = () => false,
+    getMessages = () => [],
+    isUserOnline = () => false,
+    sendTyping = () => {},
+    isTyping = () => false,
+    messagesByConversation = {},
+    markConversationAsRead = () => {},
+  } = chat || {};
   const lastSeenByUser = useChatUnreadStore((s) => s.lastSeenByUser);
   const lastSeenCount = (lastSeenByUser[myId] || {});
   const removeConversationFromStore = useChatUnreadStore((s) => s.removeConversation);
@@ -143,31 +145,22 @@ const MessagesPage = () => {
     try {
       const res = await messagesApi.getConversations({ limit: 50 });
       const list = res.data?.data?.conversations || [];
-      const enriched = await Promise.all(
-        list.map(async (c) => {
-          let name = `User ${c.other_user_id}`;
-          let subtitle = "";
-          try {
-            const u = await profileApi.getPublicProfile(c.other_user_id);
-            const d = u.data?.data;
-            if (d) {
-              name = d.name || d.username || name;
-              subtitle = d.organization_name || d.school || subtitle;
-            }
-          } catch (_) {}
-          return {
-            id: c.conversation_id,
-            conversation_id: c.conversation_id,
-            otherUserId: c.other_user_id,
-            name,
-            subtitle,
-            lastMessage: c.last_message || "",
-            updatedAt: c.last_at ? new Date(c.last_at).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "",
-            updatedAtTs: c.last_at ? new Date(c.last_at).getTime() : 0,
-            unread: 0,
-          };
-        })
-      );
+      const enriched = list.map((c) => {
+        const name = c.other_user_name || `User ${c.other_user_id}`;
+        const subtitle = c.organization_name || "";
+        return {
+          id: c.conversation_id,
+          conversation_id: c.conversation_id,
+          otherUserId: c.other_user_id,
+          otherUserAvatar: c.other_user_avatar,
+          name,
+          subtitle,
+          lastMessage: c.last_message || "",
+          updatedAt: c.last_at ? new Date(c.last_at).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "",
+          updatedAtTs: c.last_at ? new Date(c.last_at).getTime() : 0,
+          unread: c.unread_count ?? 0,
+        };
+      });
       setConversationsFromApi(enriched);
       setSelectedId((prev) => {
         if (enriched.length === 0) return prev;
@@ -434,6 +427,11 @@ const MessagesPage = () => {
     markConversationAsRead(activeConversationId, mergedMessages.length);
   }, [activeConversationId, mergedMessages.length, markConversationAsRead]);
 
+  useEffect(() => {
+    if (!activeConversationId || !isAuthenticated) return;
+    messagesApi.markConversationAsRead(activeConversationId).catch(() => {});
+  }, [activeConversationId, isAuthenticated]);
+
   const unreadByConversation = useMemo(() => {
     const out = {};
     const allConvIds = new Set([
@@ -492,6 +490,21 @@ const MessagesPage = () => {
       sendTyping(activeConversationId, false);
     }, 3000);
   }, [activeConversationId, isAuthenticated, sendTyping]);
+
+  if (!isAuthenticated) {
+    return (
+      <PageLayout maxWidth="xl" variant="light">
+        <Box sx={{ py: 8, textAlign: "center" }}>
+          <Typography variant="h6" color="text.secondary" gutterBottom>
+            请先登录以查看消息
+          </Typography>
+          <Button variant="contained" onClick={() => navigate("/auth/login")}>
+            去登录
+          </Button>
+        </Box>
+      </PageLayout>
+    );
+  }
 
   return (
     <>
@@ -630,6 +643,7 @@ const MessagesPage = () => {
 
                 const avatarNode = (
                   <Avatar
+                    src={c.otherUserAvatar || undefined}
                     sx={{
                       width: 40,
                       height: 40,
@@ -637,7 +651,7 @@ const MessagesPage = () => {
                       fontSize: 18,
                     }}
                   >
-                    {c.name
+                    {!c.otherUserAvatar && c.name
                       .split(" ")
                       .map((x) => x[0])
                       .join("")}
@@ -647,94 +661,76 @@ const MessagesPage = () => {
                 return (
                   <ListItem
                     key={c.id}
-                    button
-                    onClick={() => setSelectedId(c.id)}
-                    sx={{
-                      mb: 0.5,
-                      borderRadius: 2.5,
-                      px: 1.5,
-                      py: 1.25,
-                      backgroundColor: isActive
-                        ? "rgba(25,118,210,0.12)"
-                        : "transparent",
-                      "&:hover": {
-                        backgroundColor: "rgba(25,118,210,0.08)",
-                      },
-                      transition: "background-color 0.15s ease",
-                    }}
+                    disablePadding
+                    sx={{ mb: 0.5 }}
                   >
-                    <ListItemAvatar>
-                      {showOnline ? (
-                        <OnlineBadge>{avatarNode}</OnlineBadge>
-                      ) : (
-                        avatarNode
-                      )}
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            gap: 1,
-                          }}
-                        >
-                          <Typography
-                            variant="subtitle2"
-                            noWrap
-                            sx={{ fontWeight: 600 }}
+                    <ListItemButton
+                      onClick={() => setSelectedId(c.id)}
+                      sx={{
+                        borderRadius: 2.5,
+                        px: 1.5,
+                        py: 1.25,
+                        backgroundColor: isActive
+                          ? "rgba(25,118,210,0.12)"
+                          : "transparent",
+                        "&:hover": {
+                          backgroundColor: "rgba(25,118,210,0.08)",
+                        },
+                        transition: "background-color 0.15s ease",
+                      }}
+                    >
+                      <ListItemAvatar>
+                        {showOnline ? (
+                          <OnlineBadge>{avatarNode}</OnlineBadge>
+                        ) : (
+                          avatarNode
+                        )}
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={
+                          <Box
+                            component="span"
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: 1,
+                              width: "100%",
+                            }}
                           >
-                            {c.name}
-                          </Typography>
-                          <Typography
-                            variant="caption"
-                            sx={{ color: "text.secondary", flexShrink: 0 }}
-                          >
-                            {c.updatedAt}
-                          </Typography>
-                        </Box>
-                      }
-                      secondary={
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 1,
-                            mt: 0.25,
-                          }}
-                        >
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            noWrap
-                            sx={{ flex: 1 }}
-                          >
-                            {[c.subtitle, c.lastMessage].filter(Boolean).join(" · ") || "No messages yet"}
-                          </Typography>
-                          {(() => {
-                            const convKey = c.conversation_id || c.id;
-                            const unread =
-                              typeof c.unread === "number" && c.unread > 0
-                                ? c.unread
-                                : unreadByConversation[convKey] || 0;
-                            return unread > 0 ? (
-                            <Chip
-                              size="small"
-                              color="primary"
-                              label={unread}
-                              sx={{
-                                height: 18,
-                                minWidth: 22,
-                                fontSize: 11,
-                                borderRadius: 999,
-                              }}
-                            />
-                          ) : null;
-                          })()}
-                        </Box>
-                      }
-                    />
+                            <Typography component="span" variant="subtitle2" noWrap sx={{ fontWeight: 600, flex: 1 }}>
+                              {c.name}
+                            </Typography>
+                            <Typography component="span" variant="caption" sx={{ color: "text.secondary", flexShrink: 0 }}>
+                              {c.updatedAt}
+                            </Typography>
+                          </Box>
+                        }
+                        secondary={[c.subtitle, c.lastMessage].filter(Boolean).join(" · ") || "No messages yet"}
+                        primaryTypographyProps={{ component: "div", sx: { fontWeight: 600 } }}
+                        secondaryTypographyProps={{ component: "div", variant: "caption", sx: { color: "text.secondary", mt: 0.25 } }}
+                      />
+                      {(() => {
+                        const convKey = c.conversation_id || c.id;
+                        const apiUnread = typeof c.unread === "number" ? c.unread : 0;
+                        const localUnread = unreadByConversation[convKey] || 0;
+                        const unread = Math.max(apiUnread, localUnread);
+                        return unread > 0 ? (
+                          <Chip
+                            size="small"
+                            color="primary"
+                            label={unread}
+                            sx={{
+                              height: 18,
+                              minWidth: 22,
+                              fontSize: 11,
+                              borderRadius: 999,
+                              ml: 1,
+                            }}
+                          />
+                        ) : null;
+                      })()}
+                    </ListItemButton>
                   </ListItem>
                 );
               })}
@@ -774,8 +770,11 @@ const MessagesPage = () => {
               >
                 <Stack direction="row" spacing={2} alignItems="center">
                   <OnlineBadge invisible={!onlineForConv}>
-                    <Avatar sx={{ width: 44, height: 44 }}>
-                      {activeConversation.name
+                    <Avatar
+                      src={activeConversation.otherUserAvatar || undefined}
+                      sx={{ width: 44, height: 44 }}
+                    >
+                      {!activeConversation.otherUserAvatar && activeConversation.name
                         .split(" ")
                         .map((x) => x[0])
                         .join("")}

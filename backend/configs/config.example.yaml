@@ -28,6 +28,10 @@ jwt:
   # Access token TTL: 15 minutes (hardcoded in code)
   # Refresh token TTL: 30 days (hardcoded in code)
 
+# INTERNAL_API_TOKEN: Set via env for production. When set, Gateway validates X-Internal-Token
+# on /api/v1/internal/* routes. All services that call internal routes must send this token.
+# Generate: openssl rand -hex 32
+
 email:
   sendgrid_api_key: "SG.xxxxx"
   from_email: "no-reply@aatist.fi"

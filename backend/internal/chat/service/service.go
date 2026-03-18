@@ -42,10 +42,13 @@ func participantInConversation(conversationID string, userID int64) bool {
 	return a == userID || b == userID
 }
 
+const MaxMessageContentLength = 4096
+
 type ChatService interface {
 	CreateMessage(ctx context.Context, conversationID string, fromUserID int64, content, createdAt string) (*model.ChatMessage, error)
 	ListConversations(ctx context.Context, userID int64, limit int) ([]*model.ConversationSummary, error)
 	ListMessages(ctx context.Context, conversationID string, userID int64, limit, offset int) ([]*model.ChatMessage, error)
+	MarkConversationAsRead(ctx context.Context, userID int64, conversationID string) error
 	DeleteConversation(ctx context.Context, conversationID string, userID int64) error
 }
 
@@ -62,6 +65,9 @@ func (s *chatService) CreateMessage(ctx context.Context, conversationID string, 
 	content = strings.TrimSpace(content)
 	if conversationID == "" || fromUserID <= 0 || content == "" {
 		return nil, errs.NewAppError(errs.ErrInvalidInput, 400, "conversation_id, from_user_id and content are required")
+	}
+	if len(content) > MaxMessageContentLength {
+		return nil, errs.NewAppError(errs.ErrInvalidInput, 400, fmt.Sprintf("content must not exceed %d characters", MaxMessageContentLength))
 	}
 	if !participantInConversation(conversationID, fromUserID) {
 		return nil, errs.NewAppError(errs.ErrUnauthorized, 403, "sender is not in conversation")
@@ -99,6 +105,17 @@ func (s *chatService) ListMessages(ctx context.Context, conversationID string, u
 		return nil, errs.NewAppError(errs.ErrUnauthorized, 403, "conversation access denied")
 	}
 	return s.repo.ListByConversation(ctx, conversationID, limit, offset)
+}
+
+func (s *chatService) MarkConversationAsRead(ctx context.Context, userID int64, conversationID string) error {
+	conversationID = strings.TrimSpace(conversationID)
+	if conversationID == "" || userID <= 0 {
+		return errs.NewAppError(errs.ErrInvalidInput, 400, "invalid conversation id or user id")
+	}
+	if !participantInConversation(conversationID, userID) {
+		return errs.NewAppError(errs.ErrUnauthorized, 403, "conversation access denied")
+	}
+	return s.repo.MarkConversationAsRead(ctx, userID, conversationID)
 }
 
 func (s *chatService) DeleteConversation(ctx context.Context, conversationID string, userID int64) error {

@@ -65,8 +65,10 @@ func (c *httpNotificationClient) CreateNotification(ctx context.Context, userID 
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	// Gateway will automatically set internal call headers when proxying
-	// We don't need to set them here since Gateway handles it
+	if token := os.Getenv("INTERNAL_API_TOKEN"); token != "" {
+		req.Header.Set("X-Internal-Call", "true")
+		req.Header.Set("X-Internal-Token", token)
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {

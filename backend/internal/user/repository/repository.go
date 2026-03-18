@@ -16,6 +16,8 @@ type ProfileUpdate struct {
 type UserSearchFilter struct {
 	Query         string
 	Faculty       string
+	School        string
+	Major         string
 	Role          string
 	Limit         int
 	Offset        int

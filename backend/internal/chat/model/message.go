@@ -19,10 +19,14 @@ type CreateChatMessageInput struct {
 	CreatedAt      string `json:"created_at"` // ISO8601, optional
 }
 
-// ConversationSummary for listing user's conversations (last message + other user id)
+// ConversationSummary for listing user's conversations (last message + other user info)
 type ConversationSummary struct {
 	ConversationID string    `json:"conversation_id"`
 	OtherUserID    int64     `json:"other_user_id"`
+	OtherUserName  string    `json:"other_user_name,omitempty"`
+	OtherUserAvatar string   `json:"other_user_avatar,omitempty"`
+	OrganizationName string  `json:"organization_name,omitempty"`
 	LastMessage    string    `json:"last_message"`
 	LastAt         time.Time `json:"last_at"`
+	UnreadCount    int       `json:"unread_count"`
 }

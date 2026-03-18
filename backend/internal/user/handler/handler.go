@@ -1079,6 +1079,7 @@ func mapUserToPublicResponse(user *model.User) gin.H {
 		"avatar_url":           user.AvatarURL,
 		"role":                 user.Role.String(),
 		"bio":                  user.Bio,
+		"role_verified":        user.RoleVerified,
 		"website":              user.Website,
 		"linkedin":             user.LinkedIn,
 		"behance":              user.Behance,
@@ -1193,11 +1194,13 @@ func (h *AuthHandler) GetUserSummaryHandler(c *gin.Context) {
 // SearchUsersHandler handles GET /users/search
 func (h *AuthHandler) SearchUsersHandler(c *gin.Context) {
 	var query struct {
-		Query    string `form:"q"`
-		Faculty  string `form:"faculty"`
-		Role     string `form:"role"`
-		Limit    int    `form:"limit"`
-		Offset   int    `form:"offset"`
+		Query   string `form:"q"`
+		Faculty string `form:"faculty"`
+		School  string `form:"school"`
+		Major   string `form:"major"`
+		Role    string `form:"role"`
+		Limit   int    `form:"limit"`
+		Offset  int    `form:"offset"`
 	}
 
 	if err := c.ShouldBindQuery(&query); err != nil {
@@ -1208,6 +1211,8 @@ func (h *AuthHandler) SearchUsersHandler(c *gin.Context) {
 	filter := repository.UserSearchFilter{
 		Query:         query.Query,
 		Faculty:       query.Faculty,
+		School:        query.School,
+		Major:         query.Major,
 		Role:          query.Role,
 		Limit:         query.Limit,
 		Offset:        query.Offset,

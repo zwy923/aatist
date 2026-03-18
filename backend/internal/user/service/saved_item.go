@@ -181,16 +181,18 @@ func (c *httpSavedItemClient) SaveItem(ctx context.Context, userID int64, itemID
 		return fmt.Errorf("failed to marshal save item request: %w", err)
 	}
 
-	// Call Gateway's user-service API route
-	url := fmt.Sprintf("%s/api/v1/users/me/saved", c.baseURL)
+	url := fmt.Sprintf("%s/api/v1/internal/user/users/me/saved", c.baseURL)
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	// Set user ID header for Gateway to forward to user-service
 	req.Header.Set("X-User-ID", fmt.Sprintf("%d", userID))
+	if token := os.Getenv("INTERNAL_API_TOKEN"); token != "" {
+		req.Header.Set("X-Internal-Call", "true")
+		req.Header.Set("X-Internal-Token", token)
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -216,16 +218,18 @@ func (c *httpSavedItemClient) UnsaveItem(ctx context.Context, userID int64, item
 		return fmt.Errorf("failed to marshal unsave item request: %w", err)
 	}
 
-	// Call Gateway's user-service API route
-	url := fmt.Sprintf("%s/api/v1/users/me/saved", c.baseURL)
+	url := fmt.Sprintf("%s/api/v1/internal/user/users/me/saved", c.baseURL)
 	req, err := http.NewRequestWithContext(ctx, "DELETE", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	// Set user ID header for Gateway to forward to user-service
 	req.Header.Set("X-User-ID", fmt.Sprintf("%d", userID))
+	if token := os.Getenv("INTERNAL_API_TOKEN"); token != "" {
+		req.Header.Set("X-Internal-Call", "true")
+		req.Header.Set("X-Internal-Token", token)
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -241,15 +245,17 @@ func (c *httpSavedItemClient) UnsaveItem(ctx context.Context, userID int64, item
 }
 
 func (c *httpSavedItemClient) IsSaved(ctx context.Context, userID int64, itemID int64, itemType string) (bool, error) {
-	// Call Gateway's user-service API route to get saved items
-	url := fmt.Sprintf("%s/api/v1/users/me/saved?type=%s", c.baseURL, itemType)
+	url := fmt.Sprintf("%s/api/v1/internal/user/users/me/saved?type=%s", c.baseURL, itemType)
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return false, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Set user ID header for Gateway to forward to user-service
 	req.Header.Set("X-User-ID", fmt.Sprintf("%d", userID))
+	if token := os.Getenv("INTERNAL_API_TOKEN"); token != "" {
+		req.Header.Set("X-Internal-Call", "true")
+		req.Header.Set("X-Internal-Token", token)
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {

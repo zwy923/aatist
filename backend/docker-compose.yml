@@ -72,10 +72,12 @@ services:
     volumes:
       - ./configs:/app/configs
       - ./migrations:/app/migrations
-  user-service:
+
+  # Core business monolith: user, portfolio, opportunity, notification
+  backend:
     build:
       context: .
-      dockerfile: deploy/docker/Dockerfile.user-service
+      dockerfile: deploy/docker/Dockerfile.backend
     depends_on:
       postgres:
         condition: service_healthy
@@ -89,9 +91,8 @@ services:
         condition: service_completed_successfully
     environment:
       <<: *postgres-dsn
-      SERVICE_NAME: user-service
+      SERVICE_NAME: backend
       CONFIG_PATH: /app/configs/config.yaml
-      # Set to "true" to temporarily disable email verification (no verification email, login without verification)
       DISABLE_EMAIL_VERIFICATION: ${DISABLE_EMAIL_VERIFICATION:-true}
       REDIS_ADDR: redis:6379
       MQ_BROKER: amqp://guest:guest@backend-mq:5672/
@@ -126,57 +127,6 @@ services:
       - SENDGRID_FROM_EMAIL=${SENDGRID_FROM_EMAIL}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
       - APP_ENV=dev
-    volumes:
-      - ./configs:/app/configs
-
-  portfolio-service:
-    build:
-      context: .
-      dockerfile: deploy/docker/Dockerfile.portfolio-service
-    depends_on:
-      postgres:
-        condition: service_healthy
-      user-service:
-        condition: service_started
-      migrate:
-        condition: service_completed_successfully
-    environment:
-      <<: *postgres-dsn
-      SERVICE_NAME: portfolio-service
-      CONFIG_PATH: /app/configs/config.yaml
-      HTTP_PORT: "8082"
-      APP_ENV: dev
-      GATEWAY_URL: http://gateway:8080
-    ports:
-      - "8082:8082"
-    volumes:
-      - ./configs:/app/configs
-
-  notification-service:
-    build:
-      context: .
-      dockerfile: deploy/docker/Dockerfile.notification-service
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      backend-mq:
-        condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
-    environment:
-      <<: *postgres-dsn
-      SERVICE_NAME: notification-service
-      CONFIG_PATH: /app/configs/config.yaml
-      REDIS_ADDR: redis:6379
-      MQ_BROKER: amqp://guest:guest@backend-mq:5672/
-      HTTP_PORT: "8085"
-      APP_ENV: dev
-      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-}
-      INTERNAL_ALLOWED_IPS: ${INTERNAL_ALLOWED_IPS:-}
-    ports:
-      - "8085:8085"
     volumes:
       - ./configs:/app/configs
 
@@ -231,26 +181,18 @@ services:
     volumes:
       - ./configs:/app/configs
 
-  opp-service:
+  ai-worker:
     build:
       context: .
-      dockerfile: deploy/docker/Dockerfile.opp-service
+      dockerfile: deploy/docker/Dockerfile.ai-worker
     depends_on:
-      postgres:
+      backend-mq:
         condition: service_healthy
-      user-service:
-        condition: service_started
-      migrate:
-        condition: service_completed_successfully
     environment:
-      <<: *postgres-dsn
-      SERVICE_NAME: opp-service
-      CONFIG_PATH: /app/configs/config.yaml
-      HTTP_PORT: "8083"
-      APP_ENV: dev
-      GATEWAY_URL: http://gateway:8080
-    ports:
-      - "8083:8083"
+      - SERVICE_NAME=ai-worker
+      - CONFIG_PATH=/app/configs/config.yaml
+      - MQ_BROKER=amqp://guest:guest@backend-mq:5672/
+      - APP_ENV=dev
     volumes:
       - ./configs:/app/configs
 
@@ -269,19 +211,12 @@ services:
         condition: service_started
       migrate:
         condition: service_completed_successfully
-      user-service:
-        condition: service_started
-      portfolio-service:
-        condition: service_started
-      notification-service:
+      backend:
         condition: service_started
       file-service:
         condition: service_started
-      opp-service:
-        condition: service_started
       chat-service:
         condition: service_started
-    # Gateway must be started before services that depend on it for internal calls
     environment:
       <<: *postgres-dsn
       SERVICE_NAME: gateway
