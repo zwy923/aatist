@@ -13,6 +13,8 @@ import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import LanguageIcon from "@mui/icons-material/Language";
 import LinkedInIcon from "@mui/icons-material/LinkedIn";
 import PaletteIcon from "@mui/icons-material/Palette";
+import EditIcon from "@mui/icons-material/Edit";
+import ImageOutlinedIcon from "@mui/icons-material/ImageOutlined";
 import "../../pages/PublicProfile.css";
 
 export default function ProfileView({
@@ -91,6 +93,23 @@ export default function ProfileView({
   };
 
   const displayName = profile?.name || profile?.organization_name || "User";
+  const isVerified = profile?.is_verified_email || profile?.role_verified;
+  const bioText = (profile?.bio || profile?.organization_bio || "").trim();
+
+  const renderServiceThumbs = (s) => {
+    const urls = (s.media_urls || []).filter(Boolean);
+    const extra = urls.length > 3 ? urls.length - 3 : 0;
+    return [0, 1, 2].map((i) => {
+      const url = urls[i];
+      const showMore = i === 2 && extra > 0;
+      return (
+        <div key={i} className="profile-service-thumb">
+          {url ? <img src={url} alt="" /> : null}
+          {showMore && <span className="profile-service-thumb-more">+{extra}</span>}
+        </div>
+      );
+    });
+  };
 
   return (
     <div className="profile-page">
@@ -101,36 +120,33 @@ export default function ProfileView({
             backgroundImage: bannerUrl ? `url(${bannerUrl})` : "none",
           }}
         />
-        <div className="profile-hero-bg-placeholder" />
+        {!bannerUrl && <div className="profile-hero-bg-placeholder" aria-hidden />}
 
-        {isOwnProfile ? (
-          <div className="profile-hero-actions">
-            <button type="button" className="profile-hero-btn-edit" onClick={onEditProfile}>
-              Edit Profile
-            </button>
+        <div className="profile-hero-topbar">
+          {isOwnProfile && onChangeBackground && (
             <button type="button" className="profile-hero-btn-change-bg" onClick={onChangeBackground}>
+              <ImageOutlinedIcon sx={{ fontSize: 18, mr: 0.75 }} />
               Change Background
             </button>
-          </div>
-        ) : (
-          onMessage && (
-            <div className="profile-hero-actions">
-              <button type="button" className="profile-hero-btn-edit" onClick={onMessage}>
-                Message
-              </button>
-            </div>
-          )
-        )}
+          )}
+          {!isOwnProfile && onMessage && (
+            <button type="button" className="profile-hero-btn-message-top" onClick={onMessage}>
+              Message
+            </button>
+          )}
+        </div>
 
-        <div className="profile-hero-overlay">
+        <div className="profile-hero-flex-fill" aria-hidden />
+
+        <div className="profile-hero-overlay-panel">
           <Avatar
             src={profile?.avatar_url}
             className="profile-hero-avatar"
             sx={{
-              width: 140,
-              height: 140,
-              borderRadius: 1,
-              bgcolor: "rgba(255,255,255,0.95)",
+              width: 148,
+              height: 148,
+              borderRadius: "10px",
+              bgcolor: "rgba(255,255,255,0.92)",
               color: "#333",
             }}
           >
@@ -140,7 +156,7 @@ export default function ProfileView({
           <div className="profile-hero-info">
             <div className="profile-hero-name-row">
               <span className="profile-hero-name">{displayName}</span>
-              {profile?.is_verified_email && (
+              {isVerified && (
                 <VerifiedUserIcon className="profile-hero-verified" sx={{ fontSize: 28 }} />
               )}
               <span className="profile-hero-badge-available">Available</span>
@@ -148,24 +164,27 @@ export default function ProfileView({
             {(educationLine || orgSubtitle) && (
               <div className="profile-hero-education">{educationLine || orgSubtitle}</div>
             )}
-            {(profile?.bio || profile?.organization_bio) && (
-              <div className="profile-hero-about">{profile.bio || profile.organization_bio}</div>
+            <div className="profile-hero-about-heading">About me</div>
+            {bioText ? (
+              <div className="profile-hero-about">{bioText}</div>
+            ) : (
+              <div className="profile-hero-about profile-hero-about-empty">No bio yet.</div>
             )}
             <div className="profile-hero-links">
               {profile?.website && (
                 <a
-                  href={profile.website}
+                  href={profile.website.startsWith("http") ? profile.website : `https://${profile.website}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="profile-hero-link"
                 >
                   <LanguageIcon sx={{ fontSize: 18 }} />
-                  {profile.website.replace(/^https?:\/\//, "").slice(0, 30)}
+                  {profile.website.replace(/^https?:\/\//, "").replace(/\/$/, "").slice(0, 36)}
                 </a>
               )}
               {profile?.behance && (
                 <a
-                  href={profile.behance}
+                  href={profile.behance.startsWith("http") ? profile.behance : `https://${profile.behance}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="profile-hero-link"
@@ -176,7 +195,7 @@ export default function ProfileView({
               )}
               {profile?.linkedin && (
                 <a
-                  href={profile.linkedin}
+                  href={profile.linkedin.startsWith("http") ? profile.linkedin : `https://${profile.linkedin}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="profile-hero-link"
@@ -189,43 +208,65 @@ export default function ProfileView({
           </div>
 
           <div className="profile-hero-meta">
-            {profile?.languages && (
-              <div>
-                <div className="profile-hero-meta-label">Languages</div>
-                <div className="profile-hero-meta-tags">
-                  {profile.languages.split(",").map((l, i) => (
+            <div className="profile-hero-meta-block">
+              <div className="profile-hero-meta-label">Language</div>
+              <div className="profile-hero-meta-tags">
+                {profile?.languages ? (
+                  profile.languages.split(",").map((l, i) => (
                     <span key={i} className="profile-hero-meta-tag">
                       {l.trim()}
                     </span>
-                  ))}
-                </div>
+                  ))
+                ) : (
+                  <span className="profile-hero-meta-tag profile-hero-meta-tag-muted">—</span>
+                )}
               </div>
-            )}
-            {skillNames.length > 0 && (
-              <div>
-                <div className="profile-hero-meta-label">Skills</div>
-                <div className="profile-hero-meta-tags">
-                  {skillNames.slice(0, 8).map((sk, i) => (
+            </div>
+            <div className="profile-hero-meta-block">
+              <div className="profile-hero-meta-label">Skills</div>
+              <div className="profile-hero-meta-tags">
+                {skillNames.length > 0 ? (
+                  skillNames.slice(0, 12).map((sk, i) => (
                     <span key={i} className="profile-hero-meta-tag">
                       {sk}
                     </span>
-                  ))}
-                </div>
+                  ))
+                ) : (
+                  <span className="profile-hero-meta-tag profile-hero-meta-tag-muted">—</span>
+                )}
               </div>
-            )}
-            {interests.length > 0 && (
-              <div>
-                <div className="profile-hero-meta-label">Interest Areas</div>
-                <div className="profile-hero-meta-tags">
-                  {interests.slice(0, 8).map((int, i) => (
+            </div>
+            <div className="profile-hero-meta-block">
+              <div className="profile-hero-meta-label">Interest areas</div>
+              <div className="profile-hero-meta-tags">
+                {interests.length > 0 ? (
+                  interests.slice(0, 12).map((int, i) => (
                     <span key={i} className="profile-hero-meta-tag">
                       {int}
                     </span>
-                  ))}
-                </div>
+                  ))
+                ) : (
+                  <span className="profile-hero-meta-tag profile-hero-meta-tag-muted">—</span>
+                )}
               </div>
-            )}
+            </div>
           </div>
+
+          {isOwnProfile && onEditProfile && (
+            <div className="profile-hero-edit-actions">
+              <button type="button" className="profile-hero-btn-edit-panel" onClick={onEditProfile}>
+                Edit Profile
+              </button>
+              <IconButton
+                className="profile-hero-btn-edit-icon"
+                onClick={onEditProfile}
+                aria-label="Edit profile"
+                size="small"
+              >
+                <EditIcon sx={{ fontSize: 22 }} />
+              </IconButton>
+            </div>
+          )}
         </div>
       </div>
 
@@ -284,26 +325,27 @@ export default function ProfileView({
                     }}
                     style={{ cursor: profileOwnerId && s.id ? "pointer" : undefined }}
                   >
-                    <div className="profile-service-thumbnails">
-                      {(s.media_urls || []).slice(0, 3).map((url, i) => (
-                        <div key={i} className="profile-service-thumb">
-                          <img src={url} alt="" />
-                        </div>
-                      ))}
-                      {(!s.media_urls || s.media_urls.length === 0) && (
-                        <>
-                          <div className="profile-service-thumb" />
-                          <div className="profile-service-thumb" />
-                          <div className="profile-service-thumb" />
-                        </>
-                      )}
-                    </div>
+                    <div className="profile-service-thumbnails">{renderServiceThumbs(s)}</div>
                     <div className="profile-service-body">
                       <div className="profile-service-title">{s.title || s.category || "Service"}</div>
                       <div className="profile-service-desc">
                         {s.short_description || s.description || s.experience_summary || ""}
                       </div>
-                      <div className="profile-service-fee">{formatPrice(s)}</div>
+                      <div className="profile-service-body-footer">
+                        <div className="profile-service-fee">{formatPrice(s)}</div>
+                        {profileOwnerId && s.id && (
+                          <button
+                            type="button"
+                            className="profile-service-more-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/users/${profileOwnerId}/services/${s.id}`);
+                            }}
+                          >
+                            More details
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
