@@ -1,57 +1,34 @@
-import React, { useCallback, useEffect, useState, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import React, { useCallback, useEffect, useState, useMemo, useRef } from "react";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import {
   Box,
-  Paper,
-  Stack,
-  Tab,
-  Tabs,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  IconButton,
   Typography,
 } from "@mui/material";
-import PersonIcon from "@mui/icons-material/Person";
-import WorkIcon from "@mui/icons-material/Work";
-import DesignServicesIcon from "@mui/icons-material/DesignServices";
-import BookmarkIcon from "@mui/icons-material/Bookmark";
-import SettingsIcon from "@mui/icons-material/Settings";
+import CloseIcon from "@mui/icons-material/Close";
 import AssignmentIcon from "@mui/icons-material/Assignment";
+import AddIcon from "@mui/icons-material/Add";
 import { profileApi, portfolioApi } from "../features/profile/api/profile";
 import { opportunitiesApi } from "../features/opportunities/api/opportunities";
 import { useAuth } from "../features/auth/hooks/useAuth";
 import { useProfile } from "../features/profile/hooks/useProfile";
 import { StateContainer } from "../shared/components/ui/StateContainer";
-import ProfileEditHeader from "../components/profile/ProfileEditHeader";
 import BasicInfoSection from "../components/profile/BasicInfoSection";
 import ServicesSection from "../components/profile/ServicesSection";
 import PortfolioSection from "../components/profile/PortfolioSection";
 import MyProjectsSection from "../components/profile/MyProjectsSection";
-import SavedItemsSection from "../components/profile/SavedItemsSection";
 import SecuritySettings from "../components/profile/SecuritySettings";
 import PageLayout from "../shared/components/PageLayout";
-
-const STUDENT_TABS = [
-  { id: "basic", label: "Basic Info", icon: <PersonIcon /> },
-  { id: "services", label: "Services", icon: <DesignServicesIcon /> },
-  { id: "portfolio", label: "Portfolio", icon: <WorkIcon /> },
-];
-
-const CLIENT_TABS = [
-  { id: "basic", label: "Basic Info", icon: <PersonIcon /> },
-  { id: "my-projects", label: "My Projects", icon: <AssignmentIcon /> },
-];
-
-const OTHER_TABS = [
-  { id: "saved", label: "Saved", icon: <BookmarkIcon /> },
-  { id: "settings", label: "Settings", icon: <SettingsIcon /> },
-];
-
-const getAllTabs = (isStudent) => {
-  const editTabs = isStudent ? STUDENT_TABS : CLIENT_TABS;
-  return [...editTabs, ...OTHER_TABS];
-};
+import ProfileView from "../components/profile/ProfileView";
 
 export default function Profile() {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { isAuthenticated } = useAuth();
   const { user, loading: profileLoading, updateProfile, uploadAvatar } = useProfile();
 
@@ -60,27 +37,20 @@ export default function Profile() {
     [user?.role]
   );
 
-  const tabFromUrl = searchParams.get("tab");
   const idFromUrl = searchParams.get("id");
-  const ALL_TABS = useMemo(() => getAllTabs(isStudentRole), [isStudentRole]);
-  const validTabs = ALL_TABS.map((t) => t.id);
-  const initialTab = validTabs.includes(tabFromUrl) ? tabFromUrl : validTabs[0] || "basic";
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState(initialTab);
   const [profile, setProfile] = useState(null);
   const [portfolio, setPortfolio] = useState([]);
   const [myProjects, setMyProjects] = useState([]);
   const [services, setServices] = useState([]);
-  const [savedItems, setSavedItems] = useState([]);
 
-  useEffect(() => {
-    const newTab = searchParams.get("tab");
-    if (newTab && validTabs.includes(newTab) && newTab !== activeTab) {
-      setActiveTab(newTab);
-    }
-  }, [searchParams]);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [servicesDialogOpen, setServicesDialogOpen] = useState(false);
+  const [portfolioDialogOpen, setPortfolioDialogOpen] = useState(false);
+  const [portfolioEditTriggerId, setPortfolioEditTriggerId] = useState(null);
+  const [bannerObjectUrl, setBannerObjectUrl] = useState(null);
+  const bannerInputRef = useRef(null);
 
   const loadProfile = useCallback(async () => {
     try {
@@ -126,31 +96,7 @@ export default function Profile() {
     }
   }, []);
 
-  const loadSavedItems = useCallback(async () => {
-    try {
-      const response = await profileApi.getSavedItems();
-      const items = response.data.data?.items || [];
-      const enriched = await Promise.all(
-        items.map(async (item) => {
-          const type = item.item_type || item.type;
-          const targetId = item.item_id ?? item.target_id ?? item.targetId;
-          if (type === "user" && targetId) {
-            try {
-              const u = await profileApi.getPublicProfile(targetId);
-              const d = u.data?.data;
-              return { ...item, name: d?.name || d?.username || `User ${targetId}` };
-            } catch (_) {
-              return { ...item, name: `User ${targetId}` };
-            }
-          }
-          return item;
-        })
-      );
-      setSavedItems(enriched);
-    } catch (err) {
-      console.error("Failed to load saved items:", err);
-    }
-  }, []);
+  const consumePortfolioEditTrigger = useCallback(() => setPortfolioEditTriggerId(null), []);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -163,7 +109,29 @@ export default function Profile() {
     if (!isStudentRole) loadMyProjects();
   }, [isAuthenticated, navigate, loadProfile, loadServices, loadPortfolio, loadMyProjects, isStudentRole]);
 
-  // Strict: if URL has id param for another user, redirect to view-only public profile
+  useEffect(() => {
+    const st = location.state;
+    if (!st || typeof st !== "object") return;
+    const clear = () => navigate(location.pathname, { replace: true, state: {} });
+    if (st.openProfileEdit) {
+      setEditDialogOpen(true);
+      clear();
+    } else if (st.openBannerPicker) {
+      setTimeout(() => bannerInputRef.current?.click(), 0);
+      clear();
+    } else if (st.openServices) {
+      setServicesDialogOpen(true);
+      clear();
+    } else if (st.openPortfolio) {
+      setPortfolioDialogOpen(true);
+      clear();
+    } else if (st.editPortfolioId != null) {
+      setPortfolioDialogOpen(true);
+      setPortfolioEditTriggerId(st.editPortfolioId);
+      clear();
+    }
+  }, [location.state, location.pathname, navigate]);
+
   useEffect(() => {
     if (!profile || !idFromUrl) return;
     const targetId = Number(idFromUrl);
@@ -174,24 +142,10 @@ export default function Profile() {
   }, [profile, idFromUrl, navigate]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
-    switch (activeTab) {
-      case "portfolio":
-        loadPortfolio();
-        break;
-      case "my-projects":
-        loadMyProjects();
-        break;
-      case "services":
-        loadServices();
-        break;
-      case "saved":
-        loadSavedItems();
-        break;
-      default:
-        break;
-    }
-  }, [activeTab, isAuthenticated, loadPortfolio, loadMyProjects, loadServices, loadSavedItems]);
+    return () => {
+      if (bannerObjectUrl) URL.revokeObjectURL(bannerObjectUrl);
+    };
+  }, [bannerObjectUrl]);
 
   const handleProfileUpdate = async (updatedData) => {
     const result = await updateProfile(updatedData);
@@ -211,28 +165,6 @@ export default function Profile() {
     return { success: false, error: result.error };
   };
 
-  const handleCreatePortfolioItem = async (data) => {
-    try {
-      const response = await portfolioApi.createPortfolioItem(data);
-      const newItem = response.data.data;
-      setPortfolio((prev) => [...prev, newItem]);
-      return { success: true };
-    } catch (err) {
-      return { success: false, error: err.message || "Create failed" };
-    }
-  };
-
-  const handleUpdatePortfolioItem = async (id, data) => {
-    try {
-      const response = await portfolioApi.updatePortfolioItem(id, data);
-      const updated = response.data.data;
-      setPortfolio((prev) => prev.map((item) => (item.id === id ? updated : item)));
-      return { success: true };
-    } catch (err) {
-      return { success: false, error: err.message || "Update failed" };
-    }
-  };
-
   const handleDeletePortfolioItem = async (id) => {
     try {
       await portfolioApi.deletePortfolioItem(id);
@@ -240,16 +172,6 @@ export default function Profile() {
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message || "Delete failed" };
-    }
-  };
-
-  const handleRemoveSavedItem = async (savedItemId) => {
-    try {
-      await profileApi.removeSavedItem(savedItemId);
-      setSavedItems((prev) => prev.filter((item) => item.id !== savedItemId));
-      return { success: true };
-    } catch (err) {
-      return { success: false, error: err.message || "Remove failed" };
     }
   };
 
@@ -262,90 +184,179 @@ export default function Profile() {
     }
   };
 
-  const handleTabChange = (e, newValue) => {
-    setActiveTab(newValue);
-    setSearchParams(newValue === "basic" ? {} : { tab: newValue });
+  const onBannerFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    try {
+      const res = await profileApi.uploadProfileBanner(file);
+      const payload = res.data?.data;
+      const url = payload?.banner_url ?? payload?.user?.banner_url;
+      setBannerObjectUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      if (url) {
+        setProfile((p) => (p ? { ...p, banner_url: url } : p));
+      } else if (payload?.user) {
+        setProfile(payload.user);
+      }
+    } catch (err) {
+      console.error("Banner upload failed:", err);
+    }
   };
 
+  const bannerDisplayUrl = bannerObjectUrl || profile?.banner_url;
+
+  const clientAlternate = !isStudentRole ? (
+    <Box sx={{ mb: 6 }}>
+      <div className="profile-section-header">
+        <div className="profile-section-title">
+          <AssignmentIcon sx={{ color: "#0095D9", fontSize: 24 }} />
+          My Projects
+        </div>
+        <div className="profile-section-actions">
+          <button
+            type="button"
+            className="profile-section-add-btn"
+            onClick={() => navigate("/opportunities")}
+          >
+            <AddIcon sx={{ fontSize: 18 }} /> Post a Project Brief
+          </button>
+        </div>
+      </div>
+      <MyProjectsSection items={myProjects} hideOuterChrome />
+    </Box>
+  ) : null;
+
   return (
-    <PageLayout maxWidth="lg" variant="light">
-        <StateContainer loading={loading || profileLoading} error={error} onRetry={loadProfile}>
-          <Stack spacing={4}>
-            <ProfileEditHeader
+    <PageLayout noContainer>
+      <input
+        ref={bannerInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        style={{ display: "none" }}
+        onChange={onBannerFileChange}
+      />
+
+      <StateContainer loading={loading || profileLoading} error={error} onRetry={loadProfile}>
+        <ProfileView
+          profile={profile}
+          profileUserId={profile?.id}
+          portfolio={portfolio}
+          services={services}
+          isOwnProfile
+          bannerUrl={bannerDisplayUrl}
+          onChangeBackground={() => bannerInputRef.current?.click()}
+          onEditProfile={() => setEditDialogOpen(true)}
+          onAddService={isStudentRole ? () => setServicesDialogOpen(true) : undefined}
+          onAddProject={isStudentRole ? () => setPortfolioDialogOpen(true) : undefined}
+          onPortfolioEdit={
+            isStudentRole
+              ? (projectId) => {
+                  setPortfolioEditTriggerId(projectId);
+                  setPortfolioDialogOpen(true);
+                }
+              : undefined
+          }
+          alternateContent={clientAlternate}
+          showServicesAndPortfolio={isStudentRole}
+        />
+
+        <Dialog
+          open={editDialogOpen}
+          onClose={() => setEditDialogOpen(false)}
+          maxWidth="md"
+          fullWidth
+          scroll="paper"
+          PaperProps={{ sx: { borderRadius: 3 } }}
+        >
+          <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            Edit profile
+            <IconButton aria-label="Close" onClick={() => setEditDialogOpen(false)} size="small">
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent dividers>
+            <BasicInfoSection
               profile={profile}
-              services={services}
-              portfolio={isStudentRole ? portfolio : myProjects}
-              onNavigateBack={() => navigate("/dashboard")}
-              onPreview={() => profile?.id && navigate(`/users/${profile.id}`)}
+              isStudentRole={isStudentRole}
+              onUpdate={handleProfileUpdate}
+              onAvatarUpload={handleAvatarUpload}
+              compact
             />
+            <Divider sx={{ my: 3 }} />
+            <Typography variant="subtitle2" fontWeight={600} color="text.secondary" gutterBottom>
+              Account security
+            </Typography>
+            <SecuritySettings
+              profile={profile}
+              onPasswordChange={handlePasswordChange}
+              onProfileUpdate={handleProfileUpdate}
+            />
+          </DialogContent>
+        </Dialog>
 
-            <Paper sx={{ borderRadius: 3, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
-              <Tabs
-                value={activeTab}
-                onChange={handleTabChange}
-                variant="scrollable"
-                scrollButtons="auto"
-                sx={{
-                  borderBottom: "1px solid #e0e0e0",
-                  "& .MuiTab-root": { color: "#666", textTransform: "none", fontWeight: 600 },
-                  "& .Mui-selected": { color: "#1976d2" },
-                  "& .MuiTabs-indicator": { bgcolor: "#1976d2", height: 3 },
-                }}
-              >
-                {ALL_TABS.map((tab) => (
-                  <Tab key={tab.id} value={tab.id} label={tab.label} icon={tab.icon} iconPosition="start" />
-                ))}
-              </Tabs>
+        <Dialog
+          open={servicesDialogOpen}
+          onClose={() => setServicesDialogOpen(false)}
+          maxWidth="md"
+          fullWidth
+          scroll="paper"
+          PaperProps={{ sx: { borderRadius: 3 } }}
+        >
+          <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            Manage services
+            <IconButton aria-label="Close" onClick={() => setServicesDialogOpen(false)} size="small">
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent>
+            <ServicesSection
+              hideIntro
+              onSave={() => {
+                loadServices();
+              }}
+            />
+          </DialogContent>
+        </Dialog>
 
-              <Box sx={{ p: 4, minHeight: 400, bgcolor: "#fff" }}>
-                {activeTab === "basic" && (
-                  <BasicInfoSection
-                    profile={profile}
-                    isStudentRole={isStudentRole}
-                    onUpdate={handleProfileUpdate}
-                    onAvatarUpload={handleAvatarUpload}
-                  />
-                )}
-                {activeTab === "services" && (
-                  <ServicesSection onSave={loadServices} />
-                )}
-                {activeTab === "portfolio" && (
-                  <PortfolioSection
-                    items={portfolio}
-                    onCreate={handleCreatePortfolioItem}
-                    onUpdate={handleUpdatePortfolioItem}
-                    onDelete={handleDeletePortfolioItem}
-                  />
-                )}
-                {activeTab === "my-projects" && (
-                  <MyProjectsSection items={myProjects} onRefresh={loadMyProjects} />
-                )}
-                {activeTab === "saved" && (
-                  <SavedItemsSection
-                    items={savedItems}
-                    onRemove={handleRemoveSavedItem}
-                    onNavigate={(type, id) => {
-                      const routes = {
-                        opportunity: `/opportunities/${id}`,
-                        user: `/users/${id}`,
-                      };
-                      navigate(routes[type] || "/");
-                    }}
-                  />
-                )}
-                {activeTab === "settings" && (
-                  <Stack spacing={3}>
-                    <SecuritySettings
-                      profile={profile}
-                      onPasswordChange={handlePasswordChange}
-                      onProfileUpdate={handleProfileUpdate}
-                    />
-                  </Stack>
-                )}
-              </Box>
-            </Paper>
-          </Stack>
-        </StateContainer>
+        <Dialog
+          open={portfolioDialogOpen}
+          onClose={() => {
+            setPortfolioDialogOpen(false);
+            setPortfolioEditTriggerId(null);
+          }}
+          maxWidth="lg"
+          fullWidth
+          scroll="paper"
+          PaperProps={{ sx: { borderRadius: 3 } }}
+        >
+          <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            Manage portfolio
+            <IconButton
+              aria-label="Close"
+              onClick={() => {
+                setPortfolioDialogOpen(false);
+                setPortfolioEditTriggerId(null);
+              }}
+              size="small"
+            >
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent>
+            <PortfolioSection
+              hideIntro
+              items={portfolio}
+              onPortfolioRefresh={loadPortfolio}
+              onDelete={handleDeletePortfolioItem}
+              triggerEditForId={portfolioEditTriggerId}
+              onTriggerEditConsumed={consumePortfolioEditTrigger}
+            />
+          </DialogContent>
+        </Dialog>
+      </StateContainer>
     </PageLayout>
   );
 }

@@ -6,9 +6,10 @@ import "time"
 type FileType string
 
 const (
-	FileTypeAvatar      FileType = "avatar"
-	FileTypeProjectCover FileType = "project_cover"
-	FileTypePostImage   FileType = "post_image"
+	FileTypeAvatar        FileType = "avatar"
+	FileTypeProjectCover  FileType = "project_cover"
+	FileTypeProfileBanner FileType = "profile_banner"
+	FileTypePostImage     FileType = "post_image"
 	FileTypeResume      FileType = "resume"
 	FileTypeAIOutput    FileType = "ai_output"
 	FileTypeOther       FileType = "other"

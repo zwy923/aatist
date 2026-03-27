@@ -65,14 +65,50 @@ const SCHOOL_OPTIONS = [
   "School of Science",
 ];
 
-const DEPARTMENT_OPTIONS = [
-  "Design",
-  "Media",
-  "Architecture",
-  "Film",
-  "Visual Communication",
-  "Other",
-];
+// Departments and separate units per school (Aalto University structure)
+const SCHOOL_DEPARTMENTS = {
+  "School of Engineering": [
+    "Built Environment",
+    "Civil Engineering",
+    "Mechanical Engineering",
+  ],
+  "School of Business": [
+    "Accounting and Business Law",
+    "Economics",
+    "Finance",
+    "Management Studies",
+    "Marketing",
+    "Information and Service Management",
+    "Aalto EE",
+    "CKIR Mikkeli Campus",
+  ],
+  "School of Electrical Engineering": [
+    "Information and Communications Engineering",
+    "Electronics and Nanoengineering",
+    "Electrical Engineering and Automation",
+    "Metsähovi Radio Observatory",
+  ],
+  "School of Arts, Design and Architecture": [
+    "Architecture",
+    "Art and Media",
+    "Design",
+    "Film",
+  ],
+  "School of Chemical Engineering": [
+    "Bioproducts and Biosystems",
+    "Chemical and Metallurgical Engineering",
+    "Chemistry and Materials Science",
+  ],
+  "School of Science": [
+    "Applied Physics",
+    "Computer Science",
+    "Industrial Engineering and Management",
+    "Mathematics and Systems Analysis",
+    "Neuroscience and Biomedical Engineering",
+    "HIIT",
+    "EIT Digital",
+  ],
+};
 
 function Register() {
   const navigate = useNavigate();
@@ -87,8 +123,14 @@ function Register() {
     setClientForm((prev) => ({ ...prev, [field]: value }));
   };
   const updateStudent = (field, value) => {
-    setStudentForm((prev) => ({ ...prev, [field]: value }));
+    setStudentForm((prev) => {
+      const next = { ...prev, [field]: value };
+      if (field === "school") next.department = "";
+      return next;
+    });
   };
+
+  const departmentOptions = studentForm.school ? (SCHOOL_DEPARTMENTS[studentForm.school] ?? []) : [];
 
   const validatePassword = (password) => password.length >= 8;
 
@@ -133,7 +175,7 @@ function Register() {
 
     setSuccess(result.autoLogin ? "Account created successfully." : "Account created successfully. Please sign in.");
     setClientForm(createClientForm());
-    setTimeout(() => navigate(result.autoLogin ? "/dashboard" : "/auth/login/client"), 700);
+    setTimeout(() => navigate(result.autoLogin ? "/talents" : "/auth/login/client"), 700);
   };
 
   const submitStudent = async (event) => {
@@ -142,6 +184,14 @@ function Register() {
     setSuccess("");
 
     const email = `${studentForm.emailLocalPart.trim()}@aalto.fi`;
+    if (!studentForm.school) {
+      setError("Please select your school.");
+      return;
+    }
+    if (!studentForm.department) {
+      setError("Please select your department.");
+      return;
+    }
     if (!studentForm.agreed) {
       setError("Please confirm you are an Aalto student and agree to the policy.");
       return;
@@ -180,7 +230,7 @@ function Register() {
 
     setSuccess(result.autoLogin ? "Student account created successfully." : "Student account created successfully. Please sign in.");
     setStudentForm(createStudentForm());
-    setTimeout(() => navigate(result.autoLogin ? "/dashboard" : "/auth/login/student"), 700);
+    setTimeout(() => navigate(result.autoLogin ? "/talents" : "/auth/login/student"), 700);
   };
 
   // Step 1: Join selection
@@ -462,10 +512,10 @@ function Register() {
               </div>
               <div className="register-field">
                 <label>Department<span className="required">*</span></label>
-                <FormControl fullWidth required size="small">
+                <FormControl fullWidth required size="small" disabled={!studentForm.school}>
                   <Select displayEmpty value={studentForm.department} onChange={(e) => updateStudent("department", e.target.value)}>
-                    <MenuItem value="" disabled>Select department</MenuItem>
-                    {DEPARTMENT_OPTIONS.map((d) => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+                    <MenuItem value="" disabled>{studentForm.school ? "Select department" : "Select school first"}</MenuItem>
+                    {departmentOptions.map((d) => <MenuItem key={d} value={d}>{d}</MenuItem>)}
                   </Select>
                 </FormControl>
               </div>

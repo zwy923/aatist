@@ -169,6 +169,7 @@ func main() {
 		protectedUsers.GET("/me", authHandler.GetCurrentUserHandler)
 		protectedUsers.PATCH("/me", authHandler.UpdateCurrentUserHandler)
 		protectedUsers.POST("/me/avatar", authHandler.UploadAvatarHandler)
+		protectedUsers.POST("/me/banner", authHandler.UploadProfileBannerHandler)
 		protectedUsers.PATCH("/me/password", authHandler.ChangePasswordHandler)
 		protectedUsers.GET("/me/saved", authHandler.GetSavedItemsHandler)
 		protectedUsers.POST("/me/saved", authHandler.SaveItemHandler)

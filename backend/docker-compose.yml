@@ -104,7 +104,7 @@ services:
       S3_SECRET_KEY: minioadmin
       S3_BUCKET: avatars
       S3_USE_SSL: "false"
-      S3_PUBLIC_URL: http://localhost:9000/files
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL:-http://localhost:9000/files}
       GATEWAY_URL: http://gateway:8080
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-}
     ports:
@@ -152,7 +152,7 @@ services:
       S3_SECRET_KEY: minioadmin
       S3_BUCKET: files
       S3_USE_SSL: "false"
-      S3_PUBLIC_URL: http://localhost:9000/files
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL:-http://localhost:9000/files}
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-}
       INTERNAL_ALLOWED_IPS: ${INTERNAL_ALLOWED_IPS:-}
     ports:

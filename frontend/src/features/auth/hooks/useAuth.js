@@ -13,7 +13,7 @@ export const useAuth = () => {
             setAuth(user, access_token, refresh_token);
             return { success: true };
         } catch (error) {
-            return { success: false, error: error.message };
+            return { success: false, error: error.message, code: error.code };
         } finally {
             setLoading(false);
         }

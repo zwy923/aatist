@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
 import Landing from "./pages/Landing.jsx";
 import Login from "./pages/Login.jsx";
@@ -8,7 +8,6 @@ import ClientLogin from "./pages/ClientLogin.jsx";
 import StudentLogin from "./pages/StudentLogin.jsx";
 import AuthCallback from "./pages/AuthCallback.jsx";
 import Register from "./pages/Register.jsx";
-import Dashboard from "./pages/Dashboard.jsx";
 import Profile from "./pages/Profile.jsx";
 import Verify from "./pages/Verify.jsx";
 import MessagesPage from "./pages/Messages.jsx";
@@ -16,6 +15,8 @@ import OpportunitiesPage from "./pages/Opportunities.jsx";
 import OpportunityDetailPage from "./pages/OpportunityDetail.jsx";
 import TalentsPage from "./pages/Talents.jsx";
 import PublicProfilePage from "./pages/PublicProfile.jsx";
+import ServiceDetailPage from "./pages/ServiceDetail.jsx";
+import PortfolioDetailPage from "./pages/PortfolioDetail.jsx";
 import AboutPage from "./pages/About.jsx";
 import TermsPage from "./pages/Terms.jsx";
 import AuthSessionGate from "./shared/components/auth/AuthSessionGate.jsx";
@@ -73,7 +74,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             <Route path="/auth/login/student" element={<StudentLogin />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/auth/register" element={<Register />} />
-            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/dashboard" element={<Navigate to="/talents" replace />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/verify" element={<Verify />} />
             <Route path="/messages" element={<MessagesPage />} />
@@ -82,6 +83,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             <Route path="/talents" element={<TalentsPage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/terms" element={<TermsPage />} />
+            <Route path="/portfolio/:id" element={<PortfolioDetailPage />} />
+            <Route path="/users/:userId/services/:serviceId" element={<ServiceDetailPage />} />
             <Route path="/users/:id" element={<PublicProfilePage />} />
           </Routes>
           </ChatProvider>

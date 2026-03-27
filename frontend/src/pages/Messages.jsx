@@ -208,6 +208,18 @@ const MessagesPage = () => {
         return [newConv, ...prev];
       });
       setSelectedId(convId);
+      try {
+        const raw = sessionStorage.getItem("aatist_chat_prefill");
+        if (raw) {
+          const p = JSON.parse(raw);
+          if (Number(p.forUser) === Number(otherUserId) && typeof p.text === "string") {
+            setDrafts((prev) => ({ ...prev, [convId]: p.text }));
+            sessionStorage.removeItem("aatist_chat_prefill");
+          }
+        }
+      } catch (_) {
+        /* ignore */
+      }
     } catch (e) {
       console.warn("Start conversation failed", e);
     } finally {

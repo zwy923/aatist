@@ -100,7 +100,11 @@ func (h *PortfolioHandler) GetUserPortfolioHandler(c *gin.Context) {
 		return
 	}
 
-	projects, err := h.projectSvc.GetUserProjects(c.Request.Context(), req.ID)
+	var viewer *int64
+	if uid, err := middleware.GetUserID(c); err == nil {
+		viewer = &uid
+	}
+	projects, err := h.projectSvc.GetUserPortfolioForProfile(c.Request.Context(), req.ID, viewer)
 	if err != nil {
 		h.handleServiceError(c, err)
 		return
@@ -141,29 +145,57 @@ func (h *PortfolioHandler) CreateProjectHandler(c *gin.Context) {
 	}
 
 	var req struct {
-		Title           string   `json:"title" binding:"required"`
-		ServiceCategory *string  `json:"service_category"`
-		ClientName      *string  `json:"client_name"`
-		Description     *string  `json:"description"`
-		Year            *int     `json:"year"`
-		Tags            []string `json:"tags"`
-		CoverImageURL   *string  `json:"cover_image_url"`
-		ProjectLink     *string  `json:"project_link"`
+		Title             string   `json:"title" binding:"required"`
+		ShortCaption      *string  `json:"short_caption"`
+		ServiceCategory   *string  `json:"service_category"`
+		ClientName        *string  `json:"client_name"`
+		Description       *string  `json:"description"`
+		Year              *int     `json:"year"`
+		Tags              []string `json:"tags"`
+		MediaURLs         []string `json:"media_urls"`
+		RelatedServices   []string `json:"related_services"`
+		CoCreators        []struct {
+			Email string `json:"email"`
+			Name  string `json:"name"`
+		} `json:"co_creators"`
+		CoverImageURL *string `json:"cover_image_url"`
+		ProjectLink   *string `json:"project_link"`
+		IsPublished   *bool   `json:"is_published"`
+		IsPublic      *bool   `json:"is_public"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, err.Error())
 		return
 	}
 
+	cc := make(model.CoCreatorsArray, 0, len(req.CoCreators))
+	for _, x := range req.CoCreators {
+		cc = append(cc, model.PortfolioCoCreator{Email: x.Email, Name: x.Name})
+	}
+	published := true
+	if req.IsPublished != nil {
+		published = *req.IsPublished
+	}
+	public := true
+	if req.IsPublic != nil {
+		public = *req.IsPublic
+	}
+
 	project := &model.Project{
-		Title:           req.Title,
-		ServiceCategory: req.ServiceCategory,
-		ClientName:      req.ClientName,
-		Description:     req.Description,
-		Year:            req.Year,
-		Tags:            model.StringArray(req.Tags),
-		CoverImageURL:   req.CoverImageURL,
-		ProjectLink:     req.ProjectLink,
+		Title:             req.Title,
+		ShortCaption:      req.ShortCaption,
+		ServiceCategory:   req.ServiceCategory,
+		ClientName:        req.ClientName,
+		Description:       req.Description,
+		Year:              req.Year,
+		Tags:              model.StringArray(req.Tags),
+		MediaURLs:         model.StringArray(req.MediaURLs),
+		RelatedServices:   model.StringArray(req.RelatedServices),
+		CoCreators:        cc,
+		CoverImageURL:     req.CoverImageURL,
+		ProjectLink:       req.ProjectLink,
+		IsPublished:       published,
+		IsPublic:          public,
 	}
 
 	if err := h.projectSvc.CreateProject(c.Request.Context(), userID, project); err != nil {
@@ -191,30 +223,58 @@ func (h *PortfolioHandler) UpdateProjectHandler(c *gin.Context) {
 	}
 
 	var req struct {
-		Title           string   `json:"title" binding:"required"`
-		ServiceCategory *string  `json:"service_category"`
-		ClientName      *string  `json:"client_name"`
-		Description     *string  `json:"description"`
-		Year            *int     `json:"year"`
-		Tags            []string `json:"tags"`
-		CoverImageURL   *string  `json:"cover_image_url"`
-		ProjectLink     *string  `json:"project_link"`
+		Title             string   `json:"title" binding:"required"`
+		ShortCaption      *string  `json:"short_caption"`
+		ServiceCategory   *string  `json:"service_category"`
+		ClientName        *string  `json:"client_name"`
+		Description       *string  `json:"description"`
+		Year              *int     `json:"year"`
+		Tags              []string `json:"tags"`
+		MediaURLs         []string `json:"media_urls"`
+		RelatedServices   []string `json:"related_services"`
+		CoCreators        []struct {
+			Email string `json:"email"`
+			Name  string `json:"name"`
+		} `json:"co_creators"`
+		CoverImageURL *string `json:"cover_image_url"`
+		ProjectLink   *string `json:"project_link"`
+		IsPublished   *bool   `json:"is_published"`
+		IsPublic      *bool   `json:"is_public"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, err.Error())
 		return
 	}
 
+	cc := make(model.CoCreatorsArray, 0, len(req.CoCreators))
+	for _, x := range req.CoCreators {
+		cc = append(cc, model.PortfolioCoCreator{Email: x.Email, Name: x.Name})
+	}
+	published := true
+	if req.IsPublished != nil {
+		published = *req.IsPublished
+	}
+	public := true
+	if req.IsPublic != nil {
+		public = *req.IsPublic
+	}
+
 	project := &model.Project{
-		ID:              uriReq.ID,
-		Title:           req.Title,
-		ServiceCategory: req.ServiceCategory,
-		ClientName:      req.ClientName,
-		Description:     req.Description,
-		Year:            req.Year,
-		Tags:            model.StringArray(req.Tags),
-		CoverImageURL:   req.CoverImageURL,
-		ProjectLink:     req.ProjectLink,
+		ID:                uriReq.ID,
+		Title:             req.Title,
+		ShortCaption:      req.ShortCaption,
+		ServiceCategory:   req.ServiceCategory,
+		ClientName:        req.ClientName,
+		Description:       req.Description,
+		Year:              req.Year,
+		Tags:              model.StringArray(req.Tags),
+		MediaURLs:         model.StringArray(req.MediaURLs),
+		RelatedServices:   model.StringArray(req.RelatedServices),
+		CoCreators:        cc,
+		CoverImageURL:     req.CoverImageURL,
+		ProjectLink:       req.ProjectLink,
+		IsPublished:       published,
+		IsPublic:          public,
 	}
 
 	if err := h.projectSvc.UpdateProject(c.Request.Context(), userID, project); err != nil {

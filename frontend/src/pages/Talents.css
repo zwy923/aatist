@@ -655,7 +655,7 @@
   flex-shrink: 0;
 }
 
-/* Green upload icon - floats above banner */
+/* Green float - scroll to top, sits above banner */
 .talents-upload-float {
   position: fixed;
   bottom: 90px;
@@ -667,6 +667,8 @@
   background: #22c55e;
   color: #fff;
   border: none;
+  padding: 0;
+  font: inherit;
   display: inline-flex;
   align-items: center;
   justify-content: center;

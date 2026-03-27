@@ -92,6 +92,7 @@ func registerProtectedRoutes(group *gin.RouterGroup, getTimeout func(string) tim
 				{"GET", "/users/me"},
 				{"PATCH", "/users/me"},
 				{"POST", "/users/me/avatar"},
+				{"POST", "/users/me/banner"},
 				{"PATCH", "/users/me/password"},
 				{"GET", "/users/me/saved"},
 				{"POST", "/users/me/saved"},

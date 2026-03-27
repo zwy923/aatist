@@ -42,7 +42,7 @@ Object.entries(BROAD_CATEGORIES).forEach(([broad, specifics]) => {
   specifics.forEach((s) => FLAT_SERVICES.push({ broad, specific: s }));
 });
 
-export default function ServicesSection({ onSave }) {
+export default function ServicesSection({ onSave, hideIntro = false }) {
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -216,12 +216,16 @@ export default function ServicesSection({ onSave }) {
 
   return (
     <>
-      <Typography variant="h6" fontWeight={600} color="#1a1a1a" gutterBottom>
-        Your Service Offerings
-      </Typography>
-      <Typography variant="body2" color="#666" sx={{ mb: 3 }}>
-        Add services you can offer to clients. Include descriptions, pricing, and examples of your work.
-      </Typography>
+      {!hideIntro && (
+        <>
+          <Typography variant="h6" fontWeight={600} color="#1a1a1a" gutterBottom>
+            Your Service Offerings
+          </Typography>
+          <Typography variant="body2" color="#666" sx={{ mb: 3 }}>
+            Add services you can offer to clients. Include descriptions, pricing, and examples of your work.
+          </Typography>
+        </>
+      )}
 
       <Stack spacing={2}>
         {services.map((s) => (

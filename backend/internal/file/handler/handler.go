@@ -58,15 +58,18 @@ func (h *FileHandler) UploadFileHandler(c *gin.Context) {
 		return
 	}
 
-	// Parse file type from query parameter
+	// Set max memory for multipart form (32MB)
+	c.Request.ParseMultipartForm(maxMemory)
+
+	// Type from query (browser uploads) or form field (internal multipart client)
 	fileTypeStr := c.Query("type")
+	if fileTypeStr == "" {
+		fileTypeStr = c.PostForm("type")
+	}
 	if fileTypeStr == "" {
 		fileTypeStr = string(model.FileTypeOther)
 	}
 	fileType := model.FileType(fileTypeStr)
-
-	// Set max memory for multipart form (32MB)
-	c.Request.ParseMultipartForm(maxMemory)
 
 	// Get file from form
 	fileHeader, err := c.FormFile("file")
@@ -265,7 +268,7 @@ func (h *FileHandler) validateFileSize(fileType model.FileType, size int64) erro
 	switch fileType {
 	case model.FileTypeAvatar:
 		maxSize = 5 * 1024 * 1024 // 5MB
-	case model.FileTypeProjectCover, model.FileTypePostImage:
+	case model.FileTypeProjectCover, model.FileTypePostImage, model.FileTypeProfileBanner:
 		maxSize = 10 * 1024 * 1024 // 10MB
 	case model.FileTypeResume:
 		maxSize = 5 * 1024 * 1024 // 5MB
@@ -284,7 +287,7 @@ func (h *FileHandler) validateFileSize(fileType model.FileType, size int64) erro
 
 func (h *FileHandler) isValidContentType(fileType model.FileType, contentType string) bool {
 	switch fileType {
-	case model.FileTypeAvatar, model.FileTypeProjectCover, model.FileTypePostImage:
+	case model.FileTypeAvatar, model.FileTypeProjectCover, model.FileTypePostImage, model.FileTypeProfileBanner:
 		_, ok := allowedImageTypes[contentType]
 		return ok
 	case model.FileTypeResume:

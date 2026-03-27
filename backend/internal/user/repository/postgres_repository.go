@@ -12,7 +12,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-const userSelectColumns = `id, email, password_hash, name, avatar_url, role,
+const userSelectColumns = `id, email, password_hash, name, avatar_url, banner_url, role,
 	bio, website, linkedin, behance, languages, professional_interests, guided_profile_questions,
 	profile_visibility, portfolio_visibility,
 	is_verified_email, role_verified, oauth_provider, oauth_subject, last_login_at, failed_attempts, locked_until,
@@ -310,6 +310,17 @@ func (r *postgresRepository) UpdateAvatarURL(ctx context.Context, userID int64, 
 	var updated model.User
 	if err := r.db.QueryRowxContext(ctx, query, avatarURL, time.Now(), userID).StructScan(&updated); err != nil {
 		return nil, fmt.Errorf("failed to update avatar url: %w", err)
+	}
+
+	return &updated, nil
+}
+
+func (r *postgresRepository) UpdateBannerURL(ctx context.Context, userID int64, bannerURL string) (*model.User, error) {
+	query := fmt.Sprintf(`UPDATE users SET banner_url = $1, updated_at = $2 WHERE id = $3 RETURNING %s`, userSelectColumns)
+
+	var updated model.User
+	if err := r.db.QueryRowxContext(ctx, query, bannerURL, time.Now(), userID).StructScan(&updated); err != nil {
+		return nil, fmt.Errorf("failed to update banner url: %w", err)
 	}
 
 	return &updated, nil

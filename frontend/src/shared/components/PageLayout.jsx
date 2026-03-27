@@ -27,6 +27,13 @@ const NAV_LINKS = [
 
 const isLinkActive = (pathname, linkPath) => {
   if (linkPath === "/") return pathname === "/";
+  if (linkPath === "/talents") {
+    return (
+      pathname === "/talents" ||
+      /^\/users\/[^/]+\/services\//.test(pathname) ||
+      /^\/portfolio\//.test(pathname)
+    );
+  }
   return pathname === linkPath || pathname.startsWith(`${linkPath}/`);
 };
 
@@ -98,7 +105,7 @@ const PageLayout = ({ children, maxWidth = "xl", noContainer = false }) => {
                     type="button"
                     className="icon-button"
                     aria-label="Notifications"
-                    onClick={() => navigate("/dashboard")}
+                    onClick={() => navigate("/talents")}
                   >
                     <NotificationsNoneIcon fontSize="small" />
                   </button>
@@ -157,34 +164,10 @@ const PageLayout = ({ children, maxWidth = "xl", noContainer = false }) => {
             <MenuItem
               onClick={() => {
                 handleMenuClose();
-                navigate("/dashboard");
-              }}
-            >
-              Dashboard
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                handleMenuClose();
                 navigate("/profile");
               }}
             >
               My profile
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                handleMenuClose();
-                navigate("/profile?tab=saved");
-              }}
-            >
-              Saved items
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                handleMenuClose();
-                navigate("/profile?tab=settings");
-              }}
-            >
-              Settings
             </MenuItem>
             <Divider sx={{ my: 1 }} />
             <MenuItem onClick={handleLogout}>

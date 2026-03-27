@@ -80,14 +80,14 @@ export default function Login() {
     });
 
     if (!result.success) {
-      setError(result.error || "Sign in failed, please try again.");
+      setError(result.code === "USER_NOT_REGISTERED" ? "该邮箱尚未注册，请先注册" : (result.error || "Sign in failed, please try again."));
       return;
     }
 
     if (!remember) {
       localStorage.removeItem("refresh_token");
     }
-    navigate("/dashboard");
+    navigate("/talents");
   };
 
   return (

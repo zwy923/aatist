@@ -40,10 +40,21 @@
   gap: 32px;
 }
 
-.profile-hero-btn-change-bg {
+/* Top-right actions: flex avoids overlap when labels are long (fixed right offsets were too tight) */
+.profile-hero-actions {
   position: absolute;
   top: 24px;
   right: 24px;
+  left: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  z-index: 2;
+}
+
+.profile-hero-btn-change-bg {
   padding: 8px 16px;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.15);
@@ -52,12 +63,10 @@
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .profile-hero-btn-edit {
-  position: absolute;
-  top: 24px;
-  right: 180px;
   padding: 8px 20px;
   border-radius: 8px;
   background: #0095D9;
@@ -66,6 +75,7 @@
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .profile-hero-avatar {
@@ -403,6 +413,38 @@
   font-size: 24px;
 }
 
+.profile-section-chevron-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  line-height: 0;
+}
+
+.profile-section-chevron-btn:hover {
+  background: #f0f0f0;
+}
+
+.profile-services-list {
+  flex-direction: column;
+  align-items: stretch;
+  overflow-x: visible;
+}
+
+.profile-services-list .profile-service-card {
+  min-width: unset;
+  max-width: unset;
+  width: 100%;
+}
+
+.profile-portfolio-list {
+  grid-template-columns: 1fr;
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 @media (max-width: 900px) {
   .profile-hero-overlay {
     flex-direction: column;
@@ -422,6 +464,12 @@
 @media (max-width: 600px) {
   .profile-content {
     padding: 24px 16px;
+  }
+
+  .profile-hero-actions {
+    top: 16px;
+    right: 16px;
+    left: 16px;
   }
 
   .profile-hero-meta {

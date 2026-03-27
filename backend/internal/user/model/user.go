@@ -155,6 +155,7 @@ type User struct {
 	PasswordHash      *string           `db:"password_hash" json:"-"` // OAuth users may not have password
 	Name              string            `db:"name" json:"name"`
 	AvatarURL         *string           `db:"avatar_url" json:"avatar_url,omitempty"`
+	BannerURL         *string           `db:"banner_url" json:"banner_url,omitempty"`
 	Role              Role              `db:"role" json:"role"`
 	Bio               *string           `db:"bio" json:"bio,omitempty"`
 	Website           *string           `db:"website" json:"website,omitempty"`

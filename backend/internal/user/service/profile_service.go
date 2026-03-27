@@ -52,8 +52,10 @@ type ProfileService interface {
 	GetUserSummary(ctx context.Context, userID int64) (*UserSummary, error)
 	UpdateProfile(ctx context.Context, userID int64, input UpdateProfileInput) (*model.User, error)
 	UploadAvatar(ctx context.Context, userID int64, reader io.Reader, size int64, contentType, filename string) (*model.User, error)
+	UploadProfileBanner(ctx context.Context, userID int64, reader io.Reader, size int64, contentType, filename string) (*model.User, error)
 	EnsureProfileUpdateRateLimit(ctx context.Context, userID int64) error
 	EnsureAvatarUploadRateLimit(ctx context.Context, userID int64) error
+	EnsureBannerUploadRateLimit(ctx context.Context, userID int64) error
 	FilterSkillsByPrefix(ctx context.Context, userID int64, prefix string) ([]model.Skill, error)
 	SearchSkills(ctx context.Context, query string, limit int) ([]model.SkillMetadata, error)
 	SearchCourses(ctx context.Context, query string, limit int) ([]model.CourseMetadata, error)
@@ -78,6 +80,7 @@ type profileService struct {
 	avatarURLPrefix   string
 	profileRateLimit  rateLimitConfig
 	avatarUploadLimit rateLimitConfig
+	bannerUploadLimit rateLimitConfig
 }
 
 type rateLimitConfig struct {
@@ -120,6 +123,11 @@ func NewProfileService(
 		},
 		avatarUploadLimit: rateLimitConfig{
 			KeyFormat: "rate:avatar:%d",
+			Limit:     3,
+			Window:    time.Minute,
+		},
+		bannerUploadLimit: rateLimitConfig{
+			KeyFormat: "rate:profile_banner:%d",
 			Limit:     3,
 			Window:    time.Minute,
 		},
@@ -298,6 +306,53 @@ func (s *profileService) UploadAvatar(ctx context.Context, userID int64, reader 
 	return updatedUser, nil
 }
 
+func (s *profileService) UploadProfileBanner(ctx context.Context, userID int64, reader io.Reader, size int64, contentType, filename string) (*model.User, error) {
+	if s.fileClient == nil {
+		panic("fileClient is nil in UploadProfileBanner")
+	}
+	if size <= 0 {
+		return nil, fmt.Errorf("invalid file size")
+	}
+
+	user, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	fileResp, err := s.fileClient.UploadFile(ctx, userID, user.Role.String(), user.Email, "profile_banner", reader, size, contentType, filename)
+	if err != nil {
+		if s.logger != nil {
+			s.logger.Error("profile banner upload failed",
+				zap.Int64("user_id", userID),
+				zap.String("content_type", contentType),
+				zap.Int64("size", size),
+				zap.Error(err),
+			)
+		}
+		return nil, fmt.Errorf("failed to upload profile banner: %w", err)
+	}
+
+	url := fileResp.Data.URL
+	if s.avatarURLPrefix != "" && !strings.HasPrefix(url, s.avatarURLPrefix) {
+		return nil, fmt.Errorf("unexpected banner url domain")
+	}
+
+	updatedUser, err := s.userRepo.UpdateBannerURL(ctx, userID, url)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.logger != nil {
+		s.logger.Info("profile banner uploaded",
+			zap.Int64("user_id", userID),
+			zap.String("content_type", contentType),
+			zap.Int64("size", size),
+		)
+	}
+
+	return updatedUser, nil
+}
+
 func (s *profileService) EnsureProfileUpdateRateLimit(ctx context.Context, userID int64) error {
 	return s.enforceRateLimit(ctx, s.profileRateLimit, userID)
 }
@@ -310,6 +365,14 @@ func (s *profileService) EnsureAvatarUploadRateLimit(ctx context.Context, userID
 		return nil
 	}
 	return s.enforceRateLimit(ctx, s.avatarUploadLimit, userID)
+}
+
+func (s *profileService) EnsureBannerUploadRateLimit(ctx context.Context, userID int64) error {
+	if s.redis == nil {
+		s.logger.Warn("redis is nil, skipping rate limit", zap.Int64("user_id", userID))
+		return nil
+	}
+	return s.enforceRateLimit(ctx, s.bannerUploadLimit, userID)
 }
 
 func (s *profileService) FilterSkillsByPrefix(ctx context.Context, userID int64, prefix string) ([]model.Skill, error) {

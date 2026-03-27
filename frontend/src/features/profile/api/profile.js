@@ -14,6 +14,13 @@ export const profileApi = {
             headers: { 'Content-Type': 'multipart/form-data' },
         });
     },
+    uploadProfileBanner: (file) => {
+        const formData = new FormData();
+        formData.append('banner', file);
+        return apiClient.post('/users/me/banner', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+    },
     changePassword: (currentPassword, newPassword) =>
         apiClient.patch('/users/me/password', { current_password: currentPassword, new_password: newPassword }),
     getSavedItems: (params) => apiClient.get('/users/me/saved', { params }),

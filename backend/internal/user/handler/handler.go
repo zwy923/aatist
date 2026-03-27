@@ -23,6 +23,8 @@ import (
 const (
 	avatarFormField = "avatar"
 	maxAvatarSize   = 5 * 1024 * 1024 // 5MB
+	bannerFormField = "banner"
+	maxBannerSize   = 10 * 1024 * 1024 // 10MB
 )
 
 var allowedAvatarTypes = map[string]struct{}{
@@ -481,6 +483,93 @@ func (h *AuthHandler) UploadAvatarHandler(c *gin.Context) {
 	}))
 }
 
+// UploadProfileBannerHandler handles profile cover / banner uploads (multipart field "banner").
+func (h *AuthHandler) UploadProfileBannerHandler(c *gin.Context) {
+	if h.logger == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "logger is nil"})
+		return
+	}
+	if h.profileSvc == nil {
+		h.logger.Error("profileSvc is nil")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "profile service not configured"})
+		return
+	}
+
+	userID, err := middleware.GetUserID(c)
+	if err != nil {
+		h.respondError(c, http.StatusUnauthorized, errs.ErrUnauthorized, "unauthorized")
+		return
+	}
+
+	if err := h.profileSvc.EnsureBannerUploadRateLimit(c.Request.Context(), userID); err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+
+	fileHeader, err := c.FormFile(bannerFormField)
+	if err != nil {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "banner file is required")
+		return
+	}
+
+	if fileHeader.Size == 0 || fileHeader.Size > maxBannerSize {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "banner size exceeds limit (10MB)")
+		return
+	}
+
+	src, err := fileHeader.Open()
+	if err != nil {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "failed to open uploaded file")
+		return
+	}
+	defer src.Close()
+
+	sniff := make([]byte, 512)
+	n, err := io.ReadFull(src, sniff)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "failed to read uploaded file")
+		return
+	}
+	if n == 0 {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "empty file")
+		return
+	}
+
+	contentType := http.DetectContentType(sniff[:n])
+	if _, ok := allowedAvatarTypes[contentType]; !ok {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "unsupported image type")
+		return
+	}
+
+	reader := io.MultiReader(bytes.NewReader(sniff[:n]), src)
+	filename := fileHeader.Filename
+	if ext := filepath.Ext(filename); ext == "" {
+		filename = filename + guessExtensionForType(contentType)
+	}
+
+	profile, err := h.profileSvc.UploadProfileBanner(c.Request.Context(), userID, reader, fileHeader.Size, contentType, filename)
+	if err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+
+	var updatedAt string
+	var lastUpdated *string
+	if !profile.UpdatedAt.IsZero() {
+		updatedAt = profile.UpdatedAt.Format(time.RFC3339)
+	}
+	if updatedAt != "" {
+		lastUpdated = &updatedAt
+	}
+
+	c.JSON(http.StatusOK, response.Success(gin.H{
+		"banner_url":      profile.BannerURL,
+		"file_size":       fileHeader.Size,
+		"last_updated_at": lastUpdated,
+		"user":            mapUserToResponse(profile),
+	}))
+}
+
 // AddUserSkillHandler handles POST /users/me/skills
 func (h *AuthHandler) AddUserSkillHandler(c *gin.Context) {
 	userID, err := middleware.GetUserID(c)
@@ -846,6 +935,7 @@ func mapUserToResponse(user *model.User) UserResponse {
 		Email:                user.Email,
 		Name:                 user.Name,
 		AvatarURL:            user.AvatarURL,
+		BannerURL:            user.BannerURL,
 		Role:                 user.Role.String(),
 		Bio:                  user.Bio,
 		Website:              user.Website,
@@ -1077,6 +1167,7 @@ func mapUserToPublicResponse(user *model.User) gin.H {
 		"id":                   user.ID,
 		"name":                 user.Name,
 		"avatar_url":           user.AvatarURL,
+		"banner_url":           user.BannerURL,
 		"role":                 user.Role.String(),
 		"bio":                  user.Bio,
 		"role_verified":        user.RoleVerified,

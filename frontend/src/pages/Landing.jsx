@@ -198,7 +198,7 @@ function Landing() {
                 type="button"
                 className="icon-button"
                 aria-label="Account"
-                onClick={() => navigate("/dashboard")}
+                onClick={() => navigate("/talents")}
               >
                 <AccountCircleIcon fontSize="small" />
               </button>

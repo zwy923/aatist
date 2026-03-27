@@ -4,8 +4,59 @@ import AddIcon from "@mui/icons-material/Add";
 import { useNavigate } from "react-router-dom";
 import OpportunityCard from "../../features/opportunities/components/OpportunityCard";
 
-export default function MyProjectsSection({ items, onRefresh }) {
+export default function MyProjectsSection({ items, hideOuterChrome = false }) {
   const navigate = useNavigate();
+
+  const helperText = hideOuterChrome
+    ? "Projects you've posted for talent to apply."
+    : "Projects you've posted for talent to apply. Manage them from the Opportunities page.";
+
+  const list =
+    items.length === 0 ? (
+      <Box
+        sx={{
+          py: 6,
+          textAlign: "center",
+          border: "1px dashed #e0e0e0",
+          borderRadius: 2,
+          bgcolor: "#fafafa",
+        }}
+      >
+        <Typography variant="body1" color="text.secondary" gutterBottom>
+          No projects posted yet
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Post a project brief to find talented students for your work.
+        </Typography>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => navigate("/opportunities")}
+          sx={{ textTransform: "none", fontWeight: 600 }}
+        >
+          Post a Project Brief
+        </Button>
+      </Box>
+    ) : (
+      <Grid container spacing={2}>
+        {items.map((opp) => (
+          <Grid item xs={12} sm={6} md={4} key={opp.id}>
+            <OpportunityCard opportunity={opp} />
+          </Grid>
+        ))}
+      </Grid>
+    );
+
+  if (hideOuterChrome) {
+    return (
+      <Box sx={{ p: 0 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {helperText}
+        </Typography>
+        {list}
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ p: 0 }}>
@@ -23,42 +74,9 @@ export default function MyProjectsSection({ items, onRefresh }) {
         </Button>
       </Stack>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Projects you&apos;ve posted for talent to apply. Manage them from the Opportunities page.
+        {helperText}
       </Typography>
-      {items.length === 0 ? (
-        <Box
-          sx={{
-            py: 6,
-            textAlign: "center",
-            border: "1px dashed #e0e0e0",
-            borderRadius: 2,
-            bgcolor: "#fafafa",
-          }}
-        >
-          <Typography variant="body1" color="text.secondary" gutterBottom>
-            No projects posted yet
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Post a project brief to find talented students for your work.
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => navigate("/opportunities")}
-            sx={{ textTransform: "none", fontWeight: 600 }}
-          >
-            Post a Project Brief
-          </Button>
-        </Box>
-      ) : (
-        <Grid container spacing={2}>
-          {items.map((opp) => (
-            <Grid item xs={12} sm={6} md={4} key={opp.id}>
-              <OpportunityCard opportunity={opp} />
-            </Grid>
-          ))}
-        </Grid>
-      )}
+      {list}
     </Box>
   );
 }

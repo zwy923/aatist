@@ -7,8 +7,9 @@ import (
 
 // Error codes
 const (
-	CodeUserNotFound       = "USER_NOT_FOUND"
-	CodeInvalidCredentials = "INVALID_CREDENTIALS"
+	CodeUserNotFound        = "USER_NOT_FOUND"
+	CodeUserNotRegistered   = "USER_NOT_REGISTERED"
+	CodeInvalidCredentials  = "INVALID_CREDENTIALS"
 	CodeAccountLocked      = "ACCOUNT_LOCKED"
 	CodeEmailExists        = "EMAIL_EXISTS"
 	CodeInvalidToken       = "INVALID_TOKEN"

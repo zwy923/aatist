@@ -1,5 +1,6 @@
--- Aalto Talent Network - 完整数据库 schema
--- 合并自原 001-010 迁移
+-- Aalto Talent Network - 完整数据库 schema + 元数据种子
+-- 合并自原 001-010 迁移；种子数据原 002_seed.sql 已并入本文件
+-- 原 002_portfolio_wizard.sql（projects：short_caption、media_urls、related_services、co_creators、is_published、is_public）已并入下方 CREATE TABLE projects，不再单独迁移
 
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
@@ -20,6 +21,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255),
     name VARCHAR(100) NOT NULL,
     avatar_url TEXT,
+    banner_url TEXT,
     role VARCHAR(20) NOT NULL DEFAULT 'student' CHECK (role IN ('student', 'alumni', 'org_person', 'org_team')),
     bio TEXT,
     profile_visibility VARCHAR(20) NOT NULL DEFAULT 'public' CHECK (profile_visibility IN ('public', 'aalto_only', 'private')),
@@ -78,13 +80,19 @@ CREATE TABLE IF NOT EXISTS projects (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
+    short_caption VARCHAR(120),
     description TEXT,
     year INTEGER CHECK (year IS NULL OR (year >= 1900 AND year <= EXTRACT(YEAR FROM NOW()) + 1)),
     tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+    media_urls JSONB NOT NULL DEFAULT '[]'::jsonb,
+    related_services JSONB NOT NULL DEFAULT '[]'::jsonb,
+    co_creators JSONB NOT NULL DEFAULT '[]'::jsonb,
     cover_image_url TEXT,
     project_link TEXT,
     client_name VARCHAR(255),
     service_category VARCHAR(100),
+    is_published BOOLEAN NOT NULL DEFAULT TRUE,
+    is_public BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
@@ -132,7 +140,7 @@ CREATE INDEX IF NOT EXISTS idx_notifications_type ON notifications(type);
 CREATE TABLE IF NOT EXISTS files (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
-    type VARCHAR(50) NOT NULL CHECK (type IN ('avatar', 'project_cover', 'post_image', 'resume', 'ai_output', 'other')),
+    type VARCHAR(50) NOT NULL CHECK (type IN ('avatar', 'project_cover', 'profile_banner', 'post_image', 'resume', 'ai_output', 'other')),
     object_key VARCHAR(500) NOT NULL,
     url TEXT NOT NULL,
     filename VARCHAR(255) NOT NULL,
@@ -372,3 +380,30 @@ CREATE INDEX IF NOT EXISTS idx_user_services_user_id ON user_services(user_id);
 DROP TRIGGER IF EXISTS update_user_services_updated_at ON user_services;
 CREATE TRIGGER update_user_services_updated_at BEFORE UPDATE ON user_services
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ========== 种子数据（skills / tags）==========
+INSERT INTO skills (name, category) VALUES
+('React', 'Frontend'),
+('Vue.js', 'Frontend'),
+('Angular', 'Frontend'),
+('Go', 'Backend'),
+('Python', 'Backend'),
+('Node.js', 'Backend'),
+('PostgreSQL', 'Database'),
+('MongoDB', 'Database'),
+('Docker', 'DevOps'),
+('Kubernetes', 'DevOps')
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO tags (name, type) VALUES
+('Full-time', 'opportunity_type'),
+('Part-time', 'opportunity_type'),
+('Internship', 'opportunity_type'),
+('Freelance', 'opportunity_type'),
+('Software Development', 'opportunity_category'),
+('Design', 'opportunity_category'),
+('Marketing', 'opportunity_category'),
+('General', 'post_category'),
+('Question', 'post_category'),
+('Announcement', 'post_category')
+ON CONFLICT (name, type) DO NOTHING;

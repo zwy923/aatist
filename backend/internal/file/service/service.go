@@ -319,7 +319,7 @@ func validateFileSize(fileType model.FileType, size int64) error {
 	switch fileType {
 	case model.FileTypeAvatar:
 		maxSize = 5 * 1024 * 1024 // 5MB
-	case model.FileTypeProjectCover, model.FileTypePostImage:
+	case model.FileTypeProjectCover, model.FileTypePostImage, model.FileTypeProfileBanner:
 		maxSize = 10 * 1024 * 1024 // 10MB
 	case model.FileTypeResume:
 		maxSize = 5 * 1024 * 1024 // 5MB
@@ -353,7 +353,7 @@ func validateContentType(fileType model.FileType, contentType string) error {
 
 func getAllowedContentTypes(fileType model.FileType) []string {
 	switch fileType {
-	case model.FileTypeAvatar, model.FileTypeProjectCover, model.FileTypePostImage:
+	case model.FileTypeAvatar, model.FileTypeProjectCover, model.FileTypePostImage, model.FileTypeProfileBanner:
 		return []string{"image/jpeg", "image/png", "image/webp", "image/gif"}
 	case model.FileTypeResume:
 		return []string{"application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
@@ -366,7 +366,7 @@ func getAllowedContentTypes(fileType model.FileType) []string {
 
 func isValidFileType(fileType model.FileType) bool {
 	switch fileType {
-	case model.FileTypeAvatar, model.FileTypeProjectCover, model.FileTypePostImage,
+	case model.FileTypeAvatar, model.FileTypeProjectCover, model.FileTypeProfileBanner, model.FileTypePostImage,
 		model.FileTypeResume, model.FileTypeAIOutput, model.FileTypeOther:
 		return true
 	default:
@@ -379,6 +379,8 @@ func generateObjectKey(fileType model.FileType, userID int64, ext string) string
 	switch fileType {
 	case model.FileTypeAvatar:
 		return fmt.Sprintf("avatars/%d/%s%s", userID, uuidStr, ext)
+	case model.FileTypeProfileBanner:
+		return fmt.Sprintf("banners/%d/%s%s", userID, uuidStr, ext)
 	case model.FileTypeProjectCover:
 		return fmt.Sprintf("projects/%d/%s%s", userID, uuidStr, ext)
 	case model.FileTypePostImage:

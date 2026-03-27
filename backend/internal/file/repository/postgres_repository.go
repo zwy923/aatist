@@ -161,6 +161,11 @@ func (r *postgresFileRepository) ClearReferencesByURL(ctx context.Context, url s
 			`UPDATE projects SET cover_image_url = NULL, updated_at = NOW() WHERE cover_image_url = $1 AND user_id = $2`,
 			url, userID)
 		return err
+	case model.FileTypeProfileBanner:
+		_, err := r.db.ExecContext(ctx,
+			`UPDATE users SET banner_url = NULL, updated_at = NOW() WHERE banner_url = $1 AND id = $2`,
+			url, userID)
+		return err
 	default:
 		return nil
 	}

@@ -28,8 +28,7 @@ import {
     AttachMoney as AttachMoneyIcon,
     Message as MessageIcon,
     KeyboardArrowUp as ArrowUpIcon,
-    ArrowForward as ArrowForwardIcon,
-    CloudUpload as CloudUploadIcon
+    ArrowForward as ArrowForwardIcon
 } from '@mui/icons-material';
 import { useNavigate, Link } from 'react-router-dom';
 import PageLayout from '../shared/components/PageLayout';
@@ -216,7 +215,22 @@ const TalentCard = ({ student }) => {
                 </div>
 
                 {/* Service */}
-                <div className="talent-card-service-section">
+                <div
+                    className="talent-card-service-section"
+                    role={primaryService?.id ? "button" : undefined}
+                    tabIndex={primaryService?.id ? 0 : undefined}
+                    onClick={() => {
+                        if (primaryService?.id) navigate(`/users/${student.id}/services/${primaryService.id}`);
+                    }}
+                    onKeyDown={(e) => {
+                        if (!primaryService?.id) return;
+                        if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            navigate(`/users/${student.id}/services/${primaryService.id}`);
+                        }
+                    }}
+                    style={{ cursor: primaryService?.id ? "pointer" : undefined }}
+                >
                     <div className="talent-card-service-label">
                         Service <AttachMoneyIcon sx={{ fontSize: 16, color: '#999' }} />
                     </div>
@@ -623,13 +637,14 @@ const Talents = () => {
                 {/* Bottom overlay: Post request banner */}
                 {hasSearched && (
                     <>
-                        <Link
-                            to="/opportunities"
+                        <button
+                            type="button"
                             className="talents-upload-float"
-                            aria-label="Post a request"
+                            aria-label="Scroll to top"
+                            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                         >
-                            <CloudUploadIcon sx={{ fontSize: 28 }} />
-                        </Link>
+                            <ArrowUpIcon sx={{ fontSize: 28 }} />
+                        </button>
                         <Link
                             to="/opportunities"
                             className="talents-post-request-banner"

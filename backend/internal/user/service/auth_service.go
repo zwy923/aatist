@@ -284,11 +284,10 @@ func (s *authService) Login(ctx context.Context, email, password, ip, loginType 
 	// Find user (using normalized email)
 	user, err := s.userRepo.FindByEmail(ctx, normalizedEmail)
 	if err != nil {
-		// Use same error message for security (don't reveal if email exists)
 		s.handleFailedLogin(ctx, nil, ip)
 		s.logger.Warn("Login failed: user not found", zap.String("email", email), zap.String("ip", ip))
 		metrics.LoginFailureTotal.Inc()
-		return nil, nil, errs.NewAppError(errs.ErrInvalidCredentials, 401, "invalid email or password")
+		return nil, nil, errs.NewAppError(errs.ErrUserNotFound, 404, "account not registered").WithCode(errs.CodeUserNotRegistered)
 	}
 
 	// Check if email is verified (skip when email verification is disabled)

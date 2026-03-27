@@ -23,7 +23,13 @@ import LinkedInIcon from "@mui/icons-material/LinkedIn";
 import PaletteIcon from "@mui/icons-material/Palette";
 import InputAdornment from "@mui/material/InputAdornment";
 
-export default function BasicInfoSection({ profile, isStudentRole, onUpdate, onAvatarUpload }) {
+export default function BasicInfoSection({
+  profile,
+  isStudentRole,
+  onUpdate,
+  onAvatarUpload,
+  compact = false,
+}) {
   const [formData, setFormData] = useState({});
   const [saving, setSaving] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -105,28 +111,30 @@ export default function BasicInfoSection({ profile, isStudentRole, onUpdate, onA
 
   return (
     <>
-      <Box
-        sx={{
-          p: 2,
-          mb: 3,
-          borderRadius: 2,
-          background: "linear-gradient(135deg, rgba(25, 118, 210, 0.15) 0%, rgba(156, 39, 176, 0.15) 100%)",
-          border: "1px solid rgba(25, 118, 210, 0.3)",
-        }}
-      >
-        <Stack direction="row" alignItems="center" spacing={1}>
-          <PersonIcon sx={{ color: "#1976d2", fontSize: 28 }} />
-          <Box>
-            <Typography variant="subtitle1" fontWeight={600} color="#1a1a1a">
-              Edit Your Public Profile
-            </Typography>
-            <Typography variant="body2" color="#666">
-              All information below will be visible on your public profile to potential clients.
-              Make sure to showcase your best self!
-            </Typography>
-          </Box>
-        </Stack>
-      </Box>
+      {!compact && (
+        <Box
+          sx={{
+            p: 2,
+            mb: 3,
+            borderRadius: 2,
+            background: "linear-gradient(135deg, rgba(25, 118, 210, 0.15) 0%, rgba(156, 39, 176, 0.15) 100%)",
+            border: "1px solid rgba(25, 118, 210, 0.3)",
+          }}
+        >
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <PersonIcon sx={{ color: "#1976d2", fontSize: 28 }} />
+            <Box>
+              <Typography variant="subtitle1" fontWeight={600} color="#1a1a1a">
+                Edit Your Public Profile
+              </Typography>
+              <Typography variant="body2" color="#666">
+                All information below will be visible on your public profile to potential clients.
+                Make sure to showcase your best self!
+              </Typography>
+            </Box>
+          </Stack>
+        </Box>
+      )}
 
       {onAvatarUpload && (
         <Box sx={{ mb: 3 }}>

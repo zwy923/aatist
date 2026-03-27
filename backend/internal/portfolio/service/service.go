@@ -11,6 +11,8 @@ import (
 // ProjectService defines the interface for project operations
 type ProjectService interface {
 	GetUserProjects(ctx context.Context, userID int64) ([]*model.Project, error)
+	// GetUserPortfolioForProfile returns projects for a profile; owner sees all, others only published+public.
+	GetUserPortfolioForProfile(ctx context.Context, profileUserID int64, viewerUserID *int64) ([]*model.Project, error)
 	GetProject(ctx context.Context, id int64) (*model.Project, error)
 	GetPublicProjects(ctx context.Context, limit, offset int) ([]*model.Project, error)
 	CreateProject(ctx context.Context, userID int64, project *model.Project) error
@@ -38,6 +40,13 @@ func NewProjectService(projectRepo repository.ProjectRepository, userClient User
 
 func (s *projectService) GetUserProjects(ctx context.Context, userID int64) ([]*model.Project, error) {
 	return s.projectRepo.FindByUserID(ctx, userID)
+}
+
+func (s *projectService) GetUserPortfolioForProfile(ctx context.Context, profileUserID int64, viewerUserID *int64) ([]*model.Project, error) {
+	if viewerUserID != nil && *viewerUserID == profileUserID {
+		return s.projectRepo.FindByUserID(ctx, profileUserID)
+	}
+	return s.projectRepo.FindPublishedPublicByUserID(ctx, profileUserID)
 }
 
 func (s *projectService) GetProject(ctx context.Context, id int64) (*model.Project, error) {

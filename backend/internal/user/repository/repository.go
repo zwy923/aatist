@@ -40,6 +40,9 @@ type UserRepository interface {
 	// UpdateAvatarURL updates the avatar URL independently
 	UpdateAvatarURL(ctx context.Context, userID int64, avatarURL string) (*model.User, error)
 
+	// UpdateBannerURL updates the profile banner/cover image URL independently
+	UpdateBannerURL(ctx context.Context, userID int64, bannerURL string) (*model.User, error)
+
 	// UpdatePassword updates user's password hash
 	UpdatePassword(ctx context.Context, userID int64, passwordHash string) error
 
