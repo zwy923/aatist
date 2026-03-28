@@ -1,8 +1,8 @@
 import apiClient from '../../../shared/api/client';
 
 export const opportunitiesApi = {
-    getOpportunities: (params) => apiClient.get('/opportunities', { params }),
-    getOpportunity: (id) => apiClient.get(`/opportunities/${id}`),
+    getOpportunities: (params, axiosConfig = {}) => apiClient.get('/opportunities', { params, ...axiosConfig }),
+    getOpportunity: (id, axiosConfig = {}) => apiClient.get(`/opportunities/${id}`, axiosConfig),
     getMyOpportunities: (params) => apiClient.get('/opportunities/me', { params }),
     createOpportunity: (data) => apiClient.post('/opportunities', data),
     applyToOpportunity: (id, data) => apiClient.post(`/opportunities/${id}/apply`, data),

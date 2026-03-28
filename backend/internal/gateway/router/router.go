@@ -110,8 +110,6 @@ func registerProtectedRoutes(group *gin.RouterGroup, getTimeout func(string) tim
 				{"POST", "/users/me/portfolio"},
 				{"PATCH", "/users/me/portfolio/:id"},
 				{"DELETE", "/users/me/portfolio/:id"},
-				{"GET", "/opportunities"},
-				{"GET", "/opportunities/:id"},
 				{"POST", "/opportunities"},
 				{"PATCH", "/opportunities/:id"},
 				{"DELETE", "/opportunities/:id"},
@@ -169,6 +167,8 @@ func registerPublicRoutes(group *gin.RouterGroup, getTimeout func(string) time.D
 			Routes: []RouteDef{
 				{"GET", "/users/check-username"},
 				{"GET", "/users/check-email"},
+				{"GET", "/opportunities"},
+				{"GET", "/opportunities/:id"},
 				{"GET", "/users/:id"},
 				{"GET", "/users/:id/summary"},
 				{"GET", "/stats/overview"},

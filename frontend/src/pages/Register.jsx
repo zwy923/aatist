@@ -155,6 +155,14 @@ function Register() {
       setError("Passwords do not match.");
       return;
     }
+    if (!clientForm.company.trim()) {
+      setError("Company name is required.");
+      return;
+    }
+    if (!clientForm.title.trim()) {
+      setError("Your role / title is required.");
+      return;
+    }
 
     const payload = {
       name: clientForm.name.trim(),
@@ -194,6 +202,14 @@ function Register() {
     }
     if (!studentForm.agreed) {
       setError("Please confirm you are an Aalto student and agree to the policy.");
+      return;
+    }
+    if (!studentForm.name.trim()) {
+      setError("Name is required.");
+      return;
+    }
+    if (!studentForm.program.trim()) {
+      setError("Program / major is required.");
       return;
     }
     if (!studentForm.emailLocalPart.trim()) {

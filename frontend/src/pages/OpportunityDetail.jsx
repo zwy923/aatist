@@ -30,7 +30,8 @@ export default function OpportunityDetailPage() {
   const [opportunity, setOpportunity] = useState(null);
   const [applyModalOpen, setApplyModalOpen] = useState(false);
 
-  const loadData = useCallback(async () => {
+  const reloadOpportunity = useCallback(async () => {
+    if (!id) return;
     try {
       setLoading(true);
       setError(null);
@@ -38,8 +39,9 @@ export default function OpportunityDetailPage() {
       const data = res.data?.data;
       setOpportunity(data || null);
     } catch (e) {
+      if (e.code === "ERR_CANCELED" || e.name === "CanceledError") return;
       console.error("Opportunity load error:", e);
-      setError("Failed to load opportunity");
+      setError(e.message || "Failed to load opportunity");
       setOpportunity(null);
     } finally {
       setLoading(false);
@@ -47,8 +49,35 @@ export default function OpportunityDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (!id) {
+      setLoading(false);
+      setError("Invalid opportunity link.");
+      setOpportunity(null);
+      return;
+    }
+    const ac = new AbortController();
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await opportunitiesApi.getOpportunity(id, { signal: ac.signal });
+        if (ac.signal.aborted) return;
+        const data = res.data?.data;
+        setOpportunity(data || null);
+      } catch (e) {
+        if (e.code === "ERR_CANCELED" || e.name === "CanceledError") return;
+        if (ac.signal.aborted) return;
+        console.error("Opportunity load error:", e);
+        setError(e.message || "Failed to load opportunity");
+        setOpportunity(null);
+      } finally {
+        if (!ac.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    })();
+    return () => ac.abort();
+  }, [id]);
 
   const formatDate = (dateStr) => {
     if (!dateStr) return "N/A";
@@ -60,7 +89,7 @@ export default function OpportunityDetailPage() {
   };
 
   const handleApplySuccess = () => {
-    loadData();
+    reloadOpportunity();
   };
 
   return (

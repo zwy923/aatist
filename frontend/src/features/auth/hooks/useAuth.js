@@ -30,7 +30,12 @@ export const useAuth = () => {
             }
             return { success: true, autoLogin: false };
         } catch (error) {
-            return { success: false, error: error.message };
+            const apiMsg = error?.response?.data?.error?.message;
+            const msg =
+                (typeof apiMsg === 'string' && apiMsg.trim() && apiMsg) ||
+                error?.message ||
+                'Registration failed.';
+            return { success: false, error: msg };
         } finally {
             setLoading(false);
         }

@@ -59,32 +59,64 @@ export default function OpportunitiesPage() {
   const activeCategory = searchParams.get("category") || "";
   const canPostOpportunity = isAuthenticated && isClientRole(user?.role);
 
-  const loadOpportunities = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  const fetchOpportunityList = useCallback(
+    async (signal) => {
       const params = {
         page: 1,
         limit: 50,
         status: "active",
       };
       if (activeCategory) params.category = activeCategory;
-      const response = await opportunitiesApi.getOpportunities(params);
+      const reqCfg = signal ? { signal } : {};
+      const response = await opportunitiesApi.getOpportunities(params, reqCfg);
       const data = response.data?.data;
       const list = data?.data || data || [];
-      setOpportunities(Array.isArray(list) ? list : []);
+      return Array.isArray(list) ? list : [];
+    },
+    [activeCategory]
+  );
+
+  const loadOpportunities = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const list = await fetchOpportunityList();
+      setOpportunities(list);
     } catch (err) {
+      if (err.code === "ERR_CANCELED" || err.name === "CanceledError") return;
       console.error("Failed to load opportunities:", err);
-      setError("Failed to load opportunities. Please try again.");
+      setError(err.message || "Failed to load opportunities. Please try again.");
       setOpportunities([]);
     } finally {
       setLoading(false);
     }
-  }, [activeCategory]);
+  }, [fetchOpportunityList]);
 
   useEffect(() => {
-    loadOpportunities();
-  }, [loadOpportunities]);
+    const ac = new AbortController();
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const list = await fetchOpportunityList(ac.signal);
+        if (ac.signal.aborted) return;
+        setOpportunities(list);
+      } catch (err) {
+        if (err.code === "ERR_CANCELED" || err.name === "CanceledError") return;
+        if (ac.signal.aborted) return;
+        console.error("Failed to load opportunities:", err);
+        setError(err.message || "Failed to load opportunities. Please try again.");
+        setOpportunities([]);
+      } finally {
+        if (!ac.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    })();
+    return () => {
+      ac.abort();
+    };
+  }, [fetchOpportunityList]);
 
   const filteredOpportunities = useMemo(() => {
     let list = opportunities;
