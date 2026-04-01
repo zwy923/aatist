@@ -47,7 +47,8 @@ frontend/build/
 Dockerfile~
 docker-compose.override.yml
 docker-data/
-data/
+# Only ignore data at repo root (not frontend/src/data/ etc.)
+/data/
 tmp/
 *.sock
 
