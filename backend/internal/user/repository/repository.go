@@ -28,6 +28,9 @@ type UserRepository interface {
 	// FindByEmail finds a user by email
 	FindByEmail(ctx context.Context, email string) (*model.User, error)
 
+	// FindByOAuth finds a user by OAuth provider and subject (IdP stable user id)
+	FindByOAuth(ctx context.Context, provider, subject string) (*model.User, error)
+
 	// FindByID finds a user by ID
 	FindByID(ctx context.Context, id int64) (*model.User, error)
 

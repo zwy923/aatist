@@ -5,14 +5,14 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
+  Checkbox,
   FormControl,
   FormControlLabel,
+  FormGroup,
   FormLabel,
   IconButton,
   InputLabel,
   MenuItem,
-  Radio,
-  RadioGroup,
   Select,
   Stack,
   TextField,
@@ -28,6 +28,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
 import { profileApi, portfolioApi } from "../../features/profile/api/profile";
+import { encodePriceTypePayload, formatServicePriceLine, parsePriceTypeTokens } from "../../shared/utils/priceType";
 
 const BROAD_CATEGORIES = {
   Design: ["Logo Design", "Brand Identity", "Illustration", "Print Design", "Presentation Design", "Infographics"],
@@ -55,7 +56,9 @@ export default function ServicesSection({ onSave, hideIntro = false }) {
     title: "",
     description: "",
     shortDescription: "",
-    priceType: "negotiable",
+    priceHourly: false,
+    priceProject: false,
+    priceNegotiable: true,
     priceMin: "",
     priceMax: "",
     mediaUrls: [],
@@ -85,7 +88,9 @@ export default function ServicesSection({ onSave, hideIntro = false }) {
       title: "",
       description: "",
       shortDescription: "",
-      priceType: "negotiable",
+      priceHourly: false,
+      priceProject: false,
+      priceNegotiable: true,
       priceMin: "",
       priceMax: "",
       mediaUrls: [],
@@ -102,13 +107,17 @@ export default function ServicesSection({ onSave, hideIntro = false }) {
     const [broad, specific] = (s.category || "").includes(" > ")
       ? (s.category || "").split(" > ")
       : [s.category || "", ""];
+    const tokens = parsePriceTypeTokens(s.price_type);
+    const hasAny = tokens.length > 0;
     setFormData({
       broadCategory: broad,
       specificService: specific || broad,
       title: s.title || "",
       description: s.description || s.experience_summary || "",
       shortDescription: s.short_description || "",
-      priceType: s.price_type || "negotiable",
+      priceHourly: tokens.includes("hourly"),
+      priceProject: tokens.includes("project"),
+      priceNegotiable: hasAny ? tokens.includes("negotiable") : true,
       priceMin: s.price_min != null ? String(s.price_min) : "",
       priceMax: s.price_max != null ? String(s.price_max) : "",
       mediaUrls: s.media_urls || [],
@@ -169,6 +178,10 @@ export default function ServicesSection({ onSave, hideIntro = false }) {
       setSnackbar({ open: true, message: "Please add a description", severity: "error" });
       return;
     }
+    if (!formData.priceHourly && !formData.priceProject && !formData.priceNegotiable) {
+      setSnackbar({ open: true, message: "Select at least one pricing option", severity: "error" });
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -177,7 +190,11 @@ export default function ServicesSection({ onSave, hideIntro = false }) {
         title: formData.title.trim() || null,
         description: formData.description.trim() || null,
         short_description: formData.shortDescription.trim() || null,
-        price_type: formData.priceType || null,
+        price_type: encodePriceTypePayload({
+          hourly: formData.priceHourly,
+          project: formData.priceProject,
+          negotiable: formData.priceNegotiable,
+        }),
         price_min: formData.priceMin ? parseInt(formData.priceMin, 10) : null,
         price_max: formData.priceMax ? parseInt(formData.priceMax, 10) : null,
         media_urls: formData.mediaUrls,
@@ -246,12 +263,9 @@ export default function ServicesSection({ onSave, hideIntro = false }) {
                 <Typography variant="body2" color="text.secondary">
                   {s.short_description || s.experience_summary || s.description}
                 </Typography>
-                {(s.price_type === "hourly" || s.price_type === "project") && s.price_min != null && (
-                  <Typography variant="caption" color="text.secondary">
-                    €{s.price_min}
-                    {s.price_max != null ? ` - €${s.price_max}` : ""} {s.price_type === "hourly" ? "/hr" : ""}
-                  </Typography>
-                )}
+                <Typography variant="caption" color="text.secondary">
+                  {formatServicePriceLine(s)}
+                </Typography>
               </Box>
               <Stack direction="row" spacing={0.5}>
                 <IconButton size="small" onClick={() => handleOpenEdit(s)}>
@@ -363,12 +377,36 @@ export default function ServicesSection({ onSave, hideIntro = false }) {
             {/* Section 3: How much do you charge? */}
             <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "rgba(149, 227, 186, 0.08)", borderColor: "rgba(149, 227, 186, 0.4)" }}>
               <FormLabel component="legend" sx={{ fontWeight: 600, mb: 1 }}>How much do you charge?</FormLabel>
-              <RadioGroup value={formData.priceType} onChange={handleChange("priceType")}>
-                <FormControlLabel value="hourly" control={<Radio />} label="Hourly range" />
-                <FormControlLabel value="project" control={<Radio />} label="Project-based" />
-                <FormControlLabel value="negotiable" control={<Radio />} label="Negotiable" />
-              </RadioGroup>
-              {(formData.priceType === "hourly" || formData.priceType === "project") && (
+              <FormGroup>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={formData.priceHourly}
+                      onChange={(e) => setFormData((p) => ({ ...p, priceHourly: e.target.checked }))}
+                    />
+                  }
+                  label="Hourly range"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={formData.priceProject}
+                      onChange={(e) => setFormData((p) => ({ ...p, priceProject: e.target.checked }))}
+                    />
+                  }
+                  label="Project-based"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={formData.priceNegotiable}
+                      onChange={(e) => setFormData((p) => ({ ...p, priceNegotiable: e.target.checked }))}
+                    />
+                  }
+                  label="Negotiable"
+                />
+              </FormGroup>
+              {(formData.priceHourly || formData.priceProject) && (
                 <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 2 }}>
                   <span>€</span>
                   <TextField type="number" size="small" label="Min" value={formData.priceMin} onChange={handleChange("priceMin")} sx={{ width: 100 }} />

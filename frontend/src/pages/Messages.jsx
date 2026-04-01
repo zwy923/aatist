@@ -28,6 +28,8 @@ import {
   Tooltip,
   TextField,
   Button,
+  Link,
+  Snackbar,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";
@@ -41,7 +43,64 @@ import { useChat } from "../features/messages/ChatProvider";
 import { conversationId } from "../features/messages/useChatWebSocket";
 import { useChatUnreadStore } from "../shared/stores/chatUnreadStore";
 import { messagesApi } from "../features/messages/api/messages";
+import { formatChatPreview, parseChatPayload } from "../features/messages/chatPayload";
 import { profileApi } from "../features/profile/api/profile";
+import apiClient from "../shared/api/client";
+
+const MAX_CHAT_ATTACHMENT_BYTES = 100 * 1024 * 1024;
+
+function ChatMessageContent({ text, fromMe }) {
+  const parsed = parseChatPayload(text);
+  if (parsed.type === "text") {
+    return (
+      <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+        {parsed.text}
+      </Typography>
+    );
+  }
+  const isImg = parsed.mime.startsWith("image/");
+  const linkColor = fromMe ? "rgba(255,255,255,0.95)" : "primary.main";
+  return (
+    <Stack spacing={1}>
+      {parsed.caption ? (
+        <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+          {parsed.caption}
+        </Typography>
+      ) : null}
+      {isImg ? (
+        <Box
+          component="a"
+          href={parsed.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          sx={{ display: "block", maxWidth: 280 }}
+        >
+          <Box
+            component="img"
+            src={parsed.url}
+            alt={parsed.name}
+            sx={{ maxWidth: "100%", borderRadius: 2, display: "block" }}
+          />
+        </Box>
+      ) : (
+        <Link
+          href={parsed.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          underline="hover"
+          sx={{
+            color: linkColor,
+            fontWeight: 600,
+            wordBreak: "break-all",
+            fontSize: 14,
+          }}
+        >
+          📎 {parsed.name}
+        </Link>
+      )}
+    </Stack>
+  );
+}
 
 const OnlineBadge = (props) => (
   <Badge
@@ -59,7 +118,7 @@ const OnlineBadge = (props) => (
   />
 );
 
-const MessageBubble = ({ fromMe, children, timestamp }) => {
+const MessageBubble = ({ fromMe, text, timestamp }) => {
   const theme = useTheme();
   const align = fromMe ? "flex-end" : "flex-start";
   const bg = fromMe
@@ -85,12 +144,7 @@ const MessageBubble = ({ fromMe, children, timestamp }) => {
             : "1px solid #e2e8f0",
         }}
       >
-        <Typography
-          variant="body2"
-          sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
-        >
-          {children}
-        </Typography>
+        <ChatMessageContent text={text} fromMe={fromMe} />
       </Box>
       {timestamp && (
         <Typography
@@ -138,6 +192,9 @@ const MessagesPage = () => {
   const [moreMenuAnchor, setMoreMenuAnchor] = useState(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const chatFileInputRef = useRef(null);
+  const [attachUploading, setAttachUploading] = useState(false);
+  const [toast, setToast] = useState({ open: false, message: "" });
 
   const loadConversations = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -155,7 +212,7 @@ const MessagesPage = () => {
           otherUserAvatar: c.other_user_avatar,
           name,
           subtitle,
-          lastMessage: c.last_message || "",
+          lastMessage: formatChatPreview(c.last_message || ""),
           updatedAt: c.last_at ? new Date(c.last_at).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "",
           updatedAtTs: c.last_at ? new Date(c.last_at).getTime() : 0,
           unread: c.unread_count ?? 0,
@@ -308,7 +365,7 @@ const MessagesPage = () => {
           otherUserId: otherUserID,
           name: otherUserID ? `User ${otherUserID}` : "Unknown user",
           subtitle: "",
-          lastMessage: lastText,
+          lastMessage: formatChatPreview(lastText),
           updatedAt: formatted,
           updatedAtTs: timestamp,
           unread: 0,
@@ -319,7 +376,7 @@ const MessagesPage = () => {
       const prev = byID.get(convID);
       byID.set(convID, {
         ...prev,
-        lastMessage: lastText || prev.lastMessage,
+        lastMessage: lastText ? formatChatPreview(lastText) : prev.lastMessage,
         updatedAt: formatted || prev.updatedAt,
         updatedAtTs: timestamp || prev.updatedAtTs || 0,
       });
@@ -474,8 +531,48 @@ const MessagesPage = () => {
   const handleSend = () => {
     const text = drafts[selectedId]?.trim();
     if (!text) return;
-    if (activeConversationId && sendMessage(activeConversationId, text, `t-${Date.now()}`)) {
+    if (activeConversationId && sendMessage(activeConversationId, text, `t-${Date.now()}`, null)) {
       setDrafts((prev) => ({ ...prev, [selectedId]: "" }));
+    }
+  };
+
+  const handleChatFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !activeConversationId || !isAuthenticated) return;
+    if (file.size > MAX_CHAT_ATTACHMENT_BYTES) {
+      setToast({ open: true, message: "File must be 100MB or smaller." });
+      return;
+    }
+    setAttachUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await apiClient.post("/files/upload?type=other", formData);
+      const data = res.data?.data;
+      const url = data?.url;
+      if (!url) throw new Error("Upload did not return a file URL.");
+      const caption = (drafts[selectedId] || "").trim();
+      const tempId = `t-${Date.now()}`;
+      const sent = sendMessage(activeConversationId, caption, tempId, {
+        url,
+        filename: data?.filename || file.name,
+        mime: data?.content_type || file.type || "application/octet-stream",
+      });
+      if (sent) {
+        setDrafts((prev) => ({ ...prev, [selectedId]: "" }));
+      } else {
+        setToast({ open: true, message: "Could not send — check your chat connection." });
+      }
+    } catch (err) {
+      const wrapped = err?.response?.data?.error?.message;
+      const msg =
+        typeof wrapped === "string" && wrapped.trim()
+          ? wrapped
+          : err?.message || "Upload failed.";
+      setToast({ open: true, message: msg });
+    } finally {
+      setAttachUploading(false);
     }
   };
 
@@ -886,6 +983,7 @@ const MessagesPage = () => {
                   <MessageBubble
                     key={m.id || m.temp_id}
                     fromMe={m.fromMe}
+                    text={m.text}
                     timestamp={
                       m.createdAt
                         ? (m.createdAt.length > 10
@@ -898,9 +996,7 @@ const MessagesPage = () => {
                           : m.createdAt)
                         : ""
                     }
-                  >
-                    {m.text}
-                  </MessageBubble>
+                  />
                 ))}
                 </>
                 )}
@@ -916,17 +1012,36 @@ const MessagesPage = () => {
                 }}
               >
                 <Stack direction="row" spacing={1.5} alignItems="flex-end">
-                  <Tooltip title="Attach files">
-                    <IconButton
-                      size="small"
-                      sx={{
-                        color: "text.secondary",
-                        bgcolor: "#f8fafc",
-                        borderRadius: 2,
-                      }}
-                    >
-                      <AttachFileIcon fontSize="small" />
-                    </IconButton>
+                  <input
+                    ref={chatFileInputRef}
+                    type="file"
+                    hidden
+                    onChange={handleChatFileChange}
+                  />
+                  <Tooltip title={attachUploading ? "Uploading…" : "Attach a file"}>
+                    <span>
+                      <IconButton
+                        size="small"
+                        disabled={
+                          !isAuthenticated ||
+                          !activeConversationId ||
+                          attachUploading ||
+                          connectionStatus !== "open"
+                        }
+                        sx={{
+                          color: "text.secondary",
+                          bgcolor: "#f8fafc",
+                          borderRadius: 2,
+                        }}
+                        onClick={() => chatFileInputRef.current?.click()}
+                      >
+                        {attachUploading ? (
+                          <CircularProgress size={18} thickness={5} />
+                        ) : (
+                          <AttachFileIcon fontSize="small" />
+                        )}
+                      </IconButton>
+                    </span>
                   </Tooltip>
                   <TextField
                     multiline
@@ -1094,6 +1209,14 @@ const MessagesPage = () => {
         </Button>
       </DialogActions>
     </Dialog>
+
+    <Snackbar
+      open={toast.open}
+      autoHideDuration={6000}
+      onClose={() => setToast((t) => ({ ...t, open: false }))}
+      message={toast.message}
+      anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+    />
     </>
   );
 };

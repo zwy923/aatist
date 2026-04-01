@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { CHAT_FILE_PREFIX } from './chatPayload';
 
 const API_WS_BASE = (() => {
   const u = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
@@ -138,11 +139,27 @@ export function useChatWebSocket(accessToken, currentUserId) {
   }, [connect]);
 
   const sendMessage = useCallback(
-    (conversationId, content, tempId) => {
+    (conversationId, content, tempId, attachment) => {
       const ws = wsRef.current;
-      const trimmed = content.trim();
-      if (!trimmed || !currentUserIdStr) return false;
+      const trimmed = (content || '').trim();
+      const hasFile =
+        attachment &&
+        typeof attachment.url === 'string' &&
+        attachment.url.trim() !== '';
+      if ((!trimmed && !hasFile) || !currentUserIdStr) return false;
       if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+
+      let payload = trimmed;
+      if (hasFile) {
+        const filePayload = {
+          url: attachment.url.trim(),
+          name: (attachment.filename || attachment.name || 'file').trim() || 'file',
+          mime: (attachment.mime || attachment.content_type || 'application/octet-stream').trim(),
+        };
+        if (trimmed) filePayload.t = trimmed;
+        payload = CHAT_FILE_PREFIX + JSON.stringify(filePayload);
+      }
+      if (payload.length > 60000) return false;
 
       // optimistic append for better UX, deduped by temp_id after server ack
       const optimisticTempID = tempId || `t-${Date.now()}`;
@@ -151,14 +168,14 @@ export function useChatWebSocket(accessToken, currentUserId) {
         temp_id: optimisticTempID,
         from_user_id: currentUserIdStr,
         fromMe: true,
-        text: trimmed,
+        text: payload,
         createdAt: new Date().toISOString(),
       });
       ws.send(
         JSON.stringify({
           type: 'message',
           conversation_id: conversationId,
-          content: trimmed,
+          content: payload,
           temp_id: optimisticTempID,
         })
       );

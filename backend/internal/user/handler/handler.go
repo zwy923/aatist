@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aatist/backend/internal/platform/config"
 	"github.com/aatist/backend/internal/platform/log"
 	"github.com/aatist/backend/internal/platform/middleware"
 	"github.com/aatist/backend/internal/user/model"
@@ -48,6 +49,8 @@ type AuthHandler struct {
 	}
 	disableEmailVerification  bool   // When true, do not send verification email after registration
 	logger                    *log.Logger
+	googleOAuth               config.GoogleOAuthConfig
+	oauthFrontendBase         string // FRONTEND_URL — redirect after Google OAuth (hash tokens)
 }
 
 // NewAuthHandler creates a new authentication handler
@@ -65,6 +68,8 @@ func NewAuthHandler(
 	},
 	disableEmailVerification bool,
 	logger *log.Logger,
+	googleOAuth config.GoogleOAuthConfig,
+	oauthFrontendBase string,
 ) *AuthHandler {
 	return &AuthHandler{
 		authService:        authService,
@@ -77,6 +82,8 @@ func NewAuthHandler(
 		mq:                       mq,
 		disableEmailVerification: disableEmailVerification,
 		logger:                   logger,
+		googleOAuth:              googleOAuth,
+		oauthFrontendBase:        strings.TrimRight(oauthFrontendBase, "/"),
 	}
 }
 
@@ -695,12 +702,17 @@ func (h *AuthHandler) CreateUserServiceHandler(c *gin.Context) {
 		Title             string   `json:"title" binding:"omitempty,max=200"`
 		Description       string   `json:"description" binding:"omitempty,max=5000"`
 		ShortDescription  string   `json:"short_description" binding:"omitempty,max=500"`
-		PriceType         string   `json:"price_type" binding:"omitempty,oneof=hourly project negotiable"`
+		PriceType         string   `json:"price_type" binding:"omitempty,max=128"`
 		PriceMin          *int     `json:"price_min"`
 		PriceMax          *int     `json:"price_max"`
 		MediaURLs         []string `json:"media_urls"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, err.Error())
+		return
+	}
+	normalizedPriceType, err := model.NormalizePriceType(req.PriceType)
+	if err != nil {
 		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, err.Error())
 		return
 	}
@@ -718,7 +730,7 @@ func (h *AuthHandler) CreateUserServiceHandler(c *gin.Context) {
 		Title:             strings.TrimSpace(req.Title),
 		Description:       strings.TrimSpace(req.Description),
 		ShortDescription:  strings.TrimSpace(req.ShortDescription),
-		PriceType:         strings.TrimSpace(req.PriceType),
+		PriceType:         normalizedPriceType,
 		PriceMin:          req.PriceMin,
 		PriceMax:          req.PriceMax,
 		MediaURLs:         model.StringArray(req.MediaURLs),
@@ -748,7 +760,7 @@ func (h *AuthHandler) UpdateUserServiceHandler(c *gin.Context) {
 		Title             string   `json:"title" binding:"omitempty,max=200"`
 		Description       string   `json:"description" binding:"omitempty,max=5000"`
 		ShortDescription  string   `json:"short_description" binding:"omitempty,max=500"`
-		PriceType         string   `json:"price_type" binding:"omitempty,oneof=hourly project negotiable"`
+		PriceType         string   `json:"price_type" binding:"omitempty,max=128"`
 		PriceMin          *int     `json:"price_min"`
 		PriceMax          *int     `json:"price_max"`
 		MediaURLs         []string `json:"media_urls"`
@@ -778,7 +790,12 @@ func (h *AuthHandler) UpdateUserServiceHandler(c *gin.Context) {
 		s.ShortDescription = strings.TrimSpace(req.ShortDescription)
 	}
 	if req.PriceType != "" {
-		s.PriceType = strings.TrimSpace(req.PriceType)
+		normalizedPriceType, nerr := model.NormalizePriceType(req.PriceType)
+		if nerr != nil {
+			h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, nerr.Error())
+			return
+		}
+		s.PriceType = normalizedPriceType
 	}
 	if req.PriceMin != nil {
 		s.PriceMin = req.PriceMin

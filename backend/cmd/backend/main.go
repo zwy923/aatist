@@ -112,7 +112,7 @@ func main() {
 		mqPublisher = rabbitMQ
 	}
 
-	authHandler := authhandler.NewAuthHandler(authService, profileService, savedItemService, userServiceRepo, notificationClient, emailVerifSvc, passwordResetSvc, mqPublisher, cfg.Email.DisableEmailVerification, logger)
+	authHandler := authhandler.NewAuthHandler(authService, profileService, savedItemService, userServiceRepo, notificationClient, emailVerifSvc, passwordResetSvc, mqPublisher, cfg.Email.DisableEmailVerification, logger, cfg.GoogleOAuth, cfg.Email.FrontendURL)
 
 	// ========== Portfolio module ==========
 	projectRepo := portfoliorepo.NewPostgresProjectRepository(postgres.GetDB())
@@ -146,7 +146,11 @@ func main() {
 		authGroup.GET("/verify", authHandler.VerifyEmailGetHandler)
 		authGroup.POST("/forgot-password", authHandler.ForgotPasswordHandler)
 		authGroup.POST("/reset-password", authHandler.ResetPasswordHandler)
+		authGroup.GET("/oauth/google", authHandler.GoogleOAuthStartHandler)
+		authGroup.GET("/oauth/google/callback", authHandler.GoogleOAuthCallbackHandler)
 	}
+	// Matches Google Cloud "Authorized redirect URI" when set to https://<host>/auth/callback/google (proxy to backend).
+	router.GET("/auth/callback/google", authHandler.GoogleOAuthCallbackHandler)
 
 	// ----- Public user routes -----
 	usersPublic := api.Group("/users")

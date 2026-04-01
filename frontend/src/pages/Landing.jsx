@@ -244,7 +244,9 @@ function Landing() {
           <button
             type="button"
             className="cta-button"
-            onClick={() => navigate(isAuthenticated ? "/talents" : "/auth/login/client")}
+            onClick={() =>
+              navigate(isAuthenticated ? "/talents" : "/auth/register?mode=client")
+            }
           >
             <span>Find Services</span>
             <span aria-hidden="true">&rarr;</span>

@@ -10,6 +10,7 @@ import {
   TextField,
 } from "@mui/material";
 import { useAuth } from "../features/auth/hooks/useAuth";
+import { getGoogleOAuthStartURL } from "../shared/utils/googleOAuth";
 import "./Landing.css";
 import "./AuthLogin.css";
 
@@ -238,7 +239,14 @@ export default function Login() {
                 <span>Or continue with</span>
               </div>
               <div className="social-row">
-                <button type="button" className="social-btn" aria-label="Google">
+                <button
+                  type="button"
+                  className="social-btn"
+                  aria-label="Google"
+                  onClick={() => {
+                    window.location.href = getGoogleOAuthStartURL();
+                  }}
+                >
                   <span className="social-google">G</span>
                 </button>
                 <button type="button" className="social-btn" aria-label="Apple">

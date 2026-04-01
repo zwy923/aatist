@@ -32,6 +32,13 @@ jwt:
 # on /api/v1/internal/* routes. All services that call internal routes must send this token.
 # Generate: openssl rand -hex 32
 
+# Sign in with Google — prefer env: GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_REDIRECT_URI
+google_oauth:
+  client_id: ""
+  client_secret: ""
+  # Must match Google Console "Authorized redirect URIs", e.g. https://aatist.fi/auth/callback/google
+  redirect_uri: ""
+
 email:
   sendgrid_api_key: "SG.xxxxx"
   from_email: "no-reply@aatist.fi"

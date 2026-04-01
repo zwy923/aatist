@@ -29,6 +29,10 @@ func RegisterRoutes(router *gin.Engine, cfg *config.Config, logger *log.Logger, 
 	persistFunc := chatclient.NewPersistFunc(logger)
 	wsManager := websocket.NewManager(redis, logger, persistFunc)
 
+	// Google OAuth redirect (browser) — same path as often registered in Google Console for the site origin
+	backendPublic := proxy.NewHandler("backend", 8081, getServiceTimeout("backend"), logger)
+	router.GET("/auth/callback/google", backendPublic)
+
 	// API routes with /api/v1 prefix
 	api := router.Group("/api/v1")
 

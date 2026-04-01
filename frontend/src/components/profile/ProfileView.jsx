@@ -16,6 +16,7 @@ import PaletteIcon from "@mui/icons-material/Palette";
 import EditIcon from "@mui/icons-material/Edit";
 import ImageOutlinedIcon from "@mui/icons-material/ImageOutlined";
 import "../../pages/PublicProfile.css";
+import { formatServicePriceLine } from "../../shared/utils/priceType";
 
 export default function ProfileView({
   profile,
@@ -66,15 +67,7 @@ export default function ProfileView({
     setPortfolioMenuId(null);
   };
 
-  const formatPrice = (s) => {
-    if (s.price_type === "project" && s.price_min != null) {
-      return `Fee: €${s.price_min}${s.price_max != null ? `–€${s.price_max}` : ""} / project`;
-    }
-    if (s.price_type === "hourly" && s.price_min != null) {
-      return `Fee: €${s.price_min}${s.price_max != null ? `–€${s.price_max}` : ""} / hr`;
-    }
-    return "Fee: Negotiable";
-  };
+  const formatPrice = (s) => `Fee: ${formatServicePriceLine(s)}`;
 
   const formatProjectDate = (p) => {
     if (p.created_at) {

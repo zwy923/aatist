@@ -18,6 +18,7 @@ import { StateContainer } from "../shared/components/ui/StateContainer";
 import { profileApi } from "../features/profile/api/profile";
 import useAuthStore from "../shared/stores/authStore";
 import "./ServiceDetail.css";
+import { parsePriceTypeTokens } from "../shared/utils/priceType";
 
 const PREFILL_KEY = "aatist_chat_prefill";
 
@@ -31,7 +32,7 @@ function formatEducationLine(profile) {
 }
 
 function formatHourly(service) {
-  if (service.price_type !== "hourly") return "—";
+  if (!parsePriceTypeTokens(service?.price_type).includes("hourly")) return "—";
   const min = service.price_min;
   const max = service.price_max;
   if (min == null && max == null) return "—";
@@ -40,7 +41,7 @@ function formatHourly(service) {
 }
 
 function formatProject(service) {
-  if (service.price_type !== "project") return "—";
+  if (!parsePriceTypeTokens(service?.price_type).includes("project")) return "—";
   const min = service.price_min;
   const max = service.price_max;
   if (min == null && max == null) return "—";
@@ -49,8 +50,8 @@ function formatProject(service) {
 }
 
 function formatFlexible(service) {
-  if (service.price_type === "negotiable") {
-    return "自带价？？？";
+  if (parsePriceTypeTokens(service?.price_type).includes("negotiable")) {
+    return "Negotiable";
   }
   return "—";
 }

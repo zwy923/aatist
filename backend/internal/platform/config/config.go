@@ -6,14 +6,23 @@ import (
 
 // Config holds all configuration for the application
 type Config struct {
-	App      AppConfig
-	Postgres PostgresConfig
-	Redis    RedisConfig
-	MQ       MQConfig
-	S3       S3Config
-	JWT      JWTConfig
-	Email    EmailConfig
-	Gateway  GatewayConfig
+	App         AppConfig
+	Postgres    PostgresConfig
+	Redis       RedisConfig
+	MQ          MQConfig
+	S3          S3Config
+	JWT         JWTConfig
+	Email       EmailConfig
+	Gateway     GatewayConfig
+	GoogleOAuth GoogleOAuthConfig
+}
+
+// GoogleOAuthConfig configures Sign in with Google (OAuth2 authorization code flow).
+// RedirectURI must exactly match a URI allowed in Google Cloud Console.
+type GoogleOAuthConfig struct {
+	ClientID     string `yaml:"client_id"`
+	ClientSecret string `yaml:"client_secret"`
+	RedirectURI  string `yaml:"redirect_uri"`
 }
 
 // AppConfig holds application-level configuration

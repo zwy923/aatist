@@ -83,6 +83,15 @@ func Load(configPath string) (*Config, error) {
 	if v := os.Getenv("DISABLE_EMAIL_VERIFICATION"); v != "" {
 		cfg.Email.DisableEmailVerification = strings.EqualFold(v, "true") || v == "1"
 	}
+	if v := os.Getenv("GOOGLE_OAUTH_CLIENT_ID"); v != "" {
+		cfg.GoogleOAuth.ClientID = v
+	}
+	if v := os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET"); v != "" {
+		cfg.GoogleOAuth.ClientSecret = v
+	}
+	if v := os.Getenv("GOOGLE_OAUTH_REDIRECT_URI"); v != "" {
+		cfg.GoogleOAuth.RedirectURI = v
+	}
 
 	// Set default values
 	if cfg.App.HTTPPort == 0 {

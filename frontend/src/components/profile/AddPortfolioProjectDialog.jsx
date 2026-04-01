@@ -107,6 +107,15 @@ export default function AddPortfolioProjectDialog({
     return out;
   }, []);
 
+  /** Include saved client_name when it is not one of the preset options (avoids MUI Select display glitches). */
+  const projectTypeOptions = useMemo(() => {
+    const v = (form.projectType || "").trim();
+    if (v && !PROJECT_TYPES.includes(v)) {
+      return [v, ...PROJECT_TYPES];
+    }
+    return PROJECT_TYPES;
+  }, [form.projectType]);
+
   const resetForOpen = useCallback(() => {
     if (editingItem) {
       setForm({
@@ -325,8 +334,13 @@ export default function AddPortfolioProjectDialog({
         PaperProps={{ sx: { borderRadius: "12px", maxHeight: "calc(100vh - 48px)" } }}
       >
         <Box sx={{ px: { xs: 2, sm: 3 }, pt: 2.5, pb: 1 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-            <Box>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            justifyContent="space-between"
+            alignItems={{ xs: "stretch", sm: "flex-start" }}
+            spacing={2}
+          >
+            <Box sx={{ minWidth: 0, flex: { sm: "1 1 auto" }, pr: { sm: 1 } }}>
               <Typography sx={{ color: "#1976d2", fontWeight: 700, fontSize: "1.35rem" }}>
                 {editingItem ? "Edit Portfolio Project" : "Add Portfolio Project"}
               </Typography>
@@ -338,7 +352,14 @@ export default function AddPortfolioProjectDialog({
             <Button
               variant="outlined"
               onClick={() => !saving && onClose()}
-              sx={{ textTransform: "none", borderRadius: "10px", color: "#555", borderColor: "#ccc", flexShrink: 0 }}
+              sx={{
+                textTransform: "none",
+                borderRadius: "10px",
+                color: "#555",
+                borderColor: "#ccc",
+                flexShrink: 0,
+                alignSelf: { xs: "flex-start", sm: "auto" },
+              }}
             >
               Cancel
             </Button>
@@ -378,7 +399,7 @@ export default function AddPortfolioProjectDialog({
                     }}
                     SelectProps={{ displayEmpty: true }}
                     sx={INPUT_SX}
-                    InputLabelProps={{ required: false }}
+                    InputLabelProps={{ required: false, shrink: true }}
                   >
                     <MenuItem value="" disabled>
                       Select year
@@ -400,12 +421,12 @@ export default function AddPortfolioProjectDialog({
                     onChange={(e) => setForm((p) => ({ ...p, projectType: e.target.value }))}
                     SelectProps={{ displayEmpty: true }}
                     sx={INPUT_SX}
-                    InputLabelProps={{ required: false }}
+                    InputLabelProps={{ required: false, shrink: true }}
                   >
                     <MenuItem value="" disabled>
                       Select type
                     </MenuItem>
-                    {PROJECT_TYPES.map((t) => (
+                    {projectTypeOptions.map((t) => (
                       <MenuItem key={t} value={t}>
                         {t}
                       </MenuItem>
@@ -413,15 +434,8 @@ export default function AddPortfolioProjectDialog({
                   </TextField>
                   <TextField
                     fullWidth
-                    label={
-                      <span>
-                        Project URL{" "}
-                        <Typography component="span" variant="body2" sx={{ color: "#757575", fontWeight: 400 }}>
-                          (optional)
-                        </Typography>
-                      </span>
-                    }
-                    placeholder="yourportfolio.com/project"
+                    label="Project URL (optional)"
+                    placeholder="https://yourportfolio.com/project"
                     value={form.projectUrl}
                     onChange={setField("projectUrl")}
                     sx={INPUT_SX}
@@ -602,7 +616,7 @@ export default function AddPortfolioProjectDialog({
                     </Box>
                   ))}
                   <Typography variant="caption" sx={{ color: "#888", alignSelf: "center", ml: 1 }}>
-                    · Max 50MB per file
+                    - Max 50MB per file
                   </Typography>
                 </Stack>
               </Box>
@@ -625,13 +639,13 @@ export default function AddPortfolioProjectDialog({
                   fullWidth
                   multiline
                   minRows={6}
-                  placeholder="Describe the project background, your role, the process, and what you're most proud of..."
+                  placeholder="Describe the project background, your role, the process, and what you are most proud of..."
                   value={form.description}
                   onChange={setField("description")}
                   sx={INPUT_SX}
                 />
                 <Typography variant="caption" sx={{ color: "#757575", mt: 0.75, display: "block" }}>
-                  This is shown on your project detail page. Be specific — clients want to know your thought process.
+                  This is shown on your project detail page. Be specific - clients want to know your thought process.
                 </Typography>
               </Box>
               <Box>
@@ -640,14 +654,14 @@ export default function AddPortfolioProjectDialog({
                 </Typography>
                 <TextField
                   fullWidth
-                  placeholder="One sentence that summarises this project (shown on preview cards)"
+                  placeholder="One sentence that summarizes this project (shown on preview cards)"
                   value={form.shortCaption}
                   onChange={setField("shortCaption")}
                   inputProps={{ maxLength: 120 }}
                   sx={INPUT_SX}
                 />
                 <Typography variant="caption" sx={{ color: "#757575", mt: 0.75, display: "block" }}>
-                  Max 120 characters · shown on Hire Talent listing cards
+                  Max 120 characters - shown on Hire Talent listing cards
                 </Typography>
               </Box>
             </Stack>
@@ -697,7 +711,7 @@ export default function AddPortfolioProjectDialog({
                   />
                 </Box>
                 <Typography variant="caption" sx={{ color: "#757575", mt: 0.75, display: "block" }}>
-                  Press Enter or comma to add · these appear on the Hire Talent filter
+                  Press Enter or comma to add - these appear on the Hire Talent filter
                 </Typography>
               </Box>
               <Box>

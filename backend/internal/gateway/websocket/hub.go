@@ -19,7 +19,7 @@ const (
 	pongWait            = 60 * time.Second
 	pingPeriod          = (pongWait * 9) / 10
 	maxMessageSize      = 512 * 1024
-	maxContentLength   = 4096
+	maxContentLength   = 65536 // text + JSON file attachments (URL + metadata)
 )
 
 type connection struct {

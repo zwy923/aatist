@@ -21,6 +21,7 @@ const (
 	CodeInternalError      = "INTERNAL_ERROR"
 	CodeBadRequest         = "BAD_REQUEST"
 	CodeNotFound           = "NOT_FOUND"
+	CodeOAuthEmailConflict = "OAUTH_EMAIL_CONFLICT"
 )
 
 var (

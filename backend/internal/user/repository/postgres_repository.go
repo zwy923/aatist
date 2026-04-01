@@ -75,6 +75,20 @@ func (r *postgresRepository) FindByEmail(ctx context.Context, email string) (*mo
 	return &user, nil
 }
 
+// FindByOAuth finds a user by oauth_provider and oauth_subject
+func (r *postgresRepository) FindByOAuth(ctx context.Context, provider, subject string) (*model.User, error) {
+	var user model.User
+	query := fmt.Sprintf("SELECT %s FROM users WHERE oauth_provider = $1 AND oauth_subject = $2", userSelectColumns)
+	err := r.db.GetContext(ctx, &user, query, provider, subject)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errs.ErrUserNotFound
+		}
+		return nil, fmt.Errorf("failed to find user by oauth: %w", err)
+	}
+	return &user, nil
+}
+
 // FindByID finds a user by ID
 func (r *postgresRepository) FindByID(ctx context.Context, id int64) (*model.User, error) {
 	var user model.User

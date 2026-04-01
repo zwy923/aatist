@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
     Box,
     Typography,
@@ -18,7 +18,8 @@ import {
     FormControl,
     InputLabel,
     Select,
-    MenuItem
+    MenuItem,
+    ListSubheader,
 } from '@mui/material';
 import {
     Search as SearchIcon,
@@ -36,6 +37,9 @@ import { profileApi, portfolioApi } from '../features/profile/api/profile';
 import { useAuth } from '../features/auth/hooks/useAuth';
 
 import './Talents.css';
+import { formatServicePriceLine } from '../shared/utils/priceType';
+import { AALTO_PROGRAMMES, programmeMatchesSchoolFilter } from '../data/aaltoProgrammes';
+import { aaltoOutlinedSelectSx, aaltoSelectMenuProps } from '../shared/styles/aaltoSelectSx';
 
 const FACULTIES = [
     "Arts, Design and Architecture",
@@ -46,17 +50,7 @@ const FACULTIES = [
     "Science"
 ];
 
-const SCHOOLS = ["Aalto University", ...FACULTIES, "Other"];
-
-const PROGRAMS = ["Design", "Engineering", "Business", "Arts", "Science", "Other"];
-
-const BUDGET_RANGES = [
-    { value: "", label: "Any" },
-    { value: "0-500", label: "Under €500" },
-    { value: "500-1500", label: "€500 - €1,500" },
-    { value: "1500-5000", label: "€1,500 - €5,000" },
-    { value: "5000+", label: "€5,000+" }
-];
+const SCHOOLS = [...FACULTIES, "Other"];
 
 const CATEGORIES = [
     {
@@ -105,17 +99,7 @@ const highlightMatch = (text, query) => {
     );
 };
 
-const formatPrice = (s) => {
-    if (s.price_min != null && s.price_max != null) return `€${s.price_min}–€${s.price_max}`;
-    if (s.price_min != null) {
-        if (s.price_type === 'project') return `€${s.price_min} / project`;
-        if (s.price_type === 'hourly') return `€${s.price_min} / hr`;
-        return `From €${s.price_min}`;
-    }
-    if (s.price_type === 'hourly') return '€/hr';
-    if (s.price_type === 'project') return '€/project';
-    return s.price_type || 'Negotiable';
-};
+const formatPrice = (s) => formatServicePriceLine(s);
 
 const TalentCard = ({ student }) => {
     const navigate = useNavigate();
@@ -284,7 +268,6 @@ const Talents = () => {
     const [school, setSchool] = useState("");
     const [program, setProgram] = useState("");
     const [service, setService] = useState("");
-    const [budget, setBudget] = useState("");
     const [showFilters, setShowFilters] = useState(false);
     const [talentType, setTalentType] = useState('service'); // 'service' | 'student'
     const [hasSearched, setHasSearched] = useState(false);
@@ -293,6 +276,29 @@ const Talents = () => {
     const resultsRef = useRef(null);
     const searchWrapperRef = useRef(null);
     const { user } = useAuth();
+
+    const programmesBySchool = useMemo(() => {
+        const filtered = AALTO_PROGRAMMES.filter((p) => programmeMatchesSchoolFilter(p.school, school));
+        const map = new Map();
+        for (const p of filtered) {
+            if (!map.has(p.school)) map.set(p.school, []);
+            map.get(p.school).push(p);
+        }
+        const entries = [...map.entries()].map(([schoolName, progs]) => [
+            schoolName,
+            [...progs].sort((a, b) => a.name.localeCompare(b.name)),
+        ]);
+        entries.sort(([a], [b]) => a.localeCompare(b));
+        return entries;
+    }, [school]);
+
+    useEffect(() => {
+        setProgram((prev) => {
+            const visible = AALTO_PROGRAMMES.filter((p) => programmeMatchesSchoolFilter(p.school, school));
+            if (prev && !visible.some((p) => p.name === prev)) return '';
+            return prev;
+        });
+    }, [school]);
 
     const suggestions = search.trim()
         ? ALL_SUGGESTIONS.filter((s) => s.toLowerCase().includes(search.trim().toLowerCase())).slice(0, 8)
@@ -413,47 +419,115 @@ const Talents = () => {
                                             <SearchIcon sx={{ fontSize: 22 }} />
                                         </button>
                                     </div>
-                                    <div className="talents-hero-filters">
+                                    <div className="talents-hero-filters talents-hero-filters-mui">
                                         <span className="talents-hero-filter-label">Filter:</span>
-                                        <select
-                                            value={service}
-                                            onChange={(e) => { setService(e.target.value); applyStudentFilters({ service: e.target.value }); }}
-                                            className="talents-hero-filter-select"
+                                        <FormControl
+                                            size="small"
+                                            variant="outlined"
+                                            sx={{ ...aaltoOutlinedSelectSx, minWidth: 148, flex: '0 1 auto' }}
                                         >
-                                            <option value="">Service</option>
-                                            {ALL_SUGGESTIONS.slice(0, 12).map((s) => (
-                                                <option key={s} value={s}>{s}</option>
-                                            ))}
-                                        </select>
-                                        <select
-                                            value={budget}
-                                            onChange={(e) => setBudget(e.target.value)}
-                                            className="talents-hero-filter-select"
+                                            <InputLabel id="talents-filter-service-label" shrink>
+                                                Service
+                                            </InputLabel>
+                                            <Select
+                                                labelId="talents-filter-service-label"
+                                                label="Service"
+                                                notched
+                                                displayEmpty
+                                                value={service}
+                                                onChange={(e) => {
+                                                    setService(e.target.value);
+                                                    applyStudentFilters({ service: e.target.value });
+                                                }}
+                                                MenuProps={aaltoSelectMenuProps}
+                                                renderValue={(v) => (v ? v : <span style={{ color: '#94a3b8', fontWeight: 500 }}>Any service</span>)}
+                                            >
+                                                <MenuItem value="">
+                                                    <em>Any service</em>
+                                                </MenuItem>
+                                                {ALL_SUGGESTIONS.slice(0, 12).map((s) => (
+                                                    <MenuItem key={s} value={s}>{s}</MenuItem>
+                                                ))}
+                                            </Select>
+                                        </FormControl>
+                                        <FormControl
+                                            size="small"
+                                            variant="outlined"
+                                            sx={{ ...aaltoOutlinedSelectSx, minWidth: 132, flex: '0 1 auto' }}
                                         >
-                                            {BUDGET_RANGES.map((b) => (
-                                                <option key={b.value || 'any'} value={b.value}>{b.label}</option>
-                                            ))}
-                                        </select>
-                                        <select
-                                            value={school}
-                                            onChange={(e) => { setSchool(e.target.value); applyStudentFilters({ school: e.target.value }); }}
-                                            className="talents-hero-filter-select"
+                                            <InputLabel id="talents-filter-school-label" shrink>
+                                                School
+                                            </InputLabel>
+                                            <Select
+                                                labelId="talents-filter-school-label"
+                                                label="School"
+                                                notched
+                                                displayEmpty
+                                                value={school}
+                                                onChange={(e) => {
+                                                    setSchool(e.target.value);
+                                                    applyStudentFilters({ school: e.target.value });
+                                                }}
+                                                MenuProps={aaltoSelectMenuProps}
+                                                renderValue={(v) => (v ? v : <span style={{ color: '#94a3b8', fontWeight: 500 }}>All schools</span>)}
+                                            >
+                                                <MenuItem value="">
+                                                    <em>All schools</em>
+                                                </MenuItem>
+                                                {SCHOOLS.map((s) => (
+                                                    <MenuItem key={s} value={s}>{s}</MenuItem>
+                                                ))}
+                                            </Select>
+                                        </FormControl>
+                                        <FormControl
+                                            size="small"
+                                            variant="outlined"
+                                            sx={{
+                                                ...aaltoOutlinedSelectSx,
+                                                flex: '1 1 200px',
+                                                minWidth: { xs: '100%', sm: 200 },
+                                                maxWidth: { sm: 520 },
+                                            }}
                                         >
-                                            <option value="">School</option>
-                                            {SCHOOLS.map((s) => (
-                                                <option key={s} value={s}>{s}</option>
-                                            ))}
-                                        </select>
-                                        <select
-                                            value={program}
-                                            onChange={(e) => { setProgram(e.target.value); applyStudentFilters({ program: e.target.value }); }}
-                                            className="talents-hero-filter-select"
-                                        >
-                                            <option value="">Program</option>
-                                            {PROGRAMS.map((p) => (
-                                                <option key={p} value={p}>{p}</option>
-                                            ))}
-                                        </select>
+                                            <InputLabel id="talents-filter-program-label" shrink>
+                                                Programme
+                                            </InputLabel>
+                                            <Select
+                                                labelId="talents-filter-program-label"
+                                                label="Programme"
+                                                notched
+                                                displayEmpty
+                                                value={program}
+                                                onChange={(e) => {
+                                                    setProgram(e.target.value);
+                                                    applyStudentFilters({ program: e.target.value });
+                                                }}
+                                                MenuProps={aaltoSelectMenuProps}
+                                                renderValue={(v) =>
+                                                    v ? (
+                                                        <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                            {v}
+                                                        </span>
+                                                    ) : (
+                                                        <span style={{ color: '#94a3b8', fontWeight: 500 }}>All programmes</span>
+                                                    )
+                                                }
+                                            >
+                                                <MenuItem value="">
+                                                    <em>All programmes</em>
+                                                </MenuItem>
+                                                {programmesBySchool.map(([schoolName, progs]) => [
+                                                    <ListSubheader key={`h-${schoolName}`} disableSticky>
+                                                        {schoolName}
+                                                    </ListSubheader>,
+                                                    ...progs.map((p) => (
+                                                        <MenuItem key={`${schoolName}::${p.name}`} value={p.name}>
+                                                            {p.name}
+                                                        </MenuItem>
+                                                    )),
+                                                ])}
+                                            </Select>
+                                        </FormControl>
                                     </div>
                                 </div>
                             ) : (

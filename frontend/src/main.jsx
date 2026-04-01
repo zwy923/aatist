@@ -7,6 +7,7 @@ import Login from "./pages/Login.jsx";
 import ClientLogin from "./pages/ClientLogin.jsx";
 import StudentLogin from "./pages/StudentLogin.jsx";
 import AuthCallback from "./pages/AuthCallback.jsx";
+import GoogleOAuthComplete from "./pages/GoogleOAuthComplete.jsx";
 import Register from "./pages/Register.jsx";
 import Profile from "./pages/Profile.jsx";
 import Verify from "./pages/Verify.jsx";
@@ -73,6 +74,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             <Route path="/auth/login/client" element={<ClientLogin />} />
             <Route path="/auth/login/student" element={<StudentLogin />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/auth/oauth/google" element={<GoogleOAuthComplete />} />
             <Route path="/auth/register" element={<Register />} />
             <Route path="/dashboard" element={<Navigate to="/talents" replace />} />
             <Route path="/profile" element={<Profile />} />

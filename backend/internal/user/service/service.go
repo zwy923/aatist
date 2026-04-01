@@ -32,6 +32,15 @@ type RegisterInput struct {
 	OrgSize                *int
 }
 
+// GoogleOAuthProfile holds verified claims after Google ID token validation.
+type GoogleOAuthProfile struct {
+	Subject       string
+	Email         string
+	EmailVerified bool
+	Name          string
+	HostedDomain  string // Google Workspace domain, if any
+}
+
 // AuthService defines the interface for authentication operations
 type AuthService interface {
 	// Register registers a new user
@@ -39,6 +48,14 @@ type AuthService interface {
 
 	// Login authenticates a user
 	Login(ctx context.Context, email, password, ip, loginType string) (*model.User, *Tokens, error)
+
+	// RegisterOrLoginGoogle finds or creates an organization (client) user from Google sign-in.
+	RegisterOrLoginGoogle(ctx context.Context, profile GoogleOAuthProfile, ip string) (*model.User, *Tokens, error)
+
+	// SaveGoogleOAuthState stores a short-lived CSRF state for the OAuth redirect flow.
+	SaveGoogleOAuthState(ctx context.Context, state string) error
+	// ConsumeGoogleOAuthState validates and consumes a state value (one-time use).
+	ConsumeGoogleOAuthState(ctx context.Context, state string) error
 
 	// RefreshToken refreshes an access token using a refresh token
 	RefreshToken(ctx context.Context, refreshToken string) (*Tokens, error)

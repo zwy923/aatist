@@ -11,7 +11,7 @@ type UserService struct {
 	Title             string    `db:"title" json:"title,omitempty"`
 	Description       string    `db:"description" json:"description,omitempty"`
 	ShortDescription  string    `db:"short_description" json:"short_description,omitempty"`
-	PriceType         string    `db:"price_type" json:"price_type,omitempty"` // hourly, project, negotiable
+	PriceType         string    `db:"price_type" json:"price_type,omitempty"` // comma-separated: hourly, project, negotiable
 	PriceMin          *int     `db:"price_min" json:"price_min,omitempty"`
 	PriceMax          *int     `db:"price_max" json:"price_max,omitempty"`
 	MediaURLs         StringArray `db:"media_urls" json:"media_urls,omitempty"`

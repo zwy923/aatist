@@ -367,7 +367,7 @@ CREATE TABLE IF NOT EXISTS user_services (
     short_description VARCHAR(500),
     description TEXT,
     experience_summary TEXT NOT NULL,
-    price_type VARCHAR(20) CHECK (price_type IN ('hourly', 'project', 'negotiable')),
+    price_type VARCHAR(128),
     price_min INTEGER,
     price_max INTEGER,
     media_urls JSONB DEFAULT '[]'::jsonb,

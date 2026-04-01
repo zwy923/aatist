@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -7,13 +7,25 @@ import {
   CircularProgress,
   FormControl,
   FormControlLabel,
+  ListSubheader,
   MenuItem,
   Select,
   TextField,
+  Typography,
 } from "@mui/material";
 import { useAuth } from "../features/auth/hooks/useAuth";
+import { getGoogleOAuthStartURL } from "../shared/utils/googleOAuth";
 import "./Landing.css";
 import "./AuthRegister.css";
+import "./AuthLogin.css";
+import {
+  AALTO_PROGRAMMES,
+  AALTO_REGISTRATION_SCHOOL_OPTIONS,
+  buildRegistrationAcademicFields,
+  getProgrammeByName,
+  programmeMatchesSchoolFilter,
+} from "../data/aaltoProgrammes";
+import { aaltoOutlinedSelectSx, aaltoSelectMenuProps } from "../shared/styles/aaltoSelectSx";
 
 const CLIENT_LETTERS = [
   { char: "C", x: 20, y: 80, r: -20 },
@@ -47,7 +59,6 @@ const createStudentForm = () => ({
   name: "",
   preferredName: "",
   school: "",
-  department: "",
   program: "",
   yearOfEnrollment: "",
   emailLocalPart: "",
@@ -56,64 +67,20 @@ const createStudentForm = () => ({
   agreed: false,
 });
 
-const SCHOOL_OPTIONS = [
-  "School of Arts, Design and Architecture",
-  "School of Business",
-  "School of Chemical Engineering",
-  "School of Electrical Engineering",
-  "School of Engineering",
-  "School of Science",
-];
-
-// Departments and separate units per school (Aalto University structure)
-const SCHOOL_DEPARTMENTS = {
-  "School of Engineering": [
-    "Built Environment",
-    "Civil Engineering",
-    "Mechanical Engineering",
-  ],
-  "School of Business": [
-    "Accounting and Business Law",
-    "Economics",
-    "Finance",
-    "Management Studies",
-    "Marketing",
-    "Information and Service Management",
-    "Aalto EE",
-    "CKIR Mikkeli Campus",
-  ],
-  "School of Electrical Engineering": [
-    "Information and Communications Engineering",
-    "Electronics and Nanoengineering",
-    "Electrical Engineering and Automation",
-    "Metsähovi Radio Observatory",
-  ],
-  "School of Arts, Design and Architecture": [
-    "Architecture",
-    "Art and Media",
-    "Design",
-    "Film",
-  ],
-  "School of Chemical Engineering": [
-    "Bioproducts and Biosystems",
-    "Chemical and Metallurgical Engineering",
-    "Chemistry and Materials Science",
-  ],
-  "School of Science": [
-    "Applied Physics",
-    "Computer Science",
-    "Industrial Engineering and Management",
-    "Mathematics and Systems Analysis",
-    "Neuroscience and Biomedical Engineering",
-    "HIIT",
-    "EIT Digital",
-  ],
-};
-
 function Register() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { register, loading } = useAuth();
-  const [step, setStep] = useState("select"); // "select" | "client" | "student"
+  const [step, setStep] = useState(() => {
+    const mode = searchParams.get("mode");
+    if (mode === "client" || mode === "student") return mode;
+    return "select";
+  });
+
+  useEffect(() => {
+    const mode = searchParams.get("mode");
+    if (mode === "client" || mode === "student") setStep(mode);
+  }, [searchParams]);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [clientForm, setClientForm] = useState(createClientForm());
@@ -125,12 +92,35 @@ function Register() {
   const updateStudent = (field, value) => {
     setStudentForm((prev) => {
       const next = { ...prev, [field]: value };
-      if (field === "school") next.department = "";
+      if (field === "school") next.program = "";
       return next;
     });
   };
 
-  const departmentOptions = studentForm.school ? (SCHOOL_DEPARTMENTS[studentForm.school] ?? []) : [];
+  const programmesBySchool = useMemo(() => {
+    const filtered = AALTO_PROGRAMMES.filter((p) => programmeMatchesSchoolFilter(p.school, studentForm.school));
+    const map = new Map();
+    for (const p of filtered) {
+      if (!map.has(p.school)) map.set(p.school, []);
+      map.get(p.school).push(p);
+    }
+    const entries = [...map.entries()].map(([schoolName, progs]) => [
+      schoolName,
+      [...progs].sort((a, b) => a.name.localeCompare(b.name)),
+    ]);
+    entries.sort(([a], [b]) => a.localeCompare(b));
+    return entries;
+  }, [studentForm.school]);
+
+  useEffect(() => {
+    setStudentForm((prev) => {
+      const visible = AALTO_PROGRAMMES.filter((p) => programmeMatchesSchoolFilter(p.school, prev.school));
+      if (prev.program && !visible.some((p) => p.name === prev.program)) {
+        return { ...prev, program: "" };
+      }
+      return prev;
+    });
+  }, [studentForm.school]);
 
   const validatePassword = (password) => password.length >= 8;
 
@@ -157,10 +147,6 @@ function Register() {
     }
     if (!clientForm.company.trim()) {
       setError("Company name is required.");
-      return;
-    }
-    if (!clientForm.title.trim()) {
-      setError("Your role / title is required.");
       return;
     }
 
@@ -196,10 +182,6 @@ function Register() {
       setError("Please select your school.");
       return;
     }
-    if (!studentForm.department) {
-      setError("Please select your department.");
-      return;
-    }
     if (!studentForm.agreed) {
       setError("Please confirm you are an Aalto student and agree to the policy.");
       return;
@@ -209,7 +191,17 @@ function Register() {
       return;
     }
     if (!studentForm.program.trim()) {
-      setError("Program / major is required.");
+      setError("Please select your degree programme.");
+      return;
+    }
+    const selectedProgramme = getProgrammeByName(studentForm.program);
+    if (!selectedProgramme) {
+      setError("Please select a valid degree programme.");
+      return;
+    }
+    const academic = buildRegistrationAcademicFields(selectedProgramme);
+    if (!academic) {
+      setError("Could not save academic information. Please try again.");
       return;
     }
     if (!studentForm.emailLocalPart.trim()) {
@@ -231,9 +223,9 @@ function Register() {
       password: studentForm.password,
       role: "student",
       profile: {
-        school: studentForm.school,
-        faculty: studentForm.department,
-        major: studentForm.program.trim(),
+        school: academic.school,
+        faculty: academic.faculty,
+        major: academic.major,
         studentId: studentForm.yearOfEnrollment.trim(),
       },
     };
@@ -295,7 +287,7 @@ function Register() {
               </button>
               <button type="button" className="register-tile register-tile-artist" onClick={() => setStep("student")}>
                 <span className="tile-letter-big">A</span>
-                <span className="tile-letters-stack">TIST</span>
+                <span className="tile-letters-stack">ATIST</span>
               </button>
             </div>
 
@@ -336,12 +328,47 @@ function Register() {
           </div>
 
           <article className="register-card register-form-card">
-            <button type="button" className="register-back-link" onClick={() => setStep("select")}>← Back</button>
+            <button
+              type="button"
+              className="register-back-link"
+              onClick={() => {
+                setStep("select");
+                setSearchParams({});
+              }}
+            >
+              ← Back
+            </button>
             <h1>Join Aatist as a <span className="register-title-accent">Client</span></h1>
             <p className="register-sub-text">It only takes 1 minute : )</p>
 
             {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
             {success && <Alert severity="success" sx={{ mt: 2 }}>{success}</Alert>}
+
+            <div className="login-divider">
+              <span>Or continue with</span>
+            </div>
+            <div className="social-row">
+              <button
+                type="button"
+                className="social-btn"
+                aria-label="Google"
+                onClick={() => {
+                  window.location.href = getGoogleOAuthStartURL();
+                }}
+              >
+                <span className="social-google">G</span>
+              </button>
+              <button type="button" className="social-btn" aria-label="Apple">
+                <svg className="apple-logo" viewBox="0 0 24 24" fill="currentColor" width="20" height="20" aria-hidden>
+                  <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.42.42 2.43-2.43 4.66-3.74 4.42z" />
+                </svg>
+              </button>
+            </div>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, my: 2, color: "text.secondary" }}>
+              <Box sx={{ flex: 1, height: "1px", bgcolor: "divider" }} />
+              <Typography variant="caption">Or sign up with email</Typography>
+              <Box sx={{ flex: 1, height: "1px", bgcolor: "divider" }} />
+            </Box>
 
             <Box component="form" className="register-form register-client-form" onSubmit={submitClient}>
               <div className="register-section">
@@ -476,7 +503,16 @@ function Register() {
         </div>
 
         <article className="register-card register-form-card register-student-card">
-          <button type="button" className="register-back-link" onClick={() => setStep("select")}>← Back</button>
+          <button
+            type="button"
+            className="register-back-link"
+            onClick={() => {
+              setStep("select");
+              setSearchParams({});
+            }}
+          >
+            ← Back
+          </button>
           <h1>Join Aatist as a verified Aalto <span className="register-title-accent register-title-accent-blue">Student</span></h1>
           <p className="register-sub-text register-sub-text-blue">It only takes 1 minute : )</p>
 
@@ -519,34 +555,24 @@ function Register() {
             <div className="register-form-row register-form-row-2">
               <div className="register-field">
                 <label>School<span className="required">*</span></label>
-                <FormControl fullWidth required size="small">
-                  <Select displayEmpty value={studentForm.school} onChange={(e) => updateStudent("school", e.target.value)}>
-                    <MenuItem value="" disabled>Select school</MenuItem>
-                    {SCHOOL_OPTIONS.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                <FormControl fullWidth required size="small" variant="outlined" sx={aaltoOutlinedSelectSx}>
+                  <Select
+                    displayEmpty
+                    value={studentForm.school}
+                    onChange={(e) => updateStudent("school", e.target.value)}
+                    MenuProps={aaltoSelectMenuProps}
+                    inputProps={{ "aria-label": "School" }}
+                  >
+                    <MenuItem value="" disabled>
+                      Select school
+                    </MenuItem>
+                    {AALTO_REGISTRATION_SCHOOL_OPTIONS.map((s) => (
+                      <MenuItem key={s} value={s}>
+                        {s}
+                      </MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
-              </div>
-              <div className="register-field">
-                <label>Department<span className="required">*</span></label>
-                <FormControl fullWidth required size="small" disabled={!studentForm.school}>
-                  <Select displayEmpty value={studentForm.department} onChange={(e) => updateStudent("department", e.target.value)}>
-                    <MenuItem value="" disabled>{studentForm.school ? "Select department" : "Select school first"}</MenuItem>
-                    {departmentOptions.map((d) => <MenuItem key={d} value={d}>{d}</MenuItem>)}
-                  </Select>
-                </FormControl>
-              </div>
-            </div>
-            <div className="register-form-row register-form-row-2">
-              <div className="register-field">
-                <label>Program<span className="required">*</span></label>
-                <TextField
-                  placeholder="Your program"
-                  value={studentForm.program}
-                  onChange={(e) => updateStudent("program", e.target.value)}
-                  required
-                  fullWidth
-                  size="small"
-                />
               </div>
               <div className="register-field">
                 <label>Year of enrollment<span className="required">*</span></label>
@@ -558,6 +584,48 @@ function Register() {
                   fullWidth
                   size="small"
                 />
+              </div>
+            </div>
+            <div className="register-form-row">
+              <div className="register-field register-field-full">
+                <label>Degree programme<span className="required">*</span></label>
+                <FormControl
+                  fullWidth
+                  required
+                  size="small"
+                  variant="outlined"
+                  disabled={!studentForm.school}
+                  sx={aaltoOutlinedSelectSx}
+                >
+                  <Select
+                    displayEmpty
+                    value={studentForm.program}
+                    onChange={(e) => updateStudent("program", e.target.value)}
+                    MenuProps={aaltoSelectMenuProps}
+                    inputProps={{ "aria-label": "Degree programme" }}
+                    renderValue={(v) =>
+                      v || (
+                        <span style={{ color: "#94a3b8", fontWeight: 500 }}>
+                          {studentForm.school ? "Select programme" : "Select school first"}
+                        </span>
+                      )
+                    }
+                  >
+                    <MenuItem value="" disabled>
+                      {studentForm.school ? "Select programme" : "Select school first"}
+                    </MenuItem>
+                    {programmesBySchool.map(([schoolName, progs]) => [
+                      <ListSubheader key={`reg-h-${schoolName}`} disableSticky>
+                        {schoolName}
+                      </ListSubheader>,
+                      ...progs.map((p) => (
+                        <MenuItem key={`reg-${schoolName}::${p.name}`} value={p.name}>
+                          {p.name}
+                        </MenuItem>
+                      )),
+                    ])}
+                  </Select>
+                </FormControl>
               </div>
             </div>
 
