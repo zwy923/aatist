@@ -1,6 +1,6 @@
 /**
- * Aalto degree programmes for Hire Talent > Student filter (Program = major ILIKE).
- * Grouped by official school / joint programme label from studyinfo.
+ * Aalto degree programmes (Hire Talent + student registration).
+ * Kept under src/constants/ so repo-root .gitignore /data/ never blocks this file.
  */
 export const AALTO_PROGRAMMES = [
   { name: "REPLAY - THE EUROPEAN GAME DESIGN MASTERS", level: "Master", school: "School of Arts, Design and Architecture" },

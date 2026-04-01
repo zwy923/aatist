@@ -24,7 +24,7 @@ import {
   buildRegistrationAcademicFields,
   getProgrammeByName,
   programmeMatchesSchoolFilter,
-} from "../data/aaltoProgrammes";
+} from "../constants/aaltoProgrammes";
 import { aaltoOutlinedSelectSx, aaltoSelectMenuProps } from "../shared/styles/aaltoSelectSx";
 
 const CLIENT_LETTERS = [

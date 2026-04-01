@@ -38,7 +38,7 @@ import { useAuth } from '../features/auth/hooks/useAuth';
 
 import './Talents.css';
 import { formatServicePriceLine } from '../shared/utils/priceType';
-import { AALTO_PROGRAMMES, programmeMatchesSchoolFilter } from '../data/aaltoProgrammes';
+import { AALTO_PROGRAMMES, programmeMatchesSchoolFilter } from '../constants/aaltoProgrammes';
 import { aaltoOutlinedSelectSx, aaltoSelectMenuProps } from '../shared/styles/aaltoSelectSx';
 
 const FACULTIES = [
