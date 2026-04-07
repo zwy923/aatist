@@ -168,7 +168,8 @@ export default function OpportunitiesPage() {
     <PageLayout
       noContainer
       rootClassName="opp-page-root"
-      contentSx={{ py: 0, bgcolor: "#c4ff3e" }}
+      rootSx={{ bgcolor: "#c4ff3e" }}
+      contentSx={{ py: 0, bgcolor: "transparent" }}
     >
       <div className="opp-shell">
         <section className="opp-hero" aria-label="Open opportunities">
@@ -276,6 +277,7 @@ export default function OpportunitiesPage() {
               error={error}
               empty={!loading && !error && opportunities.length === 0}
               emptyMessage="No opportunities match your filters."
+              emptyStateSx={{ py: 4, opacity: 0.65 }}
               onRetry={() => setSearchParams(new URLSearchParams(searchParams))}
               loadingComponent={
                 <div className="opp-loading">

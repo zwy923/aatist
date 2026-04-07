@@ -42,6 +42,7 @@ const PageLayout = ({
   maxWidth = "xl",
   noContainer = false,
   rootClassName,
+  rootSx = {},
   contentSx = {},
 }) => {
   const navigate = useNavigate();
@@ -69,7 +70,7 @@ const PageLayout = ({
   return (
     <Box
       className={rootClassName || undefined}
-      sx={{ minHeight: "100vh", background: "#fff" }}
+      sx={{ minHeight: "100vh", background: "#fff", ...rootSx }}
     >
       <header className="landing-header">
         <Link to="/" className="brand" aria-label="Aatist Home">

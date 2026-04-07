@@ -227,13 +227,12 @@
 
 .opp-grid-section {
   background: #c4ff3e;
-  padding: 28px 24px 48px;
-  min-height: 320px;
+  padding: 28px 24px 32px;
 }
 
 @media (min-width: 900px) {
   .opp-grid-section {
-    padding: 32px 48px 56px;
+    padding: 32px 48px 40px;
   }
 }
 
@@ -424,6 +423,8 @@ a.opp-card-interested:hover {
 .opp-loading {
   display: flex;
   justify-content: center;
+  align-items: center;
+  min-height: 220px;
   padding: 48px;
 }
 

@@ -11,8 +11,8 @@ export const LoadingSkeleton = ({ count = 3, height = 100 }) => (
     </Stack>
 );
 
-export const EmptyState = ({ message = 'No data found', icon: Icon = InboxIcon }) => (
-    <Box sx={{ py: 8, textAlign: 'center', opacity: 0.5 }}>
+export const EmptyState = ({ message = 'No data found', icon: Icon = InboxIcon, sx = {} }) => (
+    <Box sx={{ py: 8, textAlign: 'center', opacity: 0.5, ...sx }}>
         <Icon sx={{ fontSize: 64, mb: 2 }} />
         <Typography variant="h6">{message}</Typography>
     </Box>
@@ -41,7 +41,8 @@ export const StateContainer = ({
     loadingComponent,
     emptyMessage,
     skeletonCount = 3,
-    skeletonHeight = 100
+    skeletonHeight = 100,
+    emptyStateSx = {}
 }) => {
     if (loading) {
         return loadingComponent || <LoadingSkeleton count={skeletonCount} height={skeletonHeight} />;
@@ -52,7 +53,7 @@ export const StateContainer = ({
     }
 
     if (empty) {
-        return <EmptyState message={emptyMessage} />;
+        return <EmptyState message={emptyMessage} sx={emptyStateSx} />;
     }
 
     return <>{children}</>;
