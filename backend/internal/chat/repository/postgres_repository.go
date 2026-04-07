@@ -108,7 +108,7 @@ func (r *postgresChatRepository) ListConversationsForUser(ctx context.Context, u
 			ORDER BY last_at DESC LIMIT $3
 		)
 		SELECT o.conversation_id, o.last_message, o.last_at, o.other_user_id,
-			COALESCE(u.name, '') AS other_user_name,
+			COALESCE(NULLIF(TRIM(u.preferred_name), ''), u.name, '') AS other_user_name,
 			COALESCE(u.avatar_url, '') AS other_user_avatar,
 			COALESCE(u.organization_name, '') AS organization_name,
 			(SELECT COUNT(*)::INT FROM chat_messages m

@@ -44,6 +44,7 @@ import { conversationId } from "../features/messages/useChatWebSocket";
 import { useChatUnreadStore } from "../shared/stores/chatUnreadStore";
 import { messagesApi } from "../features/messages/api/messages";
 import { formatChatPreview, parseChatPayload } from "../features/messages/chatPayload";
+import { talentDisplayName } from "../shared/utils/displayName";
 import { profileApi } from "../features/profile/api/profile";
 import apiClient from "../shared/api/client";
 
@@ -163,6 +164,10 @@ const MessagesPage = () => {
   const [searchParams] = useSearchParams();
   const { user, isAuthenticated } = useAuth();
   const myId = user?.id ?? user?.user_id;
+  const roleLower = user?.role?.toLowerCase?.();
+  const isStudentRole = roleLower === "student" || roleLower === "alumni";
+  /** 项目议价提示仅面向客户（组织方），学生端不显示 */
+  const showClientProjectBanner = !isStudentRole;
   const chat = useChat();
   const {
     connectionStatus = "closed",
@@ -244,7 +249,7 @@ const MessagesPage = () => {
         const u = await profileApi.getPublicProfile(otherUserId);
         const d = u.data?.data;
         if (d) {
-          name = d.name || d.username || name;
+          name = talentDisplayName(d) || d.username || name;
           subtitle = d.organization_name || d.school || subtitle;
         }
       } catch (_) {}
@@ -463,6 +468,45 @@ const MessagesPage = () => {
   useEffect(() => {
     if (activeConversationId) loadHistory(activeConversationId);
   }, [activeConversationId, loadHistory]);
+
+  /** 从服务端重新拉取当前会话历史（WebSocket 未送达时的兜底，与轮询配合） */
+  const refetchActiveHistory = useCallback(async () => {
+    const convId = activeConversationId;
+    if (!convId || !isAuthenticated) return;
+    try {
+      const res = await messagesApi.getMessages(convId, { limit: 50 });
+      const list = res.data?.data?.messages || [];
+      const normalized = list.map((m) => ({
+        id: String(m.id),
+        from_user_id: String(m.from_user_id),
+        fromMe: myId != null && Number(m.from_user_id) === Number(myId),
+        text: m.content,
+        createdAt: m.created_at,
+      }));
+      setHistoryByConversation((prev) => ({ ...prev, [convId]: normalized }));
+      loadedHistoryRef.current[convId] = true;
+    } catch (e) {
+      console.warn("Refetch chat history failed", e);
+    }
+  }, [activeConversationId, isAuthenticated, myId]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const tick = () => {
+      if (document.visibilityState !== "visible") return;
+      loadConversations();
+      refetchActiveHistory();
+    };
+    const onVis = () => {
+      if (document.visibilityState === "visible") tick();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    const interval = setInterval(tick, 10000);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      clearInterval(interval);
+    };
+  }, [isAuthenticated, loadConversations, refetchActiveHistory]);
 
   const wsMessages = getMessages(activeConversationId);
   const historyMessages = activeConversationId ? (historyByConversation[activeConversationId] || []) : [];
@@ -932,34 +976,37 @@ const MessagesPage = () => {
                 </Stack>
               </Box>
 
-              {/* 顶部提示条 */}
-              <Box
-                sx={{
-                  px: 3,
-                  py: 1.5,
-                  background: "rgba(25,118,210,0.06)",
-                  borderBottom: "1px solid #e5e7eb",
-                }}
-              >
-                <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-                  <Typography
-                    variant="body2"
-                    sx={{ color: "#334155" }}
-                  >
-                    You are discussing a project with{" "}
-                    <strong>{activeConversation.name}</strong>. Agree on a price
-                    and timeline here.
-                  </Typography>
-                  {isTyping(activeConversationId) && (
-                    <Typography
-                      variant="body2"
-                      sx={{ color: "#334155", fontStyle: "italic" }}
-                    >
-                      对方正在输入…
-                    </Typography>
-                  )}
-                </Stack>
-              </Box>
+              {/* 顶部提示条：项目议价文案仅客户可见；学生仍可见「正在输入」 */}
+              {(showClientProjectBanner || isTyping(activeConversationId)) && (
+                <Box
+                  sx={{
+                    px: 3,
+                    py: 1.5,
+                    background: "rgba(25,118,210,0.06)",
+                    borderBottom: "1px solid #e5e7eb",
+                  }}
+                >
+                  <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                    {showClientProjectBanner ? (
+                      <Typography variant="body2" sx={{ color: "#334155" }}>
+                        You are discussing a project with{" "}
+                        <strong>{activeConversation.name}</strong>. Agree on a price
+                        and timeline here.
+                      </Typography>
+                    ) : (
+                      <span />
+                    )}
+                    {isTyping(activeConversationId) && (
+                      <Typography
+                        variant="body2"
+                        sx={{ color: "#334155", fontStyle: "italic" }}
+                      >
+                        对方正在输入…
+                      </Typography>
+                    )}
+                  </Stack>
+                </Box>
+              )}
 
               {/* 消息列表 */}
               <Box
@@ -1018,15 +1065,22 @@ const MessagesPage = () => {
                     hidden
                     onChange={handleChatFileChange}
                   />
-                  <Tooltip title={attachUploading ? "Uploading…" : "Attach a file"}>
+                  <Tooltip
+                    title={
+                      attachUploading
+                        ? "Uploading…"
+                        : connectionStatus !== "open"
+                          ? "Attach a file (uploads now; sends when chat is connected)"
+                          : "Attach a file"
+                    }
+                  >
                     <span>
                       <IconButton
                         size="small"
                         disabled={
                           !isAuthenticated ||
                           !activeConversationId ||
-                          attachUploading ||
-                          connectionStatus !== "open"
+                          attachUploading
                         }
                         sx={{
                           color: "text.secondary",
@@ -1163,11 +1217,11 @@ const MessagesPage = () => {
                   >
                     <ListItemAvatar>
                       <Avatar sx={{ width: 40, height: 40 }}>
-                        {(u.name || "?").charAt(0)}
+                        {(talentDisplayName(u) || u.name || "?").charAt(0)}
                       </Avatar>
                     </ListItemAvatar>
                     <ListItemText
-                      primary={u.name || `User ${u.id}`}
+                      primary={talentDisplayName(u) || `User ${u.id}`}
                       secondary={u.faculty || u.major || u.organization_name || " "}
                       primaryTypographyProps={{ fontWeight: 600 }}
                       secondaryTypographyProps={{ variant: "caption" }}

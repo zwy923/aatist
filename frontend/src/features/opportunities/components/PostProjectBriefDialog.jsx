@@ -98,12 +98,13 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess }) {
         desc += (desc ? "\n\n" : "") + `Reference: ${formData.referenceLink.trim()}`;
       }
 
+      const budgetVal = formData.budgetNegotiable ? null : Math.max(0, Number(formData.budgetValue) || 0);
       const payload = {
         title: formData.title.trim(),
         organization: formData.organization.trim(),
         category: formData.category,
         budgetType: formData.budgetType,
-        budgetValue: formData.budgetNegotiable ? null : formData.budgetValue,
+        budgetValue: budgetVal,
         location: formData.location,
         description: desc || undefined,
         tags: [],
@@ -219,7 +220,9 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess }) {
             <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
               <Slider
                 value={formData.budgetValue}
-                onChange={(_, v) => setFormData((p) => ({ ...p, budgetValue: v }))}
+                onChange={(_, v) =>
+                  setFormData((p) => ({ ...p, budgetValue: Math.max(0, typeof v === "number" ? v : 0) }))
+                }
                 min={0}
                 max={3100}
                 step={100}
@@ -233,7 +236,12 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess }) {
                 size="small"
                 label="Up to €"
                 value={formData.budgetNegotiable ? "" : formData.budgetValue}
-                onChange={(e) => setFormData((p) => ({ ...p, budgetValue: Number(e.target.value) || 0 }))}
+                onChange={(e) =>
+                  setFormData((p) => ({
+                    ...p,
+                    budgetValue: Math.max(0, Number(e.target.value) || 0),
+                  }))
+                }
                 sx={{ width: 120 }}
                 disabled={formData.budgetNegotiable}
                 InputProps={{ inputProps: { min: 0 } }}

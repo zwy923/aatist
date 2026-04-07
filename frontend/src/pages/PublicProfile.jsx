@@ -56,6 +56,13 @@ export default function PublicProfile() {
 
   const goProfile = (state) => navigate("/profile", { state });
 
+  const roleLower = profile?.role?.toLowerCase?.();
+  const showTalentSections =
+    roleLower === "student" ||
+    roleLower === "alumni" ||
+    (services?.length ?? 0) > 0 ||
+    (portfolio?.length ?? 0) > 0;
+
   return (
     <PageLayout noContainer>
       <StateContainer loading={loading} error={error}>
@@ -65,6 +72,7 @@ export default function PublicProfile() {
           portfolio={portfolio}
           services={services}
           isOwnProfile={isOwnProfile}
+          showServicesAndPortfolio={showTalentSections}
           bannerUrl={profile?.banner_url}
           onMessage={
             isAuthenticated && !isOwnProfile ? () => navigate(`/messages?user=${id}`) : undefined

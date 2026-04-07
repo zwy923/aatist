@@ -14,6 +14,7 @@ import PageLayout from "../shared/components/PageLayout";
 import { StateContainer } from "../shared/components/ui/StateContainer";
 import { portfolioApi, profileApi } from "../features/profile/api/profile";
 import useAuthStore from "../shared/stores/authStore";
+import { talentDisplayName } from "../shared/utils/displayName";
 import "./PortfolioDetail.css";
 
 function formatProjectDate(project) {
@@ -118,7 +119,11 @@ export default function PortfolioDetailPage() {
     load();
   }, [load]);
 
-  const ownerName = ownerProfile?.name || ownerProfile?.organization_name || "Creator";
+  const ownerRole = ownerProfile?.role?.toLowerCase?.();
+  const ownerName =
+    ownerRole === "org_person" || ownerRole === "org_team"
+      ? ownerProfile?.organization_name || ownerProfile?.name || "Creator"
+      : talentDisplayName(ownerProfile) || ownerProfile?.organization_name || ownerProfile?.name || "Creator";
   const categoryCrumb = (project?.service_category || "Portfolio").toUpperCase();
   const tagList = normalizeTags(project?.tags);
   const relatedList = normalizeTags(project?.related_services);
@@ -130,7 +135,7 @@ export default function PortfolioDetailPage() {
     if (ownerProfile) {
       list.push({
         key: `owner-${project.user_id}`,
-        name: ownerProfile.name || ownerName,
+        name: ownerName,
         subtitle: educationSubtitle(ownerProfile),
         avatarUrl: ownerProfile.avatar_url,
       });

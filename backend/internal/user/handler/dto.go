@@ -10,10 +10,11 @@ import (
 // RegisterProfile represents profile data during registration
 type RegisterProfile struct {
 	// Student/Alumni fields
-	StudentID string `json:"studentId,omitempty"`
-	School    string `json:"school,omitempty"`
-	Faculty   string `json:"faculty,omitempty"`
-	Major     string `json:"major,omitempty"`
+	StudentID     string `json:"studentId,omitempty"`
+	PreferredName string `json:"preferredName,omitempty"`
+	School        string `json:"school,omitempty"`
+	Faculty       string `json:"faculty,omitempty"`
+	Major         string `json:"major,omitempty"`
 	// Organization fields
 	OrganizationName       string `json:"organizationName,omitempty"`
 	OrganizationBio        string `json:"organizationBio,omitempty"`
@@ -48,6 +49,7 @@ type UserResponse struct {
 	ID                    int64   `json:"id"`
 	Email                 string  `json:"email"`
 	Name                  string  `json:"name"`
+	PreferredName         *string `json:"preferred_name,omitempty"`
 	AvatarURL             *string `json:"avatar_url,omitempty"`
 	BannerURL             *string `json:"banner_url,omitempty"`
 	Role                  string  `json:"role"`
@@ -135,6 +137,7 @@ type UpdateProfileRequest struct {
 	ProfileVisibility      *string                 `json:"profile_visibility" binding:"omitempty,oneof=public aalto_only private"`
 	// Student/Alumni fields
 	StudentID           *string       `json:"student_id" binding:"omitempty,max=64"`
+	PreferredName       *string       `json:"preferred_name" binding:"omitempty,max=100"`
 	School              *string       `json:"school" binding:"omitempty,max=255"`
 	Faculty             *string       `json:"faculty" binding:"omitempty,max=255"`
 	Major               *string       `json:"major" binding:"omitempty,max=255"`
@@ -167,6 +170,7 @@ func (r UpdateProfileRequest) ToServiceInput() service.UpdateProfileInput {
 		Name:                   r.Name,
 		AvatarURL:              r.AvatarURL,
 		StudentID:              r.StudentID,
+		PreferredName:          r.PreferredName,
 		School:                 r.School,
 		Faculty:                r.Faculty,
 		Major:                  r.Major,

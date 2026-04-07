@@ -10,16 +10,12 @@ export const profileApi = {
     uploadAvatar: (file) => {
         const formData = new FormData();
         formData.append('avatar', file);
-        return apiClient.post('/users/me/avatar', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        return apiClient.post('/users/me/avatar', formData);
     },
     uploadProfileBanner: (file) => {
         const formData = new FormData();
         formData.append('banner', file);
-        return apiClient.post('/users/me/banner', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        return apiClient.post('/users/me/banner', formData);
     },
     changePassword: (currentPassword, newPassword) =>
         apiClient.patch('/users/me/password', { current_password: currentPassword, new_password: newPassword }),
@@ -41,9 +37,7 @@ export const portfolioApi = {
     uploadProjectCover: (file) => {
         const formData = new FormData();
         formData.append('file', file);
-        return apiClient.post('/files/upload?type=project_cover', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        return apiClient.post('/files/upload?type=project_cover', formData);
     },
     createPortfolioItem: (data) => apiClient.post('/users/me/portfolio', data),
     updatePortfolioItem: (id, data) => apiClient.patch(`/users/me/portfolio/${id}`, data),

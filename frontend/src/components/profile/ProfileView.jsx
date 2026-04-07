@@ -17,6 +17,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import ImageOutlinedIcon from "@mui/icons-material/ImageOutlined";
 import "../../pages/PublicProfile.css";
 import { formatServicePriceLine } from "../../shared/utils/priceType";
+import { talentDisplayName } from "../../shared/utils/displayName";
 
 export default function ProfileView({
   profile,
@@ -85,7 +86,11 @@ export default function ProfileView({
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const displayName = profile?.name || profile?.organization_name || "User";
+  const roleLower = profile?.role?.toLowerCase?.();
+  const isOrgProfile = roleLower === "org_person" || roleLower === "org_team";
+  const displayName = isOrgProfile
+    ? profile?.organization_name || profile?.name || "User"
+    : talentDisplayName(profile) || profile?.organization_name || profile?.name || "User";
   const isVerified = profile?.is_verified_email || profile?.role_verified;
   const bioText = (profile?.bio || profile?.organization_bio || "").trim();
 

@@ -21,6 +21,7 @@ type RegisterInput struct {
 	Role                   model.Role
 	// Student/Alumni fields
 	StudentID              *string
+	PreferredName          *string
 	School                 *string
 	Faculty                *string
 	Major                  *string

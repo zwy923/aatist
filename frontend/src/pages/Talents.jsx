@@ -40,6 +40,7 @@ import './Talents.css';
 import { formatServicePriceLine } from '../shared/utils/priceType';
 import { AALTO_PROGRAMMES, programmeMatchesSchoolFilter } from '../constants/aaltoProgrammes';
 import { aaltoOutlinedSelectSx, aaltoSelectMenuProps } from '../shared/styles/aaltoSelectSx';
+import { talentDisplayName } from '../shared/utils/displayName';
 
 const FACULTIES = [
     "Arts, Design and Architecture",
@@ -132,6 +133,7 @@ const TalentCard = ({ student }) => {
     const moreOffers = uniqueOffers.length - 5;
 
     const educationLine = [student.school, student.faculty || student.major].filter(Boolean).join(', ') || 'Student';
+    const displayName = talentDisplayName(student) || 'Student';
 
     return (
         <Card className="talent-result-card" sx={{
@@ -148,10 +150,10 @@ const TalentCard = ({ student }) => {
                     className="talent-card-avatar"
                     sx={{ width: 100, height: 100, borderRadius: 1, bgcolor: '#e0e0e0' }}
                 >
-                    {student.name?.charAt(0)}
+                    {displayName.charAt(0)}
                 </Avatar>
                 <div className="talent-card-name">
-                    {student.name}
+                    {displayName}
                     {(profile?.is_verified_email || profile?.role_verified) && (
                         <VerifiedIcon sx={{ fontSize: 20, color: '#22c55e' }} />
                     )}
@@ -222,7 +224,19 @@ const TalentCard = ({ student }) => {
                         <>
                             <div className="talent-card-service-gallery">
                                 {(primaryService.media_urls || []).slice(0, 3).map((url, i) => (
-                                    <Box key={i} component="img" src={url} alt="" sx={{ width: 80, height: 100, objectFit: 'cover', borderRadius: 1 }} />
+                                    <Box
+                                      key={i}
+                                      component="img"
+                                      src={url}
+                                      alt=""
+                                      sx={{
+                                        width: 80,
+                                        height: 100,
+                                        objectFit: 'contain',
+                                        borderRadius: 1,
+                                        bgcolor: '#e8eaed',
+                                      }}
+                                    />
                                 ))}
                                 {(!primaryService.media_urls || primaryService.media_urls.length === 0) && (
                                     <>

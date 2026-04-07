@@ -138,6 +138,20 @@ export function useChatWebSocket(accessToken, currentUserId) {
     };
   }, [connect]);
 
+  // 从后台切回前台时重连（笔记本休眠、移动端杀进程后 WS 常已死，仅靠轮询不够及时）
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (!accessToken || !currentUserIdStr) return;
+      const ws = wsRef.current;
+      if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+        connect();
+      }
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, [accessToken, currentUserIdStr, connect]);
+
   const sendMessage = useCallback(
     (conversationId, content, tempId, attachment) => {
       const ws = wsRef.current;

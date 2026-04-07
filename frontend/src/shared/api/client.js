@@ -10,9 +10,27 @@ const apiClient = axios.create({
     },
 });
 
+/** 默认 JSON Content-Type 会破坏 multipart；必须由浏览器带上含 boundary 的 Content-Type */
+function clearContentTypeForFormData(config) {
+    if (typeof FormData === 'undefined' || !(config.data instanceof FormData)) {
+        return;
+    }
+    const headers = config.headers;
+    if (!headers) return;
+    if (typeof headers.delete === 'function') {
+        headers.delete('Content-Type');
+        headers.delete('content-type');
+        return;
+    }
+    delete headers['Content-Type'];
+    delete headers['content-type'];
+}
+
 // Request Interceptor
 apiClient.interceptors.request.use(
     (config) => {
+        clearContentTypeForFormData(config);
+
         // Check if auth is explicitly disabled for this request
         if (config.skipAuth) {
             return config;

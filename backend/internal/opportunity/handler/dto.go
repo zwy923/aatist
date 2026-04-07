@@ -10,7 +10,7 @@ type CreateOpportunityRequest struct {
 	Organization   string     `json:"organization" binding:"required"`
 	Category       string     `json:"category" binding:"required"`
 	BudgetType     string     `json:"budgetType" binding:"required,oneof=hourly fixed"`
-	BudgetValue    *float64   `json:"budgetValue"`
+	BudgetValue    *float64   `json:"budgetValue" binding:"omitempty,gte=0"`
 	Location       string     `json:"location" binding:"required"`
 	DurationMonths *int       `json:"durationMonths"`
 	Languages      []string   `json:"languages"`
@@ -26,7 +26,7 @@ type UpdateOpportunityRequest struct {
 	Organization   *string    `json:"organization"`
 	Category       *string    `json:"category"`
 	BudgetType     *string    `json:"budgetType" binding:"omitempty,oneof=hourly fixed"`
-	BudgetValue    *float64   `json:"budgetValue"`
+	BudgetValue    *float64   `json:"budgetValue" binding:"omitempty,gte=0"`
 	Location       *string    `json:"location"`
 	DurationMonths *int       `json:"durationMonths"`
 	Languages      []string   `json:"languages"`

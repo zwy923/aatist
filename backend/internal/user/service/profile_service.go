@@ -34,6 +34,7 @@ type UpdateProfileInput struct {
 	ProfileVisibility *model.ProfileVisibility
 	// Student/Alumni fields
 	StudentID           *string
+	PreferredName       *string
 	School              *string
 	Faculty             *string
 	Major               *string
@@ -202,6 +203,9 @@ func (s *profileService) UpdateProfile(ctx context.Context, userID int64, input 
 	if user.Role.IsStudentRole() {
 		if input.StudentID != nil {
 			fields["student_id"] = valueOrNil(normalizeOptionalStringWithLimit(input.StudentID, 64))
+		}
+		if input.PreferredName != nil {
+			fields["preferred_name"] = valueOrNil(normalizeOptionalStringWithLimit(input.PreferredName, 100))
 		}
 		if input.School != nil {
 			fields["school"] = valueOrNil(normalizeOptionalStringWithLimit(input.School, 255))

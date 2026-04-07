@@ -27,6 +27,64 @@ import {
 } from "../constants/aaltoProgrammes";
 import { aaltoOutlinedSelectSx, aaltoSelectMenuProps } from "../shared/styles/aaltoSelectSx";
 
+const REGISTER_DRAFT_KEY = "aatist_register_draft_v1";
+
+function readRegisterDraft() {
+  try {
+    if (typeof window === "undefined") return null;
+    const raw = sessionStorage.getItem(REGISTER_DRAFT_KEY);
+    if (!raw) return null;
+    const o = JSON.parse(raw);
+    if (!o || o.v !== 1) return null;
+    return o;
+  } catch {
+    return null;
+  }
+}
+
+function writeRegisterDraft(payload) {
+  try {
+    if (typeof window === "undefined") return;
+    sessionStorage.setItem(REGISTER_DRAFT_KEY, JSON.stringify({ v: 1, ...payload }));
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+function clearRegisterDraft() {
+  try {
+    if (typeof window === "undefined") return;
+    sessionStorage.removeItem(REGISTER_DRAFT_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function getInitialRegisterState() {
+  const draft = readRegisterDraft();
+  let urlMode = null;
+  if (typeof window !== "undefined") {
+    const m = new URLSearchParams(window.location.search).get("mode");
+    if (m === "client" || m === "student") urlMode = m;
+  }
+  const step =
+    urlMode ||
+    (draft && (draft.step === "client" || draft.step === "student" || draft.step === "select")
+      ? draft.step
+      : "select");
+
+  const clientForm =
+    draft?.clientForm && typeof draft.clientForm === "object"
+      ? { ...createClientForm(), ...draft.clientForm }
+      : createClientForm();
+  const studentForm =
+    draft?.studentForm && typeof draft.studentForm === "object"
+      ? { ...createStudentForm(), ...draft.studentForm }
+      : createStudentForm();
+
+  return { step, clientForm, studentForm };
+}
+
 const CLIENT_LETTERS = [
   { char: "C", x: 20, y: 80, r: -20 },
   { char: "L", x: 100, y: 60, r: 22 },
@@ -71,20 +129,31 @@ function Register() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { register, loading } = useAuth();
-  const [step, setStep] = useState(() => {
-    const mode = searchParams.get("mode");
-    if (mode === "client" || mode === "student") return mode;
-    return "select";
-  });
+  const initialRegister = useMemo(() => getInitialRegisterState(), []);
+  const [step, setStep] = useState(initialRegister.step);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [clientForm, setClientForm] = useState(initialRegister.clientForm);
+  const [studentForm, setStudentForm] = useState(initialRegister.studentForm);
 
   useEffect(() => {
     const mode = searchParams.get("mode");
     if (mode === "client" || mode === "student") setStep(mode);
   }, [searchParams]);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [clientForm, setClientForm] = useState(createClientForm());
-  const [studentForm, setStudentForm] = useState(createStudentForm());
+
+  // 与地址栏同步，便于从条款页带 ?mode= 返回或刷新后仍在对应表单
+  useEffect(() => {
+    if (step === "select") return;
+    if (searchParams.get("mode") === step) return;
+    setSearchParams({ mode: step }, { replace: true });
+  }, [step, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      writeRegisterDraft({ step, clientForm, studentForm });
+    }, 200);
+    return () => clearTimeout(t);
+  }, [step, clientForm, studentForm]);
 
   const updateClient = (field, value) => {
     setClientForm((prev) => ({ ...prev, [field]: value }));
@@ -143,10 +212,6 @@ function Register() {
     }
     if (clientForm.password !== clientForm.confirmPassword) {
       setError("Passwords do not match.");
-      return;
-    }
-    if (!clientForm.company.trim()) {
-      setError("Company name is required.");
       return;
     }
 
@@ -227,6 +292,9 @@ function Register() {
         faculty: academic.faculty,
         major: academic.major,
         studentId: studentForm.yearOfEnrollment.trim(),
+        ...(studentForm.preferredName.trim()
+          ? { preferredName: studentForm.preferredName.trim() }
+          : {}),
       },
     };
 
@@ -237,6 +305,7 @@ function Register() {
     }
 
     setSuccess(result.autoLogin ? "Student account created successfully." : "Student account created successfully. Please sign in.");
+    clearRegisterDraft();
     setStudentForm(createStudentForm());
     setTimeout(() => navigate(result.autoLogin ? "/talents" : "/auth/login/student"), 700);
   };
@@ -458,7 +527,14 @@ function Register() {
                 }
                 label={
                   <span>
-                    I agree to <Link to="/terms" className="register-terms-link">Terms & Privacy Policy</Link>
+                    I agree to{" "}
+                    <Link
+                      to="/terms"
+                      state={{ from: "register", registerMode: "client" }}
+                      className="register-terms-link"
+                    >
+                      Terms & Privacy Policy
+                    </Link>
                   </span>
                 }
                 className="register-checkbox-label"
@@ -687,7 +763,14 @@ function Register() {
               }
               label={
                 <span>
-                  I agree to <Link to="/terms" className="register-terms-link">Terms & Privacy Policy</Link>
+                  I agree to{" "}
+                  <Link
+                    to="/terms"
+                    state={{ from: "register", registerMode: "student" }}
+                    className="register-terms-link"
+                  >
+                    Terms & Privacy Policy
+                  </Link>
                 </span>
               }
               className="register-checkbox-label"

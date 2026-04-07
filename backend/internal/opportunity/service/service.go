@@ -136,6 +136,9 @@ func (s *opportunityService) Create(ctx context.Context, input CreateOpportunity
 	if !budgetType.IsValid() {
 		return nil, errs.NewAppError(errs.ErrInvalidInput, 400, "invalid budget_type").WithCode(errs.CodeInvalidInput)
 	}
+	if input.BudgetValue != nil && *input.BudgetValue < 0 {
+		return nil, errs.NewAppError(errs.ErrInvalidInput, 400, "budget must not be negative").WithCode(errs.CodeInvalidInput)
+	}
 
 	opp := &model.Opportunity{
 		Title:          input.Title,
@@ -189,6 +192,9 @@ func (s *opportunityService) Update(ctx context.Context, opportunityID, userID i
 		opp.BudgetType = budgetType
 	}
 	if input.BudgetValue != nil {
+		if *input.BudgetValue < 0 {
+			return nil, errs.NewAppError(errs.ErrInvalidInput, 400, "budget must not be negative").WithCode(errs.CodeInvalidInput)
+		}
 		opp.BudgetValue = input.BudgetValue
 	}
 	if input.Location != nil {

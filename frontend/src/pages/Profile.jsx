@@ -47,6 +47,7 @@ export default function Profile() {
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [servicesDialogOpen, setServicesDialogOpen] = useState(false);
+  const [servicesEditTriggerId, setServicesEditTriggerId] = useState(null);
   const [portfolioDialogOpen, setPortfolioDialogOpen] = useState(false);
   const [portfolioEditTriggerId, setPortfolioEditTriggerId] = useState(null);
   const [bannerObjectUrl, setBannerObjectUrl] = useState(null);
@@ -121,6 +122,7 @@ export default function Profile() {
       clear();
     } else if (st.openServices) {
       setServicesDialogOpen(true);
+      if (st.editServiceId != null) setServicesEditTriggerId(st.editServiceId);
       clear();
     } else if (st.openPortfolio) {
       setPortfolioDialogOpen(true);
@@ -299,7 +301,10 @@ export default function Profile() {
 
         <Dialog
           open={servicesDialogOpen}
-          onClose={() => setServicesDialogOpen(false)}
+          onClose={() => {
+            setServicesDialogOpen(false);
+            setServicesEditTriggerId(null);
+          }}
           maxWidth="md"
           fullWidth
           scroll="paper"
@@ -307,13 +312,22 @@ export default function Profile() {
         >
           <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             Manage services
-            <IconButton aria-label="Close" onClick={() => setServicesDialogOpen(false)} size="small">
+            <IconButton
+              aria-label="Close"
+              onClick={() => {
+                setServicesDialogOpen(false);
+                setServicesEditTriggerId(null);
+              }}
+              size="small"
+            >
               <CloseIcon />
             </IconButton>
           </DialogTitle>
           <DialogContent>
             <ServicesSection
               hideIntro
+              triggerEditForId={servicesEditTriggerId}
+              onTriggerEditConsumed={() => setServicesEditTriggerId(null)}
               onSave={() => {
                 loadServices();
               }}

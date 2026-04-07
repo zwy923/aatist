@@ -150,7 +150,7 @@ func (s *authService) Register(ctx context.Context, input RegisterInput) (*model
 
 	// Role-specific registration constraints aligned with registration flow:
 	// - student/alumni: require @aalto.fi email and academic profile fields
-	// - organization roles: require organization name (contact title optional)
+	// - organization roles: organization name and contact title optional
 	if role.IsStudentRole() {
 		if !strings.HasSuffix(normalizedEmail, "@aalto.fi") {
 			return nil, nil, errs.NewAppError(errs.ErrInvalidInput, 400, "student registration requires Aalto email (@aalto.fi)")
@@ -163,11 +163,6 @@ func (s *authService) Register(ctx context.Context, input RegisterInput) (*model
 		}
 		if input.Major == nil || strings.TrimSpace(*input.Major) == "" {
 			return nil, nil, errs.NewAppError(errs.ErrInvalidInput, 400, "program is required for student registration")
-		}
-	}
-	if role.IsOrgRole() {
-		if input.OrganizationName == nil || strings.TrimSpace(*input.OrganizationName) == "" {
-			return nil, nil, errs.NewAppError(errs.ErrInvalidInput, 400, "company is required for client registration")
 		}
 	}
 
@@ -195,10 +190,11 @@ func (s *authService) Register(ctx context.Context, input RegisterInput) (*model
 		RoleVerified:        roleVerified,                    // True if email is from verified school domain
 		FailedAttempts:      0,
 		// Student/Alumni fields
-		StudentID: input.StudentID,
-		School:    input.School,
-		Faculty:   input.Faculty,
-		Major:     input.Major,
+		StudentID:     input.StudentID,
+		PreferredName: input.PreferredName,
+		School:        input.School,
+		Faculty:       input.Faculty,
+		Major:         input.Major,
 		// Organization fields
 		OrganizationName:       input.OrganizationName,
 		OrganizationBio:        input.OrganizationBio,

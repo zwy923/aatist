@@ -209,7 +209,13 @@ export default function Login() {
                 label={
                   <span>
                     I confirm that I am an Aalto student and agree to{" "}
-                    <Link to="/terms" className="login-terms-link">Terms & Privacy Policy</Link>
+                    <Link
+                      to="/terms"
+                      state={{ from: "login", loginMode: mode }}
+                      className="login-terms-link"
+                    >
+                      Terms & Privacy Policy
+                    </Link>
                   </span>
                 }
                 className="login-checkbox"

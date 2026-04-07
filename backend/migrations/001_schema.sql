@@ -1,6 +1,8 @@
 -- Aalto Talent Network - 完整数据库 schema + 元数据种子
 -- 合并自原 001-010 迁移；种子数据原 002_seed.sql 已并入本文件
 -- 原 002_portfolio_wizard.sql（projects：short_caption、media_urls、related_services、co_creators、is_published、is_public）已并入下方 CREATE TABLE projects，不再单独迁移
+-- 原 002_user_services_price_type_multi.sql（price_type VARCHAR(128)，多值如 hourly,project,negotiable）已体现在下方 user_services 定义
+-- 原 003_users_preferred_name.sql（users.preferred_name）已并入下方 users 表
 
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
@@ -20,6 +22,7 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(255) NOT NULL,
     password_hash VARCHAR(255),
     name VARCHAR(100) NOT NULL,
+    preferred_name VARCHAR(100),
     avatar_url TEXT,
     banner_url TEXT,
     role VARCHAR(20) NOT NULL DEFAULT 'student' CHECK (role IN ('student', 'alumni', 'org_person', 'org_team')),

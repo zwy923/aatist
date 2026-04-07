@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Box,
   Button,
@@ -43,7 +43,27 @@ Object.entries(BROAD_CATEGORIES).forEach(([broad, specifics]) => {
   specifics.forEach((s) => FLAT_SERVICES.push({ broad, specific: s }));
 });
 
-export default function ServicesSection({ onSave, hideIntro = false }) {
+/** Map stored category string back to broad + specific selects (handles legacy "Specific only" values). */
+function resolveCategoryFields(stored) {
+  const raw = (stored || "").trim();
+  if (!raw) return { broadCategory: "", specificService: "" };
+  if (raw.includes(" > ")) {
+    const idx = raw.indexOf(" > ");
+    const broad = raw.slice(0, idx).trim();
+    const specific = raw.slice(idx + 3).trim();
+    return { broadCategory: broad, specificService: specific || broad };
+  }
+  const hit = FLAT_SERVICES.find((x) => x.specific === raw || x.broad === raw);
+  if (hit) return { broadCategory: hit.broad, specificService: hit.specific };
+  return { broadCategory: "", specificService: raw };
+}
+
+export default function ServicesSection({
+  onSave,
+  hideIntro = false,
+  triggerEditForId = null,
+  onTriggerEditConsumed,
+}) {
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -103,15 +123,13 @@ export default function ServicesSection({ onSave, hideIntro = false }) {
     setDialogOpen(true);
   };
 
-  const handleOpenEdit = (s) => {
-    const [broad, specific] = (s.category || "").includes(" > ")
-      ? (s.category || "").split(" > ")
-      : [s.category || "", ""];
+  const handleOpenEdit = useCallback((s) => {
+    const { broadCategory, specificService } = resolveCategoryFields(s.category);
     const tokens = parsePriceTypeTokens(s.price_type);
     const hasAny = tokens.length > 0;
     setFormData({
-      broadCategory: broad,
-      specificService: specific || broad,
+      broadCategory,
+      specificService,
       title: s.title || "",
       description: s.description || s.experience_summary || "",
       shortDescription: s.short_description || "",
@@ -124,17 +142,27 @@ export default function ServicesSection({ onSave, hideIntro = false }) {
     });
     setEditingId(s.id);
     setDialogOpen(true);
-  };
+  }, []);
+
+  useEffect(() => {
+    if (triggerEditForId == null || loading) return;
+    const s = services.find((x) => String(x.id) === String(triggerEditForId));
+    if (!s) {
+      onTriggerEditConsumed?.();
+      return;
+    }
+    handleOpenEdit(s);
+    onTriggerEditConsumed?.();
+  }, [triggerEditForId, loading, services, onTriggerEditConsumed, handleOpenEdit]);
 
   const handleChange = (field) => (e) => {
     const value = e.target.value;
-    setFormData((prev) => ({ ...prev, [field]: value }));
     if (field === "broadCategory") {
-      setFormData((prev) => ({ ...prev, specificService: "" }));
+      setFormData((prev) => ({ ...prev, broadCategory: value, specificService: "" }));
+      return;
     }
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
-
-  const categoryValue = formData.specificService || formData.broadCategory;
 
   const handleMediaUpload = async (e) => {
     const files = e.target.files;
@@ -168,7 +196,9 @@ export default function ServicesSection({ onSave, hideIntro = false }) {
   };
 
   const handleSaveService = async () => {
-    const cat = categoryValue || formData.broadCategory;
+    const broad = (formData.broadCategory || "").trim();
+    const spec = (formData.specificService || "").trim();
+    const cat = broad && spec && broad !== spec ? `${broad} > ${spec}` : spec || broad;
     if (!cat.trim()) {
       setSnackbar({ open: true, message: "Please select a category", severity: "error" });
       return;
@@ -180,6 +210,16 @@ export default function ServicesSection({ onSave, hideIntro = false }) {
     }
     if (!formData.priceHourly && !formData.priceProject && !formData.priceNegotiable) {
       setSnackbar({ open: true, message: "Select at least one pricing option", severity: "error" });
+      return;
+    }
+    const rawMin = formData.priceMin != null && String(formData.priceMin).trim() !== "" ? parseInt(String(formData.priceMin).trim(), 10) : null;
+    const rawMax = formData.priceMax != null && String(formData.priceMax).trim() !== "" ? parseInt(String(formData.priceMax).trim(), 10) : null;
+    if (rawMin != null && (Number.isNaN(rawMin) || rawMin < 0)) {
+      setSnackbar({ open: true, message: "Price minimum cannot be negative", severity: "error" });
+      return;
+    }
+    if (rawMax != null && (Number.isNaN(rawMax) || rawMax < 0)) {
+      setSnackbar({ open: true, message: "Price maximum cannot be negative", severity: "error" });
       return;
     }
     setSaving(true);
@@ -195,12 +235,12 @@ export default function ServicesSection({ onSave, hideIntro = false }) {
           project: formData.priceProject,
           negotiable: formData.priceNegotiable,
         }),
-        price_min: formData.priceMin ? parseInt(formData.priceMin, 10) : null,
-        price_max: formData.priceMax ? parseInt(formData.priceMax, 10) : null,
+        price_min: rawMin,
+        price_max: rawMax,
         media_urls: formData.mediaUrls,
       };
-      if (editingId) {
-        await profileApi.updateService(editingId, payload);
+      if (editingId != null && editingId !== "") {
+        await profileApi.updateService(Number(editingId), payload);
         setSnackbar({ open: true, message: "Service updated", severity: "success" });
       } else {
         await profileApi.createService(payload);
@@ -303,7 +343,7 @@ export default function ServicesSection({ onSave, hideIntro = false }) {
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
         <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <AddIcon /> Add New Service
+          <AddIcon /> {editingId != null ? "Edit service" : "Add New Service"}
         </DialogTitle>
         <DialogContent>
           <Stack spacing={3} sx={{ mt: 1 }}>
@@ -409,9 +449,25 @@ export default function ServicesSection({ onSave, hideIntro = false }) {
               {(formData.priceHourly || formData.priceProject) && (
                 <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 2 }}>
                   <span>€</span>
-                  <TextField type="number" size="small" label="Min" value={formData.priceMin} onChange={handleChange("priceMin")} sx={{ width: 100 }} />
+                  <TextField
+                    type="number"
+                    size="small"
+                    label="Min"
+                    value={formData.priceMin}
+                    onChange={handleChange("priceMin")}
+                    sx={{ width: 100 }}
+                    inputProps={{ min: 0 }}
+                  />
                   <span>~ Max</span>
-                  <TextField type="number" size="small" label="Max" value={formData.priceMax} onChange={handleChange("priceMax")} sx={{ width: 100 }} />
+                  <TextField
+                    type="number"
+                    size="small"
+                    label="Max"
+                    value={formData.priceMax}
+                    onChange={handleChange("priceMax")}
+                    sx={{ width: 100 }}
+                    inputProps={{ min: 0 }}
+                  />
                 </Stack>
               )}
             </Paper>
@@ -466,7 +522,13 @@ export default function ServicesSection({ onSave, hideIntro = false }) {
                         component="img"
                         src={url}
                         alt=""
-                        sx={{ width: 60, height: 60, objectFit: "cover", borderRadius: 1 }}
+                        sx={{
+                          width: 60,
+                          height: 60,
+                          objectFit: "contain",
+                          borderRadius: 1,
+                          bgcolor: "#f1f3f4",
+                        }}
                       />
                       <IconButton size="small" sx={{ position: "absolute", top: -8, right: -8, bgcolor: "#fff" }} onClick={() => handleRemoveMedia(i)}>
                         <DeleteIcon fontSize="small" />

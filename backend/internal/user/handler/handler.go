@@ -100,7 +100,7 @@ func (h *AuthHandler) RegisterHandler(c *gin.Context) {
 	role := h.normalizeRole(req.Role)
 
 	// Prepare student/alumni fields
-	var studentIDPtr, schoolPtr, facultyPtr, majorPtr *string
+	var studentIDPtr, preferredNamePtr, schoolPtr, facultyPtr, majorPtr *string
 	// Prepare organization fields
 	var orgNamePtr, orgBioPtr, contactTitlePtr *string
 	var isAffiliatedPtr *bool
@@ -111,6 +111,10 @@ func (h *AuthHandler) RegisterHandler(c *gin.Context) {
 		if v := strings.TrimSpace(req.Profile.StudentID); v != "" {
 			value := v
 			studentIDPtr = &value
+		}
+		if v := strings.TrimSpace(req.Profile.PreferredName); v != "" {
+			value := v
+			preferredNamePtr = &value
 		}
 		if v := strings.TrimSpace(req.Profile.School); v != "" {
 			value := v
@@ -152,6 +156,7 @@ func (h *AuthHandler) RegisterHandler(c *gin.Context) {
 		IP:                     ip,
 		Role:                   role,
 		StudentID:              studentIDPtr,
+		PreferredName:          preferredNamePtr,
 		School:                 schoolPtr,
 		Faculty:                facultyPtr,
 		Major:                  majorPtr,
@@ -703,8 +708,8 @@ func (h *AuthHandler) CreateUserServiceHandler(c *gin.Context) {
 		Description       string   `json:"description" binding:"omitempty,max=5000"`
 		ShortDescription  string   `json:"short_description" binding:"omitempty,max=500"`
 		PriceType         string   `json:"price_type" binding:"omitempty,max=128"`
-		PriceMin          *int     `json:"price_min"`
-		PriceMax          *int     `json:"price_max"`
+		PriceMin          *int     `json:"price_min" binding:"omitempty,gte=0"`
+		PriceMax          *int     `json:"price_max" binding:"omitempty,gte=0"`
 		MediaURLs         []string `json:"media_urls"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -761,8 +766,8 @@ func (h *AuthHandler) UpdateUserServiceHandler(c *gin.Context) {
 		Description       string   `json:"description" binding:"omitempty,max=5000"`
 		ShortDescription  string   `json:"short_description" binding:"omitempty,max=500"`
 		PriceType         string   `json:"price_type" binding:"omitempty,max=128"`
-		PriceMin          *int     `json:"price_min"`
-		PriceMax          *int     `json:"price_max"`
+		PriceMin          *int     `json:"price_min" binding:"omitempty,gte=0"`
+		PriceMax          *int     `json:"price_max" binding:"omitempty,gte=0"`
 		MediaURLs         []string `json:"media_urls"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -805,6 +810,14 @@ func (h *AuthHandler) UpdateUserServiceHandler(c *gin.Context) {
 	}
 	if req.MediaURLs != nil {
 		s.MediaURLs = model.StringArray(req.MediaURLs)
+	}
+	if s.PriceMin != nil && *s.PriceMin < 0 {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "price_min must not be negative")
+		return
+	}
+	if s.PriceMax != nil && *s.PriceMax < 0 {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "price_max must not be negative")
+		return
 	}
 	if err := h.userServiceRepo.Update(c.Request.Context(), s); err != nil {
 		h.handleServiceError(c, err)
@@ -951,6 +964,7 @@ func mapUserToResponse(user *model.User) UserResponse {
 		ID:                   user.ID,
 		Email:                user.Email,
 		Name:                 user.Name,
+		PreferredName:        user.PreferredName,
 		AvatarURL:            user.AvatarURL,
 		BannerURL:            user.BannerURL,
 		Role:                 user.Role.String(),
@@ -1199,6 +1213,9 @@ func mapUserToPublicResponse(user *model.User) gin.H {
 
 	// Add student/alumni fields if applicable
 	if user.Role.IsStudentRole() {
+		if user.PreferredName != nil && strings.TrimSpace(*user.PreferredName) != "" {
+			resp["preferred_name"] = strings.TrimSpace(*user.PreferredName)
+		}
 		resp["school"] = user.School
 		resp["faculty"] = user.Faculty
 		resp["major"] = user.Major
