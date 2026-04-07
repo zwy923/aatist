@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aatist/backend/internal/opportunity/model"
@@ -146,8 +147,11 @@ func (h *OpportunityHandler) ListOpportunitiesHandler(c *gin.Context) {
 	if category := c.Query("category"); category != "" {
 		filter.Category = &category
 	}
-	if location := c.Query("location"); location != "" {
+	if location := strings.TrimSpace(c.Query("location")); location != "" {
 		filter.Location = &location
+	}
+	if q := strings.TrimSpace(c.Query("q")); q != "" {
+		filter.Search = &q
 	}
 	if budgetMinStr := c.Query("budget_min"); budgetMinStr != "" {
 		if budgetMin, err := strconv.ParseFloat(budgetMinStr, 64); err == nil {
@@ -173,11 +177,11 @@ func (h *OpportunityHandler) ListOpportunitiesHandler(c *gin.Context) {
 		filter.Status = &status
 	}
 
-	// Sorting
+	// Sorting (latest = newest first, same as published_at desc)
 	if sort := c.Query("sort"); sort != "" {
 		filter.Sort = sort
 	} else {
-		filter.Sort = "published_at"
+		filter.Sort = "latest"
 	}
 	if order := c.Query("order"); order != "" {
 		filter.Order = order
@@ -217,6 +221,16 @@ func (h *OpportunityHandler) ListOpportunitiesHandler(c *gin.Context) {
 		Limit: result.Limit,
 		Total: result.Total,
 	}))
+}
+
+// ListOpportunityLocationsHandler handles GET /opportunities/locations
+func (h *OpportunityHandler) ListOpportunityLocationsHandler(c *gin.Context) {
+	locs, err := h.oppService.ListDistinctLocations(c.Request.Context())
+	if err != nil {
+		h.handleServiceError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, response.Success(locs))
 }
 
 // GetOpportunityHandler handles GET /opportunities/:id

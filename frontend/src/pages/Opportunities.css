@@ -1,0 +1,456 @@
+/* Open Opportunities — layout aligned with product mock */
+
+.opp-page-root .landing-header .nav-link.active {
+  color: #c4ff3e !important;
+}
+
+.opp-shell {
+  width: 100%;
+}
+
+.opp-hero {
+  position: relative;
+  background: #000;
+  padding: 48px 24px 40px;
+  overflow: hidden;
+}
+
+@media (min-width: 900px) {
+  .opp-hero {
+    padding: 56px 48px 48px;
+  }
+}
+
+/* 连贯单词 CLIENT，靠右上、留边距，落在标题区域右侧，避免压在搜索条/按钮上 */
+.opp-hero-watermark {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  user-select: none;
+  font-weight: 800;
+  font-size: clamp(4rem, 18vw, 14rem);
+  letter-spacing: 0.02em;
+  color: rgba(0, 102, 102, 0.22);
+  line-height: 0.85;
+  text-transform: uppercase;
+}
+
+.opp-hero-inner {
+  position: relative;
+  z-index: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.opp-hero-title {
+  margin: 0 0 28px;
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+
+.opp-hero-row {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: stretch;
+}
+
+@media (min-width: 768px) {
+  .opp-hero-row {
+    flex-direction: row;
+    align-items: center;
+    gap: 20px;
+  }
+}
+
+.opp-search-wrap {
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+}
+
+.opp-search-input {
+  flex: 1;
+  border: none;
+  padding: 16px 18px;
+  font-size: 16px;
+  outline: none;
+  min-width: 0;
+}
+
+.opp-search-input::placeholder {
+  color: #9aa0a6;
+}
+
+.opp-search-btn {
+  width: 56px;
+  flex-shrink: 0;
+  border: none;
+  background: #c4ff3e;
+  color: #0a0a0a;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.opp-search-btn:hover {
+  background: #b8f030;
+}
+
+.opp-post-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 24px;
+  border-radius: 12px;
+  border: none;
+  background: #c4ff3e;
+  color: #0a0a0a;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 4px 20px rgba(196, 255, 62, 0.35);
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.opp-post-btn:hover {
+  background: #b8f030;
+  transform: translateY(-1px);
+}
+
+.opp-post-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.opp-filters {
+  background: #0a5c5c;
+  padding: 16px 24px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 20px 32px;
+}
+
+@media (min-width: 900px) {
+  .opp-filters {
+    padding: 18px 48px;
+    justify-content: space-between;
+  }
+}
+
+.opp-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.opp-filter-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.opp-filter-select {
+  min-width: 180px;
+  padding: 10px 36px 10px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.2);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23ffffff' d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
+.opp-filter-select option {
+  color: #111;
+  background: #fff;
+}
+
+.opp-urgency-toggle {
+  display: flex;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.opp-urgency-btn {
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.opp-urgency-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.opp-urgency-btn.active {
+  background: #c4ff3e;
+  color: #0a0a0a;
+}
+
+.opp-filters-right {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-end;
+}
+
+.opp-grid-section {
+  background: #c4ff3e;
+  padding: 28px 24px 48px;
+  min-height: 320px;
+}
+
+@media (min-width: 900px) {
+  .opp-grid-section {
+    padding: 32px 48px 56px;
+  }
+}
+
+.opp-grid-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.opp-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 22px;
+}
+
+.opp-card {
+  position: relative;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+a.opp-card:hover {
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
+}
+
+.opp-card-urgent {
+  position: absolute;
+  top: -8px;
+  left: 12px;
+  z-index: 2;
+  background: #ff8a80;
+  color: #1a1a1a;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 12px;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.opp-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px 20px 0;
+}
+
+.opp-card-brand {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.opp-card-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #5f6368;
+  flex-shrink: 0;
+}
+
+.opp-card-org {
+  font-size: 16px;
+  font-weight: 800;
+  color: #111;
+  line-height: 1.25;
+}
+
+.opp-card-cat {
+  font-size: 13px;
+  color: #5f6368;
+  margin-top: 2px;
+}
+
+.opp-card-meta {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.opp-card-ago {
+  font-size: 13px;
+  font-weight: 700;
+  color: #5f6368;
+}
+
+.opp-card-date {
+  font-size: 12px;
+  color: #80868b;
+  margin-top: 2px;
+}
+
+.opp-card-body {
+  padding: 16px 20px 12px;
+  flex: 1;
+}
+
+.opp-card-loc {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #5f6368;
+  margin-bottom: 10px;
+}
+
+.opp-card-title {
+  margin: 0 0 14px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #111;
+  line-height: 1.3;
+}
+
+.opp-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.opp-badge-price {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #3c4043;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.opp-badge-negotiable {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #e8eaed;
+  color: #3c4043;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.opp-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px 18px;
+  border-top: 1px solid #e8eaed;
+  margin-top: auto;
+}
+
+.opp-card-interested {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #5f6368;
+  text-decoration: none;
+}
+
+a.opp-card-interested:hover {
+  color: #111;
+}
+
+.opp-card-foot-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #9aa0a6;
+}
+
+.opp-empty {
+  text-align: center;
+  padding: 48px 24px;
+  color: #3c4043;
+  font-weight: 600;
+}
+
+.opp-loading {
+  display: flex;
+  justify-content: center;
+  padding: 48px;
+}
+
+/* Fixed scroll-to-top — aligned with Opportunities teal / lime palette */
+.opp-scroll-top-btn {
+  position: fixed !important;
+  right: 24px;
+  bottom: 24px;
+  z-index: 1100;
+  width: 56px !important;
+  height: 56px !important;
+  background: #0a5c5c !important;
+  color: #c4ff3e !important;
+  box-shadow: 0 4px 18px rgba(10, 92, 92, 0.45);
+  border-radius: 50% !important;
+}
+
+.opp-scroll-top-btn:hover {
+  background: #0d7070 !important;
+  color: #dfff7a !important;
+}
+
+@media (max-width: 600px) {
+  .opp-scroll-top-btn {
+    right: 16px;
+    bottom: 16px;
+    width: 52px !important;
+    height: 52px !important;
+  }
+}

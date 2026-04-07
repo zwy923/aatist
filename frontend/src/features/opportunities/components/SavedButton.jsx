@@ -1,10 +1,18 @@
 import React, { useState } from 'react';
 import { IconButton, Tooltip, CircularProgress } from '@mui/material';
-import { Bookmark, BookmarkBorder } from '@mui/icons-material';
+import { Bookmark, BookmarkBorder, Favorite, FavoriteBorder } from '@mui/icons-material';
 import { profileApi } from '../../profile/api/profile';
 import useAuthStore from '../../../shared/stores/authStore';
 
-const SavedButton = ({ targetId, type = 'opportunity', initialSaved = false, onToggle }) => {
+const SavedButton = ({
+    targetId,
+    type = 'opportunity',
+    initialSaved = false,
+    onToggle,
+    iconSet = 'bookmark',
+    size = 'medium',
+    sx = {},
+}) => {
     const [isSaved, setIsSaved] = useState(initialSaved);
     const [loading, setLoading] = useState(false);
     const { isAuthenticated } = useAuthStore();
@@ -36,9 +44,13 @@ const SavedButton = ({ targetId, type = 'opportunity', initialSaved = false, onT
         }
     };
 
+    const Filled = iconSet === 'favorite' ? Favorite : Bookmark;
+    const Outline = iconSet === 'favorite' ? FavoriteBorder : BookmarkBorder;
+
     return (
         <Tooltip title={isSaved ? 'Remove from saved' : 'Save opportunity'}>
             <IconButton
+                size={size}
                 onClick={handleToggle}
                 disabled={loading}
                 sx={{
@@ -46,15 +58,16 @@ const SavedButton = ({ targetId, type = 'opportunity', initialSaved = false, onT
                     '&:hover': {
                         color: 'primary.main',
                         backgroundColor: 'rgba(93, 224, 255, 0.1)',
-                    }
+                    },
+                    ...sx,
                 }}
             >
                 {loading ? (
-                    <CircularProgress size={24} color="inherit" />
+                    <CircularProgress size={iconSet === 'favorite' ? 20 : 24} color="inherit" />
                 ) : isSaved ? (
-                    <Bookmark />
+                    <Filled fontSize={size === 'small' ? 'small' : 'medium'} />
                 ) : (
-                    <BookmarkBorder />
+                    <Outline fontSize={size === 'small' ? 'small' : 'medium'} />
                 )}
             </IconButton>
         </Tooltip>

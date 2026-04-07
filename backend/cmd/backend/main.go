@@ -209,6 +209,7 @@ func main() {
 	opportunities := api.Group("/opportunities")
 	{
 		opportunities.GET("", oppHandler.ListOpportunitiesHandler)
+		opportunities.GET("/locations", oppHandler.ListOpportunityLocationsHandler)
 		opportunities.GET("/:id", oppHandler.GetOpportunityHandler)
 	}
 	protectedOpp := api.Group("/opportunities")

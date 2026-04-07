@@ -172,6 +172,7 @@ func registerPublicRoutes(group *gin.RouterGroup, getTimeout func(string) time.D
 				{"GET", "/users/check-username"},
 				{"GET", "/users/check-email"},
 				{"GET", "/opportunities"},
+				{"GET", "/opportunities/locations"},
 				{"GET", "/opportunities/:id"},
 				{"GET", "/users/:id"},
 				{"GET", "/users/:id/summary"},

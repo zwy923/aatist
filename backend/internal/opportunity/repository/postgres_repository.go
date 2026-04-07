@@ -35,6 +35,13 @@ func NewPostgresOpportunityApplicationRepository(db *sqlx.DB) OpportunityApplica
 	return &postgresOpportunityApplicationRepository{db: db}
 }
 
+func escapeLikePattern(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `%`, `\%`)
+	s = strings.ReplaceAll(s, `_`, `\_`)
+	return s
+}
+
 // OpportunityRepository implementation
 func (r *postgresOpportunityRepository) Create(ctx context.Context, opp *model.Opportunity) error {
 	query := `
@@ -201,6 +208,21 @@ func (r *postgresOpportunityRepository) List(ctx context.Context, filter Opportu
 		where = append(where, fmt.Sprintf("urgent = $%d", len(args)))
 	}
 
+	if filter.Search != nil {
+		q := strings.TrimSpace(*filter.Search)
+		if q != "" {
+			pat := "%" + escapeLikePattern(q) + "%"
+			args = append(args, pat)
+			n := len(args)
+			where = append(where, fmt.Sprintf(`(
+				title ILIKE $%d ESCAPE '\'
+				OR (description IS NOT NULL AND description ILIKE $%d ESCAPE '\')
+				OR category ILIKE $%d ESCAPE '\'
+				OR EXISTS (SELECT 1 FROM unnest(tags) AS t WHERE t ILIKE $%d ESCAPE '\')
+			)`, n, n, n, n))
+		}
+	}
+
 	if filter.Status != nil && *filter.Status != "" {
 		args = append(args, *filter.Status)
 		where = append(where, fmt.Sprintf("status = $%d", len(args)))
@@ -296,6 +318,21 @@ func (r *postgresOpportunityRepository) Count(ctx context.Context, filter Opport
 	if filter.Urgent != nil {
 		args = append(args, *filter.Urgent)
 		where = append(where, fmt.Sprintf("urgent = $%d", len(args)))
+	}
+
+	if filter.Search != nil {
+		q := strings.TrimSpace(*filter.Search)
+		if q != "" {
+			pat := "%" + escapeLikePattern(q) + "%"
+			args = append(args, pat)
+			n := len(args)
+			where = append(where, fmt.Sprintf(`(
+				title ILIKE $%d ESCAPE '\'
+				OR (description IS NOT NULL AND description ILIKE $%d ESCAPE '\')
+				OR category ILIKE $%d ESCAPE '\'
+				OR EXISTS (SELECT 1 FROM unnest(tags) AS t WHERE t ILIKE $%d ESCAPE '\')
+			)`, n, n, n, n))
+		}
 	}
 
 	if filter.Status != nil && *filter.Status != "" {
@@ -403,6 +440,15 @@ func (r *postgresOpportunityRepository) GetStats(ctx context.Context, id int64, 
 	}
 
 	return &stats, nil
+}
+
+func (r *postgresOpportunityRepository) ListDistinctLocations(ctx context.Context) ([]string, error) {
+	query := `SELECT DISTINCT location FROM opportunities WHERE status = 'active' AND TRIM(location) <> '' ORDER BY location ASC`
+	var locs []string
+	if err := r.db.SelectContext(ctx, &locs, query); err != nil {
+		return nil, fmt.Errorf("failed to list distinct locations: %w", err)
+	}
+	return locs, nil
 }
 
 // OpportunityApplicationRepository implementation

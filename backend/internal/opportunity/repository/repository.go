@@ -20,6 +20,7 @@ const (
 type OpportunityListFilter struct {
 	Category      *string
 	Location      *string
+	Search        *string // q: title, description, category, tags (ILIKE)
 	BudgetMin     *float64
 	BudgetMax     *float64
 	StartDateFrom *time.Time
@@ -49,6 +50,9 @@ type OpportunityRepository interface {
 
 	// Count counts opportunities matching the filter (for pagination)
 	Count(ctx context.Context, filter OpportunityListFilter) (int64, error)
+
+	// ListDistinctLocations returns distinct non-empty locations for active opportunities
+	ListDistinctLocations(ctx context.Context) ([]string, error)
 
 	// Delete deletes an opportunity (soft delete by setting status to closed)
 	Delete(ctx context.Context, id int64, userID int64) error

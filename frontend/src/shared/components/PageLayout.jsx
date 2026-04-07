@@ -37,7 +37,13 @@ const isLinkActive = (pathname, linkPath) => {
   return pathname === linkPath || pathname.startsWith(`${linkPath}/`);
 };
 
-const PageLayout = ({ children, maxWidth = "xl", noContainer = false }) => {
+const PageLayout = ({
+  children,
+  maxWidth = "xl",
+  noContainer = false,
+  rootClassName,
+  contentSx = {},
+}) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout, isAuthenticated } = useAuth();
@@ -61,7 +67,10 @@ const PageLayout = ({ children, maxWidth = "xl", noContainer = false }) => {
   };
 
   return (
-    <Box sx={{ minHeight: "100vh", background: "#fff" }}>
+    <Box
+      className={rootClassName || undefined}
+      sx={{ minHeight: "100vh", background: "#fff" }}
+    >
       <header className="landing-header">
         <Link to="/" className="brand" aria-label="Aatist Home">
           <span className="brand-icon">A</span>
@@ -179,7 +188,7 @@ const PageLayout = ({ children, maxWidth = "xl", noContainer = false }) => {
         </div>
       </header>
 
-      <Box sx={{ py: noContainer ? 0 : 4 }}>
+      <Box sx={{ py: noContainer ? 0 : 4, ...contentSx }}>
         {noContainer ? children : <Container maxWidth={maxWidth}>{children}</Container>}
       </Box>
     </Box>

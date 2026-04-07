@@ -24,6 +24,9 @@ type OpportunityService interface {
 	// List lists opportunities with filters, sorting, and pagination
 	List(ctx context.Context, filter ListOpportunitiesFilter) (*ListOpportunitiesResult, error)
 
+	// ListDistinctLocations returns distinct locations for active opportunities (for filters UI)
+	ListDistinctLocations(ctx context.Context) ([]string, error)
+
 	// Delete deletes an opportunity (soft delete)
 	Delete(ctx context.Context, opportunityID, userID int64) error
 
@@ -92,6 +95,7 @@ type UpdateOpportunityInput struct {
 type ListOpportunitiesFilter struct {
 	Category      *string
 	Location      *string
+	Search        *string // q: title, description, category, tags
 	BudgetMin     *float64
 	BudgetMax     *float64
 	StartDateFrom *time.Time
@@ -238,6 +242,8 @@ func (s *opportunityService) List(ctx context.Context, filter ListOpportunitiesF
 		sort = repository.SortStartDate
 	case "budget":
 		sort = repository.SortBudget
+	case "latest", "published_at":
+		sort = repository.SortPublishedAt
 	default:
 		sort = repository.SortPublishedAt
 	}
@@ -245,6 +251,7 @@ func (s *opportunityService) List(ctx context.Context, filter ListOpportunitiesF
 	repoFilter := repository.OpportunityListFilter{
 		Category:      filter.Category,
 		Location:      filter.Location,
+		Search:        filter.Search,
 		BudgetMin:     filter.BudgetMin,
 		BudgetMax:     filter.BudgetMax,
 		StartDateFrom: filter.StartDateFrom,
@@ -274,6 +281,10 @@ func (s *opportunityService) List(ctx context.Context, filter ListOpportunitiesF
 		Limit: filter.Limit,
 		Total: total,
 	}, nil
+}
+
+func (s *opportunityService) ListDistinctLocations(ctx context.Context) ([]string, error) {
+	return s.oppRepo.ListDistinctLocations(ctx)
 }
 
 func (s *opportunityService) Delete(ctx context.Context, opportunityID, userID int64) error {
