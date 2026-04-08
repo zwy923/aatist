@@ -10,6 +10,8 @@ services:
       POSTGRES_DB: aatn
     ports:
       - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U aatn" ]
       interval: 5s
@@ -233,5 +235,7 @@ services:
       - ./configs:/app/configs
 
 volumes:
+  postgres_data:
+    driver: local
   rabbitmq_data:
     driver: local
