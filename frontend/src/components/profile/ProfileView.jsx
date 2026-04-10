@@ -44,14 +44,7 @@ export default function ProfileView({
   const [portfolioMenuAnchor, setPortfolioMenuAnchor] = useState(null);
   const [portfolioMenuId, setPortfolioMenuId] = useState(null);
 
-  const educationParts = [
-    profile?.school,
-    profile?.faculty || profile?.major,
-    profile?.study_major,
-  ].filter(Boolean);
-  const educationLine = profile?.year
-    ? `${profile.year}, ${educationParts.join(" / ")}`
-    : educationParts.join(" / ");
+  const educationLine = (profile?.school || "").trim();
 
   const orgSubtitle = [profile?.organization_name, profile?.contact_title].filter(Boolean).join(" · ");
 
