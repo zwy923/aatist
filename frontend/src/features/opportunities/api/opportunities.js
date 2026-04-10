@@ -7,4 +7,7 @@ export const opportunitiesApi = {
     getMyOpportunities: (params) => apiClient.get('/opportunities/me', { params }),
     createOpportunity: (data) => apiClient.post('/opportunities', data),
     applyToOpportunity: (id, data) => apiClient.post(`/opportunities/${id}/apply`, data),
+    /** Creator-only: applications for a brief (paginated). */
+    getOpportunityApplications: (id, params) =>
+        apiClient.get(`/opportunities/${id}/applications`, { params }),
 };

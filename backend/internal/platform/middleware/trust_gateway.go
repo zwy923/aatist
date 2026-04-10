@@ -13,25 +13,32 @@ import (
 // This middleware should be used in all microservices to trust Gateway-injected headers
 func TrustGatewayMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Extract user info from headers (set by Gateway)
+		// Extract user info from headers (set by Gateway or InjectUserFromJWTIfNoGatewayHeaders)
 		userIDStr := c.GetHeader(HeaderUserID)
-		userRole := c.GetHeader(HeaderUserRole)
-		userEmail := c.GetHeader(HeaderUserEmail)
-
-		// If headers are present, trust them (Gateway has already validated JWT)
-		if userIDStr != "" && userRole != "" && userEmail != "" {
-			userID, err := strconv.ParseInt(userIDStr, 10, 64)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, response.Error(errs.NewAppError(errs.ErrInvalidInput, http.StatusBadRequest, "invalid user ID header").WithCode(errs.CodeInvalidInput)))
-				c.Abort()
-				return
-			}
-
-			// Inject into context
-			c.Set("user_id", userID)
-			c.Set("role", userRole)
-			c.Set("email", userEmail)
+		if userIDStr == "" {
+			c.Next()
+			return
 		}
+
+		userID, err := strconv.ParseInt(userIDStr, 10, 64)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, response.Error(errs.NewAppError(errs.ErrInvalidInput, http.StatusBadRequest, "invalid user ID header").WithCode(errs.CodeInvalidInput)))
+			c.Abort()
+			return
+		}
+
+		userRole := c.GetHeader(HeaderUserRole)
+		if userRole == "" {
+			userRole = "user"
+		}
+		userEmail := c.GetHeader(HeaderUserEmail)
+		if userEmail == "" {
+			userEmail = "-"
+		}
+
+		c.Set("user_id", userID)
+		c.Set("role", userRole)
+		c.Set("email", userEmail)
 
 		c.Next()
 	}

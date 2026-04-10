@@ -57,11 +57,13 @@ export default function PublicProfile() {
   const goProfile = (state) => navigate("/profile", { state });
 
   const roleLower = profile?.role?.toLowerCase?.();
+  const isOrgProfile = roleLower === "org_person" || roleLower === "org_team";
   const showTalentSections =
-    roleLower === "student" ||
-    roleLower === "alumni" ||
-    (services?.length ?? 0) > 0 ||
-    (portfolio?.length ?? 0) > 0;
+    !isOrgProfile &&
+    (roleLower === "student" ||
+      roleLower === "alumni" ||
+      (services?.length ?? 0) > 0 ||
+      (portfolio?.length ?? 0) > 0);
 
   return (
     <PageLayout noContainer>

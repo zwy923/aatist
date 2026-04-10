@@ -10,20 +10,17 @@ import {
   Typography,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-import AssignmentIcon from "@mui/icons-material/Assignment";
-import AddIcon from "@mui/icons-material/Add";
 import { profileApi, portfolioApi } from "../features/profile/api/profile";
-import { opportunitiesApi } from "../features/opportunities/api/opportunities";
 import { useAuth } from "../features/auth/hooks/useAuth";
 import { useProfile } from "../features/profile/hooks/useProfile";
 import { StateContainer } from "../shared/components/ui/StateContainer";
 import BasicInfoSection from "../components/profile/BasicInfoSection";
 import ServicesSection from "../components/profile/ServicesSection";
 import PortfolioSection from "../components/profile/PortfolioSection";
-import MyProjectsSection from "../components/profile/MyProjectsSection";
 import SecuritySettings from "../components/profile/SecuritySettings";
 import PageLayout from "../shared/components/PageLayout";
 import ProfileView from "../components/profile/ProfileView";
+import ClientProfileDashboard from "../components/profile/ClientProfileDashboard";
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -42,7 +39,6 @@ export default function Profile() {
   const [error, setError] = useState(null);
   const [profile, setProfile] = useState(null);
   const [portfolio, setPortfolio] = useState([]);
-  const [myProjects, setMyProjects] = useState([]);
   const [services, setServices] = useState([]);
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -77,17 +73,6 @@ export default function Profile() {
     }
   }, []);
 
-  const loadMyProjects = useCallback(async () => {
-    try {
-      const response = await opportunitiesApi.getMyOpportunities();
-      const data = response.data.data;
-      setMyProjects(Array.isArray(data) ? data : data?.items || []);
-    } catch (err) {
-      console.error("Failed to load my projects:", err);
-      setMyProjects([]);
-    }
-  }, []);
-
   const loadServices = useCallback(async () => {
     try {
       const response = await profileApi.getServices();
@@ -107,8 +92,7 @@ export default function Profile() {
     loadProfile();
     loadServices();
     loadPortfolio();
-    if (!isStudentRole) loadMyProjects();
-  }, [isAuthenticated, navigate, loadProfile, loadServices, loadPortfolio, loadMyProjects, isStudentRole]);
+  }, [isAuthenticated, navigate, loadProfile, loadServices, loadPortfolio]);
 
   useEffect(() => {
     const st = location.state;
@@ -210,26 +194,7 @@ export default function Profile() {
 
   const bannerDisplayUrl = bannerObjectUrl || profile?.banner_url;
 
-  const clientAlternate = !isStudentRole ? (
-    <Box sx={{ mb: 6 }}>
-      <div className="profile-section-header">
-        <div className="profile-section-title">
-          <AssignmentIcon sx={{ color: "#0095D9", fontSize: 24 }} />
-          My Projects
-        </div>
-        <div className="profile-section-actions">
-          <button
-            type="button"
-            className="profile-section-add-btn"
-            onClick={() => navigate("/opportunities")}
-          >
-            <AddIcon sx={{ fontSize: 18 }} /> Post a Project Brief
-          </button>
-        </div>
-      </div>
-      <MyProjectsSection items={myProjects} hideOuterChrome />
-    </Box>
-  ) : null;
+  const clientAlternate = !isStudentRole ? <ClientProfileDashboard /> : null;
 
   return (
     <PageLayout noContainer>

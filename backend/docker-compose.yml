@@ -177,6 +177,8 @@ services:
       CONFIG_PATH: /app/configs/config.yaml
       HTTP_PORT: "8088"
       APP_ENV: dev
+      # Must match gateway/backend so Bearer tokens validate when traffic hits chat without the gateway
+      JWT_SECRET: ${JWT_SECRET:-CHANGE_ME_IN_PRODUCTION_USE_STRONG_SECRET}
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-}
     ports:
       - "8088:8088"

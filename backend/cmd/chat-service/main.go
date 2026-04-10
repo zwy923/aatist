@@ -8,6 +8,7 @@ import (
 	"github.com/aatist/backend/internal/chat/repository"
 	"github.com/aatist/backend/internal/chat/service"
 	"github.com/aatist/backend/internal/platform/app"
+	"github.com/aatist/backend/internal/platform/auth"
 	"github.com/aatist/backend/internal/platform/middleware"
 	"go.uber.org/zap"
 )
@@ -50,6 +51,8 @@ func main() {
 	chatSvc := service.NewChatService(repo)
 	chatHandler := handler.NewChatHandler(chatSvc, logger)
 
+	jwtVerifier := auth.NewJWT(cfg.JWT.Secret, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL)
+
 	router := app.NewDefaultRouter(logger, "chat")
 
 	api := router.Group("/api/v1")
@@ -61,6 +64,7 @@ func main() {
 		}
 
 		conversations := api.Group("/conversations")
+		conversations.Use(middleware.InjectUserFromJWTIfNoGatewayHeaders(jwtVerifier))
 		conversations.Use(middleware.TrustGatewayMiddleware())
 		conversations.Use(middleware.RequireGatewayAuth())
 		{

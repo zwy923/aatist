@@ -22,6 +22,7 @@ s3:
   use_ssl: false
   public_url: "http://localhost:9000"
 
+# JWT secret must be identical on gateway, backend (login), and chat-service when chat validates Bearer directly.
 jwt:
   secret: "CHANGE_ME_IN_PRODUCTION_USE_STRONG_SECRET"
   # Access token (short-lived). Clamped 5–120. Env override: JWT_ACCESS_MINUTES

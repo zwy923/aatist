@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
 	"path/filepath"
@@ -250,9 +251,16 @@ func (h *AuthHandler) RefreshTokenHandler(c *gin.Context) {
 // LogoutHandler handles user logout
 func (h *AuthHandler) LogoutHandler(c *gin.Context) {
 	var req RefreshTokenRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, err.Error())
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "failed to read body")
 		return
+	}
+	if len(bytes.TrimSpace(body)) > 0 {
+		if err := json.Unmarshal(body, &req); err != nil {
+			h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, err.Error())
+			return
+		}
 	}
 
 	if err := h.authService.Logout(c.Request.Context(), req.RefreshToken); err != nil {

@@ -3,6 +3,7 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogActions,
   IconButton,
   Box,
   TextField,
@@ -10,17 +11,18 @@ import {
   ToggleButtonGroup,
   Slider,
   FormControlLabel,
-  Radio,
-  RadioGroup,
+  Switch,
   Stack,
   Typography,
   Button,
   InputAdornment,
   Paper,
+  Divider,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import LinkIcon from "@mui/icons-material/Link";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import BoltOutlinedIcon from "@mui/icons-material/BoltOutlined";
 import { opportunitiesApi } from "../api/opportunities";
 
 const CATEGORIES = [
@@ -38,18 +40,59 @@ const CATEGORIES = [
 const LOCATIONS = ["Remote", "On-site", "Hybrid"];
 
 const TIMELINE_OPTIONS = [
-  { value: "urgent", label: "Urgent (5 days)", urgent: true, months: 1 },
-  { value: "2weeks", label: "2 weeks", urgent: false, months: 1 },
-  { value: "1month", label: "1 month", urgent: false, months: 1 },
+  { value: "2weeks", label: "~2 weeks", months: 1 },
+  { value: "1month", label: "~1 month", months: 1 },
+  { value: "3months", label: "~3 months", months: 3 },
 ];
 
-export default function PostProjectBriefDialog({ open, onClose, onSuccess }) {
+const accent = "#0f766e";
+const accentDark = "#115e59";
+const surfaceMuted = "#f0fdfa";
+
+function SectionHeader({ step, title, subtitle }) {
+  return (
+    <Box sx={{ mb: 2 }}>
+      <Stack direction="row" alignItems="flex-start" spacing={1.5}>
+        <Box
+          sx={{
+            minWidth: 32,
+            height: 32,
+            borderRadius: 1.5,
+            bgcolor: accent,
+            color: "#fff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 15,
+            fontWeight: 800,
+            lineHeight: 1,
+            boxShadow: `0 2px 8px ${accent}44`,
+          }}
+        >
+          {step}
+        </Box>
+        <Box>
+          <Typography variant="subtitle1" fontWeight={700} color="text.primary" sx={{ lineHeight: 1.3 }}>
+            {title}
+          </Typography>
+          {subtitle ? (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              {subtitle}
+            </Typography>
+          ) : null}
+        </Box>
+      </Stack>
+    </Box>
+  );
+}
+
+export default function PostProjectBriefDialog({ open, onClose, onSuccess, defaultOrganization = "" }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
     title: "",
-    organization: "",
     category: "",
+    urgent: false,
     budgetType: "fixed",
     budgetValue: 1500,
     budgetNegotiable: false,
@@ -61,6 +104,11 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess }) {
     location: "Remote",
     file: null,
   });
+
+  const organizationForApi = () => {
+    const o = (defaultOrganization || "").trim();
+    return o || "Client";
+  };
 
   const handleChange = (field) => (e) => {
     const value = e.target.type === "checkbox" ? e.target.checked : e.target.value;
@@ -75,14 +123,28 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess }) {
     if (value) setFormData((prev) => ({ ...prev, timeline: value }));
   };
 
+  const resetForm = () => {
+    setFormData({
+      title: "",
+      category: "",
+      urgent: false,
+      budgetType: "fixed",
+      budgetValue: 1500,
+      budgetNegotiable: false,
+      timeline: "2weeks",
+      timelineFlexible: false,
+      startDate: "",
+      description: "",
+      referenceLink: "",
+      location: "Remote",
+      file: null,
+    });
+  };
+
   const handleSubmit = async () => {
     setError(null);
     if (!formData.title?.trim()) {
-      setError("Please enter what you need help with.");
-      return;
-    }
-    if (!formData.organization?.trim()) {
-      setError("Please enter your organization name.");
+      setError("Please describe what you need help with.");
       return;
     }
     if (!formData.category) {
@@ -101,14 +163,14 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess }) {
       const budgetVal = formData.budgetNegotiable ? null : Math.max(0, Number(formData.budgetValue) || 0);
       const payload = {
         title: formData.title.trim(),
-        organization: formData.organization.trim(),
+        organization: organizationForApi(),
         category: formData.category,
         budgetType: formData.budgetType,
         budgetValue: budgetVal,
         location: formData.location,
         description: desc || undefined,
         tags: [],
-        urgent: formData.timelineFlexible ? false : (timelineOpt?.urgent ?? false),
+        urgent: formData.urgent,
         durationMonths: formData.timelineFlexible ? null : (timelineOpt?.months ?? 1),
         startDate: formData.timelineFlexible || !formData.startDate ? null : `${formData.startDate}T12:00:00Z`,
       };
@@ -116,21 +178,7 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess }) {
       await opportunitiesApi.createOpportunity(payload);
       onSuccess?.();
       onClose();
-      setFormData({
-        title: "",
-        organization: "",
-        category: "",
-        budgetType: "fixed",
-        budgetValue: 1500,
-        budgetNegotiable: false,
-        timeline: "2weeks",
-        timelineFlexible: false,
-        startDate: "",
-        description: "",
-        referenceLink: "",
-        location: "Remote",
-        file: null,
-      });
+      resetForm();
     } catch (err) {
       const msg = err?.response?.data?.error?.message || err?.response?.data?.message || err?.message || "Failed to publish project";
       setError(msg);
@@ -140,50 +188,95 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess }) {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
-      <DialogTitle component="div" sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", pb: 1 }}>
-        <Typography variant="h6" component="span" fontWeight={700}>
-          Post a Project Brief
-        </Typography>
-        <IconButton onClick={onClose} size="small" aria-label="close">
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
-      <DialogContent sx={{ bgcolor: "rgba(147, 197, 253, 0.06)" }}>
-        <Stack spacing={3} sx={{ pt: 1 }}>
-          {/* 1. What do you need help with? */}
-          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "#fff" }}>
-            <Typography fontWeight={600} sx={{ mb: 1 }}>
-              1. What do you need help with?
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      PaperProps={{
+        elevation: 8,
+        sx: {
+          borderRadius: 3,
+          overflow: "hidden",
+          maxHeight: "min(92vh, 900px)",
+        },
+      }}
+    >
+      <DialogTitle
+        component="div"
+        sx={{
+          background: `linear-gradient(125deg, ${accentDark} 0%, ${accent} 42%, #14b8a6 100%)`,
+          color: "#fff",
+          py: 2.5,
+          px: 3,
+          pr: 5,
+        }}
+      >
+        <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={2}>
+          <Box>
+            <Typography variant="h6" fontWeight={800} sx={{ letterSpacing: "-0.02em", mb: 0.5 }}>
+              Post a Project Brief
             </Typography>
+            <Typography variant="body2" sx={{ opacity: 0.92, maxWidth: 480, lineHeight: 1.5 }}>
+              Reach Aalto talent with a clear brief. Organization on the listing comes from your profile.
+            </Typography>
+          </Box>
+          <IconButton
+            onClick={onClose}
+            size="small"
+            aria-label="close"
+            sx={{
+              color: "#fff",
+              bgcolor: "rgba(255,255,255,0.12)",
+              "&:hover": { bgcolor: "rgba(255,255,255,0.22)" },
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </Stack>
+      </DialogTitle>
+
+      <Divider />
+
+      <DialogContent sx={{ bgcolor: surfaceMuted, pt: 3, pb: 1 }}>
+        <Stack spacing={2.75}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2.5,
+              borderRadius: 2.5,
+              border: "1px solid",
+              borderColor: "rgba(15, 118, 110, 0.18)",
+              bgcolor: "#fff",
+              boxShadow: "0 4px 24px rgba(15, 118, 110, 0.06)",
+            }}
+          >
+            <SectionHeader
+              step={1}
+              title="What do you need help with?"
+              subtitle="One clear sentence works best — talent will see this as the headline."
+            />
             <TextField
               fullWidth
-              placeholder="Example: Need photographer for startup team photos."
+              placeholder="e.g. Album cover design for Spotify release, team photos for our website…"
               value={formData.title}
               onChange={handleChange("title")}
               size="small"
+              sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#fafafa", borderRadius: 2 } }}
             />
           </Paper>
 
-          {/* Organization (required by backend) */}
-          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "#fff" }}>
-            <Typography fontWeight={600} sx={{ mb: 1 }}>
-              Your organization
-            </Typography>
-            <TextField
-              fullWidth
-              placeholder="Company or organization name"
-              value={formData.organization}
-              onChange={handleChange("organization")}
-              size="small"
-            />
-          </Paper>
-
-          {/* Category */}
-          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "#fff" }}>
-            <Typography fontWeight={600} sx={{ mb: 1 }}>
-              Category
-            </Typography>
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2.5,
+              borderRadius: 2.5,
+              border: "1px solid",
+              borderColor: "divider",
+              bgcolor: "#fff",
+            }}
+          >
+            <SectionHeader step={2} title="Category" />
             <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
               {CATEGORIES.map((cat) => (
                 <Button
@@ -191,7 +284,14 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess }) {
                   variant={formData.category === cat ? "contained" : "outlined"}
                   size="small"
                   onClick={() => setFormData((p) => ({ ...p, category: cat }))}
-                  sx={{ textTransform: "none" }}
+                  sx={{
+                    textTransform: "none",
+                    fontWeight: 600,
+                    borderRadius: 2,
+                    ...(formData.category === cat
+                      ? { bgcolor: accent, "&:hover": { bgcolor: accentDark } }
+                      : { borderColor: "rgba(0,0,0,0.12)" }),
+                  }}
                 >
                   {cat}
                 </Button>
@@ -199,21 +299,53 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess }) {
             </Box>
           </Paper>
 
-          {/* 2. Budget */}
-          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "#fff" }}>
-            <Typography fontWeight={600} sx={{ mb: 1 }}>
-              2. Budget
-            </Typography>
-            <ToggleButtonGroup
-              value={formData.budgetType}
-              exclusive
-              onChange={handleBudgetTypeChange}
-              sx={{ mb: 2 }}
-            >
-              <ToggleButton value="fixed" sx={{ textTransform: "none" }}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2.5,
+              borderRadius: 2.5,
+              border: "2px solid",
+              borderColor: formData.urgent ? `${accent}55` : "divider",
+              bgcolor: formData.urgent ? "rgba(20, 184, 166, 0.06)" : "#fff",
+              transition: "border-color 0.2s, background 0.2s",
+            }}
+          >
+            <Stack direction={{ xs: "column", sm: "row" }} alignItems={{ sm: "center" }} justifyContent="space-between" spacing={2}>
+              <Stack direction="row" spacing={1.5} alignItems="flex-start">
+                <BoltOutlinedIcon sx={{ color: formData.urgent ? accent : "text.disabled", mt: 0.25 }} />
+                <Box>
+                  <Typography fontWeight={700}>Urgent</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Highlights this brief to talent and pairs with filters on the opportunities page.
+                  </Typography>
+                </Box>
+              </Stack>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.urgent}
+                    onChange={(e) => setFormData((p) => ({ ...p, urgent: e.target.checked }))}
+                    color="primary"
+                    sx={{
+                      "& .MuiSwitch-switchBase.Mui-checked": { color: accent },
+                      "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { bgcolor: `${accent}99` },
+                    }}
+                  />
+                }
+                label={formData.urgent ? "Yes" : "No"}
+                labelPlacement="start"
+                sx={{ m: 0, ml: { sm: "auto" } }}
+              />
+            </Stack>
+          </Paper>
+
+          <Paper elevation={0} sx={{ p: 2.5, borderRadius: 2.5, border: "1px solid", borderColor: "divider", bgcolor: "#fff" }}>
+            <SectionHeader step={3} title="Budget" />
+            <ToggleButtonGroup value={formData.budgetType} exclusive onChange={handleBudgetTypeChange} sx={{ mb: 2 }}>
+              <ToggleButton value="fixed" sx={{ textTransform: "none", px: 2 }}>
                 Fixed price
               </ToggleButton>
-              <ToggleButton value="hourly" sx={{ textTransform: "none" }}>
+              <ToggleButton value="hourly" sx={{ textTransform: "none", px: 2 }}>
                 Hourly rate
               </ToggleButton>
             </ToggleButtonGroup>
@@ -227,14 +359,19 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess }) {
                 max={3100}
                 step={100}
                 valueLabelDisplay="auto"
-                valueLabelFormat={(v) => (v >= 3000 ? "3000+" : v)}
-                sx={{ maxWidth: 280 }}
+                valueLabelFormat={(v) => (v >= 3000 ? "€3000+" : `€${v}`)}
+                sx={{
+                  maxWidth: 300,
+                  color: accent,
+                  "& .MuiSlider-thumb": { bgcolor: accent },
+                  "& .MuiSlider-track": { bgcolor: accent },
+                }}
                 disabled={formData.budgetNegotiable}
               />
               <TextField
                 type="number"
                 size="small"
-                label="Up to €"
+                label="Up to (€)"
                 value={formData.budgetNegotiable ? "" : formData.budgetValue}
                 onChange={(e) =>
                   setFormData((p) => ({
@@ -249,81 +386,81 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess }) {
             </Box>
             <FormControlLabel
               control={
-                <Radio
+                <Switch
                   checked={formData.budgetNegotiable}
                   onChange={(e) => setFormData((p) => ({ ...p, budgetNegotiable: e.target.checked }))}
+                  size="small"
                 />
               }
               label="Budget negotiable"
-              sx={{ mt: 1 }}
+              sx={{ mt: 1.5 }}
             />
           </Paper>
 
-          {/* 3. Timeline */}
-          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "#fff" }}>
-            <Typography fontWeight={600} sx={{ mb: 1 }}>
-              3. Timeline
-            </Typography>
-            <ToggleButtonGroup
-              value={formData.timeline}
-              exclusive
-              onChange={handleTimelineChange}
-              sx={{ mb: 2 }}
-            >
+          <Paper elevation={0} sx={{ p: 2.5, borderRadius: 2.5, border: "1px solid", borderColor: "divider", bgcolor: "#fff" }}>
+            <SectionHeader step={4} title="Timeline" subtitle="Rough duration; you can add a specific deadline below." />
+            <ToggleButtonGroup value={formData.timeline} exclusive onChange={handleTimelineChange} sx={{ mb: 2, flexWrap: "wrap" }}>
               {TIMELINE_OPTIONS.map((o) => (
                 <ToggleButton key={o.value} value={o.value} sx={{ textTransform: "none" }}>
                   {o.label}
                 </ToggleButton>
               ))}
             </ToggleButtonGroup>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }}>
               <TextField
                 type="date"
                 size="small"
-                label="Deadline"
+                label="Deadline (optional)"
                 value={formData.startDate}
                 onChange={handleChange("startDate")}
                 InputLabelProps={{ shrink: true }}
-                sx={{ minWidth: 160 }}
+                sx={{ minWidth: 180 }}
                 disabled={formData.timelineFlexible}
               />
               <FormControlLabel
                 control={
-                  <Radio
+                  <Switch
                     checked={formData.timelineFlexible}
                     onChange={(e) => setFormData((p) => ({ ...p, timelineFlexible: e.target.checked }))}
+                    size="small"
                   />
                 }
-                label="Flexible"
+                label="Flexible — no fixed end date"
               />
-            </Box>
+            </Stack>
           </Paper>
 
-          {/* 4. Description */}
-          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "#fff" }}>
-            <Typography fontWeight={600} sx={{ mb: 1 }}>
-              4. Description
-            </Typography>
+          <Paper elevation={0} sx={{ p: 2.5, borderRadius: 2.5, border: "1px solid", borderColor: "divider", bgcolor: "#fff" }}>
+            <SectionHeader step={5} title="Description" />
             <TextField
               fullWidth
               multiline
               rows={4}
-              placeholder="Provide project context and scope..."
+              placeholder="Context, deliverables, constraints, who you’re looking for…"
               value={formData.description}
               onChange={handleChange("description")}
               size="small"
+              sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#fafafa", borderRadius: 2 } }}
             />
           </Paper>
 
-          {/* Advanced */}
-          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "#fff" }}>
-            <Typography fontWeight={600} sx={{ mb: 2 }}>
-              Advanced (Optional)
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2.5,
+              borderRadius: 2.5,
+              border: "1px dashed",
+              borderColor: "rgba(0,0,0,0.14)",
+              bgcolor: "rgba(255,255,255,0.85)",
+            }}
+          >
+            <Typography fontWeight={700} sx={{ mb: 2 }}>
+              Optional details
             </Typography>
-            <Stack spacing={2}>
+            <Stack spacing={2.5}>
               <Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                  Reference Link
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.75 }}>
+                  Reference link
                 </Typography>
                 <TextField
                   fullWidth
@@ -334,15 +471,15 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess }) {
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <LinkIcon fontSize="small" />
+                        <LinkIcon fontSize="small" color="action" />
                       </InputAdornment>
                     ),
                   }}
                 />
               </Box>
               <Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                  Location
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  Work location
                 </Typography>
                 <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
                   {LOCATIONS.map((loc) => (
@@ -351,7 +488,14 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess }) {
                       variant={formData.location === loc ? "contained" : "outlined"}
                       size="small"
                       onClick={() => setFormData((p) => ({ ...p, location: loc }))}
-                      sx={{ textTransform: "none" }}
+                      sx={{
+                        textTransform: "none",
+                        fontWeight: 600,
+                        borderRadius: 2,
+                        ...(formData.location === loc
+                          ? { bgcolor: accent, "&:hover": { bgcolor: accentDark } }
+                          : {}),
+                      }}
                     >
                       {loc}
                     </Button>
@@ -359,19 +503,24 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess }) {
                 </Box>
               </Box>
               <Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                  File Upload
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  Attachment
                 </Typography>
                 <Box
                   sx={{
-                    border: "2px dashed #ccc",
+                    border: "2px dashed rgba(15, 118, 110, 0.25)",
                     borderRadius: 2,
-                    p: 3,
+                    p: 2.5,
                     textAlign: "center",
                     cursor: "pointer",
-                    "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" },
+                    bgcolor: "rgba(240, 253, 250, 0.5)",
+                    transition: "border-color 0.2s, background 0.2s",
+                    "&:hover": { borderColor: accent, bgcolor: "rgba(240, 253, 250, 0.9)" },
                   }}
-                  onClick={() => document.getElementById("opp-file-input").click()}
+                  onClick={() => document.getElementById("opp-file-input")?.click()}
+                  onKeyDown={(e) => e.key === "Enter" && document.getElementById("opp-file-input")?.click()}
+                  role="button"
+                  tabIndex={0}
                 >
                   <input
                     id="opp-file-input"
@@ -380,42 +529,47 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess }) {
                     accept=".png,.jpg,.jpeg,.pdf"
                     onChange={(e) => setFormData((p) => ({ ...p, file: e.target.files?.[0] }))}
                   />
-                  <CloudUploadIcon sx={{ fontSize: 40, color: "text.disabled", mb: 1 }} />
+                  <CloudUploadIcon sx={{ fontSize: 36, color: accent, opacity: 0.75, mb: 0.5 }} />
                   <Typography variant="body2" color="text.secondary">
-                    Upload a file or drag and drop
-                  </Typography>
-                  <Typography variant="caption" color="text.disabled">
-                    PNG, JPG, PDF up to 10MB
+                    {formData.file ? formData.file.name : "Click to upload — PNG, JPG, or PDF (UI only for now)"}
                   </Typography>
                 </Box>
               </Box>
             </Stack>
           </Paper>
 
-          {error && (
-            <Typography color="error" variant="body2">
+          {error ? (
+            <Typography color="error" variant="body2" sx={{ px: 0.5 }}>
               {error}
             </Typography>
-          )}
-
-          <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-            <Button
-              variant="contained"
-              onClick={handleSubmit}
-              disabled={loading}
-              sx={{
-                bgcolor: "#22c55e",
-                "&:hover": { bgcolor: "#16a34a" },
-                textTransform: "none",
-                fontWeight: 600,
-                px: 3,
-              }}
-            >
-              {loading ? "Publishing..." : "Publish Project"}
-            </Button>
-          </Box>
+          ) : null}
         </Stack>
       </DialogContent>
+
+      <Divider />
+
+      <DialogActions sx={{ px: 3, py: 2, bgcolor: surfaceMuted, gap: 1 }}>
+        <Button onClick={onClose} disabled={loading} sx={{ textTransform: "none", fontWeight: 600, color: "text.secondary" }}>
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          onClick={handleSubmit}
+          disabled={loading}
+          sx={{
+            textTransform: "none",
+            fontWeight: 700,
+            px: 3,
+            py: 1,
+            borderRadius: 2,
+            bgcolor: accent,
+            boxShadow: `0 4px 14px ${accent}55`,
+            "&:hover": { bgcolor: accentDark, boxShadow: `0 6px 18px ${accent}66` },
+          }}
+        >
+          {loading ? "Publishing…" : "Publish brief"}
+        </Button>
+      </DialogActions>
     </Dialog>
   );
 }

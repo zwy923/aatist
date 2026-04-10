@@ -301,6 +301,7 @@ export default function OpportunitiesPage() {
         onSuccess={() => {
           setSearchParams(new URLSearchParams(searchParams));
         }}
+        defaultOrganization={user?.organization_name || user?.name || ""}
       />
 
       {showScrollTop ? (

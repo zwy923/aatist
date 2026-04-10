@@ -66,3 +66,32 @@ func GatewayAuthMiddleware(jwt *auth.JWT) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// InjectUserFromJWTIfNoGatewayHeaders validates the Bearer access token when X-User-ID is not set
+// and injects the same X-User-* headers the gateway would set.
+//
+// Use this on chat-service (and similar) when HTTP traffic can reach the service without passing
+// through the API gateway — e.g. nginx routes /api/v1/conversations directly to chat-service.
+// If the gateway already set X-User-ID, this middleware is a no-op.
+func InjectUserFromJWTIfNoGatewayHeaders(j *auth.JWT) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if strings.TrimSpace(c.GetHeader(HeaderUserID)) != "" {
+			c.Next()
+			return
+		}
+		token := extractToken(c)
+		if token == "" {
+			c.Next()
+			return
+		}
+		claims, err := j.ValidateToken(token)
+		if err != nil {
+			c.Next()
+			return
+		}
+		c.Request.Header.Set(HeaderUserID, strconv.FormatInt(claims.UserID, 10))
+		c.Request.Header.Set(HeaderUserRole, claims.Role)
+		c.Request.Header.Set(HeaderUserEmail, claims.Email)
+		c.Next()
+	}
+}

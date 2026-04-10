@@ -442,7 +442,12 @@ func (s *authService) RefreshToken(ctx context.Context, refreshToken string) (*T
 
 // Logout invalidates a refresh token
 func (s *authService) Logout(ctx context.Context, refreshToken string) error {
-	key := refreshTokenKeyPrefix + refreshToken
+	rt := strings.TrimSpace(refreshToken)
+	if rt == "" {
+		s.logger.Info("Logout: no refresh token (client-side session only)")
+		return nil
+	}
+	key := refreshTokenKeyPrefix + rt
 	if err := s.redis.GetClient().Del(ctx, key).Err(); err != nil {
 		s.logger.Error("Failed to delete refresh token", zap.Error(err))
 		return fmt.Errorf("failed to logout: %w", err)

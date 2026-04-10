@@ -19,6 +19,7 @@ import "../../pages/PublicProfile.css";
 import { formatServicePriceLine } from "../../shared/utils/priceType";
 import { getProfileServiceHeading } from "../../constants/serviceCategories";
 import { talentDisplayName } from "../../shared/utils/displayName";
+import ClientProfileHero from "./ClientProfileHero";
 
 export default function ProfileView({
   profile,
@@ -109,164 +110,188 @@ export default function ProfileView({
 
   return (
     <div className="profile-page">
-      <div className="profile-hero">
-        <div
-          className="profile-hero-bg"
-          style={{
-            backgroundImage: bannerUrl ? `url(${bannerUrl})` : "none",
-          }}
+      {isOrgProfile ? (
+        <ClientProfileHero
+          profile={profile}
+          bannerUrl={bannerUrl}
+          isOwnProfile={isOwnProfile}
+          onChangeBackground={onChangeBackground}
+          onEditProfile={onEditProfile}
+          onMessage={onMessage}
         />
-        {!bannerUrl && <div className="profile-hero-bg-placeholder" aria-hidden />}
-
-        <div className="profile-hero-topbar">
-          {isOwnProfile && onChangeBackground && (
-            <button type="button" className="profile-hero-btn-change-bg" onClick={onChangeBackground}>
-              <ImageOutlinedIcon sx={{ fontSize: 18, mr: 0.75 }} />
-              Change Background
-            </button>
-          )}
-          {!isOwnProfile && onMessage && (
-            <button type="button" className="profile-hero-btn-message-top" onClick={onMessage}>
-              Message
-            </button>
-          )}
-        </div>
-
-        <div className="profile-hero-flex-fill" aria-hidden />
-
-        <div className="profile-hero-overlay-panel">
-          <Avatar
-            src={profile?.avatar_url}
-            className="profile-hero-avatar"
-            sx={{
-              width: 148,
-              height: 148,
-              borderRadius: "10px",
-              bgcolor: "rgba(255,255,255,0.92)",
-              color: "#333",
+      ) : (
+        <div className="profile-hero">
+          <div
+            className="profile-hero-bg"
+            style={{
+              backgroundImage: bannerUrl ? `url(${bannerUrl})` : "none",
             }}
-          >
-            {displayName?.charAt(0)?.toUpperCase() || "?"}
-          </Avatar>
+          />
+          {!bannerUrl && <div className="profile-hero-bg-placeholder" aria-hidden />}
 
-          <div className="profile-hero-info">
-            <div className="profile-hero-name-row">
-              <span className="profile-hero-name">{displayName}</span>
-              {isVerified && (
-                <VerifiedUserIcon className="profile-hero-verified" sx={{ fontSize: 28 }} />
-              )}
-            </div>
-            {(educationLine || orgSubtitle) && (
-              <div className="profile-hero-education">{educationLine || orgSubtitle}</div>
-            )}
-            <div className="profile-hero-about-heading">About me</div>
-            {bioText ? (
-              <div className="profile-hero-about">{bioText}</div>
-            ) : (
-              <div className="profile-hero-about profile-hero-about-empty">No bio yet.</div>
-            )}
-            <div className="profile-hero-links">
-              {profile?.website && (
-                <a
-                  href={profile.website.startsWith("http") ? profile.website : `https://${profile.website}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="profile-hero-link"
-                >
-                  <LanguageIcon sx={{ fontSize: 18 }} />
-                  {profile.website.replace(/^https?:\/\//, "").replace(/\/$/, "").slice(0, 36)}
-                </a>
-              )}
-              {profile?.behance && (
-                <a
-                  href={profile.behance.startsWith("http") ? profile.behance : `https://${profile.behance}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="profile-hero-link"
-                >
-                  <PaletteIcon sx={{ fontSize: 18 }} />
-                  Behance
-                </a>
-              )}
-              {profile?.linkedin && (
-                <a
-                  href={profile.linkedin.startsWith("http") ? profile.linkedin : `https://${profile.linkedin}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="profile-hero-link"
-                >
-                  <LinkedInIcon sx={{ fontSize: 18 }} />
-                  LinkedIn
-                </a>
-              )}
-            </div>
-          </div>
-
-          <div className="profile-hero-meta">
-            <div className="profile-hero-meta-block">
-              <div className="profile-hero-meta-label">Language</div>
-              <div className="profile-hero-meta-tags">
-                {profile?.languages ? (
-                  profile.languages.split(",").map((l, i) => (
-                    <span key={i} className="profile-hero-meta-tag">
-                      {l.trim()}
-                    </span>
-                  ))
-                ) : (
-                  <span className="profile-hero-meta-tag profile-hero-meta-tag-muted">—</span>
-                )}
-              </div>
-            </div>
-            <div className="profile-hero-meta-block">
-              <div className="profile-hero-meta-label">Skills</div>
-              <div className="profile-hero-meta-tags">
-                {skillNames.length > 0 ? (
-                  skillNames.slice(0, 12).map((sk, i) => (
-                    <span key={i} className="profile-hero-meta-tag">
-                      {sk}
-                    </span>
-                  ))
-                ) : (
-                  <span className="profile-hero-meta-tag profile-hero-meta-tag-muted">—</span>
-                )}
-              </div>
-            </div>
-            <div className="profile-hero-meta-block">
-              <div className="profile-hero-meta-label">Interest areas</div>
-              <div className="profile-hero-meta-tags">
-                {interests.length > 0 ? (
-                  interests.slice(0, 12).map((int, i) => (
-                    <span key={i} className="profile-hero-meta-tag">
-                      {int}
-                    </span>
-                  ))
-                ) : (
-                  <span className="profile-hero-meta-tag profile-hero-meta-tag-muted">—</span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {isOwnProfile && onEditProfile && (
-            <div className="profile-hero-edit-actions">
-              <button type="button" className="profile-hero-btn-edit-panel" onClick={onEditProfile}>
-                Edit Profile
+          <div className="profile-hero-topbar">
+            {isOwnProfile && onChangeBackground && (
+              <button type="button" className="profile-hero-btn-change-bg" onClick={onChangeBackground}>
+                <ImageOutlinedIcon sx={{ fontSize: 18, mr: 0.75 }} />
+                Change Background
               </button>
-              <IconButton
-                className="profile-hero-btn-edit-icon"
-                onClick={onEditProfile}
-                aria-label="Edit profile"
-                size="small"
-              >
-                <EditIcon sx={{ fontSize: 22 }} />
-              </IconButton>
+            )}
+            {!isOwnProfile && onMessage && (
+              <button type="button" className="profile-hero-btn-message-top" onClick={onMessage}>
+                Message
+              </button>
+            )}
+          </div>
+
+          <div className="profile-hero-flex-fill" aria-hidden />
+
+          <div className="profile-hero-overlay-panel">
+            <Avatar
+              src={profile?.avatar_url}
+              className="profile-hero-avatar"
+              sx={{
+                width: 148,
+                height: 148,
+                borderRadius: "10px",
+                bgcolor: "rgba(255,255,255,0.92)",
+                color: "#333",
+              }}
+            >
+              {displayName?.charAt(0)?.toUpperCase() || "?"}
+            </Avatar>
+
+            <div className="profile-hero-info">
+              <div className="profile-hero-name-row">
+                <span className="profile-hero-name">{displayName}</span>
+                {isVerified && (
+                  <VerifiedUserIcon className="profile-hero-verified" sx={{ fontSize: 28 }} />
+                )}
+              </div>
+              {(educationLine || orgSubtitle) && (
+                <div className="profile-hero-education">{educationLine || orgSubtitle}</div>
+              )}
+              <div className="profile-hero-about-heading">About me</div>
+              {bioText ? (
+                <div className="profile-hero-about">{bioText}</div>
+              ) : (
+                <div className="profile-hero-about profile-hero-about-empty">No bio yet.</div>
+              )}
+              <div className="profile-hero-links">
+                {profile?.website && (
+                  <a
+                    href={profile.website.startsWith("http") ? profile.website : `https://${profile.website}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="profile-hero-link"
+                  >
+                    <LanguageIcon sx={{ fontSize: 18 }} />
+                    {profile.website.replace(/^https?:\/\//, "").replace(/\/$/, "").slice(0, 36)}
+                  </a>
+                )}
+                {profile?.behance && (
+                  <a
+                    href={profile.behance.startsWith("http") ? profile.behance : `https://${profile.behance}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="profile-hero-link"
+                  >
+                    <PaletteIcon sx={{ fontSize: 18 }} />
+                    Behance
+                  </a>
+                )}
+                {profile?.linkedin && (
+                  <a
+                    href={profile.linkedin.startsWith("http") ? profile.linkedin : `https://${profile.linkedin}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="profile-hero-link"
+                  >
+                    <LinkedInIcon sx={{ fontSize: 18 }} />
+                    LinkedIn
+                  </a>
+                )}
+              </div>
             </div>
-          )}
+
+            <div className="profile-hero-meta">
+              <div className="profile-hero-meta-block">
+                <div className="profile-hero-meta-label">Language</div>
+                <div className="profile-hero-meta-tags">
+                  {profile?.languages ? (
+                    profile.languages.split(",").map((l, i) => (
+                      <span key={i} className="profile-hero-meta-tag">
+                        {l.trim()}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="profile-hero-meta-tag profile-hero-meta-tag-muted">—</span>
+                  )}
+                </div>
+              </div>
+              <div className="profile-hero-meta-block">
+                <div className="profile-hero-meta-label">Skills</div>
+                <div className="profile-hero-meta-tags">
+                  {skillNames.length > 0 ? (
+                    skillNames.slice(0, 12).map((sk, i) => (
+                      <span key={i} className="profile-hero-meta-tag">
+                        {sk}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="profile-hero-meta-tag profile-hero-meta-tag-muted">—</span>
+                  )}
+                </div>
+              </div>
+              <div className="profile-hero-meta-block">
+                <div className="profile-hero-meta-label">Interest areas</div>
+                <div className="profile-hero-meta-tags">
+                  {interests.length > 0 ? (
+                    interests.slice(0, 12).map((int, i) => (
+                      <span key={i} className="profile-hero-meta-tag">
+                        {int}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="profile-hero-meta-tag profile-hero-meta-tag-muted">—</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {isOwnProfile && onEditProfile && (
+              <div className="profile-hero-edit-actions">
+                <button type="button" className="profile-hero-btn-edit-panel" onClick={onEditProfile}>
+                  Edit Profile
+                </button>
+                <IconButton
+                  className="profile-hero-btn-edit-icon"
+                  onClick={onEditProfile}
+                  aria-label="Edit profile"
+                  size="small"
+                >
+                  <EditIcon sx={{ fontSize: 22 }} />
+                </IconButton>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="profile-content">
         {alternateContent}
+
+        {isOrgProfile && !alternateContent && (
+          <Box sx={{ maxWidth: 560, mx: "auto", py: 6, px: 2, textAlign: "center" }}>
+            <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+              This is an organization profile on AATIST.
+            </Typography>
+            {onMessage && (
+              <button type="button" className="profile-hero-btn-message-top" onClick={onMessage}>
+                Message
+              </button>
+            )}
+          </Box>
+        )}
 
         {showServicesAndPortfolio && !alternateContent && (
           <>

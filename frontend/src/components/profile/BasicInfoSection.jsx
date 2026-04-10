@@ -43,6 +43,10 @@ export default function BasicInfoSection({
         ? profile.skills.map((s) => (typeof s === "string" ? s : s.name)).join(", ")
         : "";
       setFormData({
+        contact_name: profile.name || "",
+        organization_name: profile.organization_name || "",
+        organization_bio: profile.organization_bio || "",
+        contact_title: profile.contact_title || "",
         bio: profile.bio || "",
         website: profile.website || "",
         linkedin: profile.linkedin || "",
@@ -71,15 +75,28 @@ export default function BasicInfoSection({
         name,
         level: "intermediate",
       }));
-      const updateData = {
-        bio: formData.bio || null,
-        website: (formData.website || "").trim() || null,
-        linkedin: (formData.linkedin || "").trim() || null,
-        behance: (formData.behance || "").trim() || null,
-        languages: (formData.languages || "").trim() || null,
-        professional_interests: (formData.professional_interests || "").trim() || null,
-        skills,
-      };
+      const updateData = isStudentRole
+        ? {
+            bio: formData.bio || null,
+            website: (formData.website || "").trim() || null,
+            linkedin: (formData.linkedin || "").trim() || null,
+            behance: (formData.behance || "").trim() || null,
+            languages: (formData.languages || "").trim() || null,
+            professional_interests: (formData.professional_interests || "").trim() || null,
+            skills,
+          }
+        : {
+            name: (formData.contact_name || "").trim() || undefined,
+            organization_name: (formData.organization_name || "").trim() || null,
+            organization_bio: (formData.organization_bio || "").trim() || null,
+            contact_title: (formData.contact_title || "").trim() || null,
+            professional_interests: (formData.professional_interests || "").trim() || null,
+            website: (formData.website || "").trim() || null,
+            linkedin: (formData.linkedin || "").trim() || null,
+            behance: (formData.behance || "").trim() || null,
+            languages: (formData.languages || "").trim() || null,
+            bio: (formData.bio || "").trim() || null,
+          };
       const result = await onUpdate(updateData);
       if (result.success) {
         setSnackbar({ open: true, message: "Profile saved successfully", severity: "success" });
@@ -204,15 +221,71 @@ export default function BasicInfoSection({
       )}
 
       <Grid container spacing={3}>
+        {!isStudentRole && (
+          <>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Your name"
+                value={formData.contact_name || ""}
+                onChange={handleChange("contact_name")}
+                placeholder="Contact person"
+                sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#fafafa" } }}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Company / organization"
+                value={formData.organization_name || ""}
+                onChange={handleChange("organization_name")}
+                sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#fafafa" } }}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Your role"
+                value={formData.contact_title || ""}
+                onChange={handleChange("contact_title")}
+                placeholder="e.g. Founder, HR Lead"
+                sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#fafafa" } }}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Industry / focus"
+                value={formData.professional_interests || ""}
+                onChange={handleChange("professional_interests")}
+                placeholder="e.g. Music / Entertainment"
+                helperText="Shown under Industry on your client profile"
+                sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#fafafa" } }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="About your organization"
+                value={formData.organization_bio || ""}
+                onChange={handleChange("organization_bio")}
+                multiline
+                rows={4}
+                placeholder="What you do, who you work with..."
+                sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#fafafa" } }}
+              />
+            </Grid>
+          </>
+        )}
         <Grid item xs={12}>
           <TextField
             fullWidth
-            label="Bio"
+            label={isStudentRole ? "Bio" : "Additional notes (optional)"}
             value={formData.bio || ""}
             onChange={handleChange("bio")}
             multiline
-            rows={4}
-            placeholder="Tell us about yourself..."
+            rows={isStudentRole ? 4 : 2}
+            placeholder={isStudentRole ? "Tell us about yourself..." : "Optional extra context"}
             sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#fafafa" } }}
           />
         </Grid>
@@ -280,28 +353,32 @@ export default function BasicInfoSection({
             sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#fafafa" } }}
           />
         </Grid>
-        <Grid item xs={12}>
-          <TextField
-            fullWidth
-            label="Hard Skills"
-            value={formData.hard_skills || ""}
-            onChange={handleChange("hard_skills")}
-            placeholder="Adobe Lightroom, Adobe Photoshop, Event Photography"
-            helperText="Separate with commas"
-            sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#fafafa" } }}
-          />
-        </Grid>
-        <Grid item xs={12}>
-          <TextField
-            fullWidth
-            label="Professional Interests"
-            value={formData.professional_interests || ""}
-            onChange={handleChange("professional_interests")}
-            placeholder="Documentary Photography, Nordic Aesthetics, Sustainable Events"
-            helperText="Separate with commas"
-            sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#fafafa" } }}
-          />
-        </Grid>
+        {isStudentRole && (
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label="Hard Skills"
+              value={formData.hard_skills || ""}
+              onChange={handleChange("hard_skills")}
+              placeholder="Adobe Lightroom, Adobe Photoshop, Event Photography"
+              helperText="Separate with commas"
+              sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#fafafa" } }}
+            />
+          </Grid>
+        )}
+        {isStudentRole && (
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label="Professional Interests"
+              value={formData.professional_interests || ""}
+              onChange={handleChange("professional_interests")}
+              placeholder="Documentary Photography, Nordic Aesthetics, Sustainable Events"
+              helperText="Separate with commas"
+              sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#fafafa" } }}
+            />
+          </Grid>
+        )}
 
         <Grid item xs={12}>
           <Paper
