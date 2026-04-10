@@ -116,7 +116,9 @@ apiClient.interceptors.response.use(
                 const currentUser = useAuthStore.getState().user;
 
                 // Update store
-                useAuthStore.getState().setAuth(newUser || currentUser, access_token, newRefreshToken);
+                useAuthStore.getState().setAuth(newUser || currentUser, access_token, newRefreshToken, {
+                    tokenRefresh: true,
+                });
 
                 processQueue(null, access_token);
                 isRefreshing = false;

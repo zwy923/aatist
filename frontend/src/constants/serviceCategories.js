@@ -1,13 +1,52 @@
 /**
- * Broad / specific service options (keep in sync with ServicesSection form).
+ * Hire Talent filter groups + Add Service broad/specific options (single source of truth).
+ * "Other" is only in the Add Service UI (ServicesSection), not in these preset lists.
  */
-export const BROAD_CATEGORIES = {
-  Design: ["Logo Design", "Brand Identity", "Illustration", "Print Design", "Presentation Design", "Infographics"],
-  "Graphics & Design": ["Logo & Brand Identity", "Illustration & Drawing", "Print Design", "Presentation Design"],
-  "Website & Digital": ["Web Design", "UI/UX Design", "Digital Product"],
-  "Video & Animation": ["Video Editing", "Animation", "Motion Graphics", "Explainer Videos"],
-  Photography: ["Event Photography", "Portrait Photography", "Product Photography", "Food Photography"],
-};
+export const HIRE_TALENT_SERVICE_CATEGORIES = [
+  {
+    main: "Graphic & Illustration",
+    items: [
+      "Graphic & Illustration",
+      "Pitch deck design",
+      "Poster Design",
+      "Social media post design",
+      "Print & Packaging",
+    ],
+  },
+  {
+    main: "Branding",
+    items: ["LOGO Design", "Brand Design"],
+  },
+  {
+    main: "Web Design",
+    items: ["Website Design", "APP Design"],
+  },
+  {
+    main: "Photography",
+    items: ["Product Photography", "Team Photography", "Event Photography"],
+  },
+  {
+    main: "Video & Motion",
+    items: ["Startup Promo Video", "Animated Video", "Video Editing", "Short Video", "Event Video"],
+  },
+  {
+    main: "Creative Styling",
+    items: ["Team Outfit Design"],
+  },
+  {
+    main: "Exhibition & Spatial Design",
+    items: ["Exhibition Design", "Booth Design"],
+  },
+];
+
+/** Broad category → specific presets (no "Other" here; form adds it separately). */
+export const BROAD_CATEGORIES = Object.fromEntries(
+  HIRE_TALENT_SERVICE_CATEGORIES.map(({ main, items }) => [main, [...items]])
+);
+
+export const ALL_HIRE_TALENT_SERVICE_SUGGESTIONS = [
+  ...new Set(HIRE_TALENT_SERVICE_CATEGORIES.flatMap((g) => g.items)),
+];
 
 export const SPECIFIC_SERVICE_OTHER = "Other";
 

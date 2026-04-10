@@ -43,7 +43,7 @@ export default function GoogleOAuthComplete() {
     if (refresh) {
       localStorage.setItem("refresh_token", refresh);
     }
-    setAuth(null, access, refresh);
+    setAuth(null, access, refresh, { tokenRefresh: true });
 
     let cancelled = false;
     (async () => {
@@ -55,7 +55,7 @@ export default function GoogleOAuthComplete() {
           setError("Could not load your profile.");
           return;
         }
-        setAuth(user, access, refresh);
+        setAuth(user, access, refresh, { tokenRefresh: false });
         navigate("/talents", { replace: true });
       } catch {
         if (!cancelled) {

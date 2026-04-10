@@ -24,9 +24,10 @@ s3:
 
 jwt:
   secret: "CHANGE_ME_IN_PRODUCTION_USE_STRONG_SECRET"
-  ttl_minutes: 60
-  # Access token TTL: 15 minutes (hardcoded in code)
-  # Refresh token TTL: 30 days (hardcoded in code)
+  # Access token (short-lived). Clamped 5–120. Env override: JWT_ACCESS_MINUTES
+  ttl_minutes: 15
+  # Refresh token (rotation on each refresh). Clamped 1–90 days. Env: JWT_REFRESH_DAYS
+  refresh_days: 14
 
 # INTERNAL_API_TOKEN: Set via env for production. When set, Gateway validates X-Internal-Token
 # on /api/v1/internal/* routes. All services that call internal routes must send this token.

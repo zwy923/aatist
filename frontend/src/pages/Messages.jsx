@@ -1032,22 +1032,21 @@ const MessagesPage = () => {
                     <MoreVertIcon />
                   </IconButton>
                 </Tooltip>
-                  <Menu
-                    anchorEl={moreMenuAnchor}
-                    open={Boolean(moreMenuAnchor)}
-                    onClose={() => setMoreMenuAnchor(null)}
-                    anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-                    transformOrigin={{ vertical: "top", horizontal: "right" }}
+                <Menu
+                  anchorEl={moreMenuAnchor}
+                  open={Boolean(moreMenuAnchor)}
+                  onClose={() => setMoreMenuAnchor(null)}
+                  anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+                  transformOrigin={{ vertical: "top", horizontal: "right" }}
+                >
+                  <MenuItem
+                    onClick={handleOpenDeleteConfirm}
+                    sx={{ color: "error.main" }}
                   >
-                    <MenuItem
-                      onClick={handleOpenDeleteConfirm}
-                      sx={{ color: "error.main" }}
-                    >
-                      <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
-                      Delete conversation
-                    </MenuItem>
-                  </Menu>
-                </Stack>
+                    <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
+                    Delete conversation
+                  </MenuItem>
+                </Menu>
               </Box>
 
               {/* 顶部提示条：项目议价文案仅客户可见；学生仍可见「正在输入」 */}

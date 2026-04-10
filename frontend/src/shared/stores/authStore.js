@@ -9,19 +9,37 @@ const useAuthStore = create(
             refreshToken: null,
             isAuthenticated: false,
             loading: false,
+            /** Wall-clock start of this sign-in (ms); not reset on access-token refresh */
+            sessionStartedAt: null,
 
-            setAuth: (user, accessToken, refreshToken) => {
+            /**
+             * @param {object} [meta]
+             * @param {boolean} [meta.tokenRefresh] - true when tokens come from /auth/refresh (do not reset session clock)
+             */
+            setAuth: (user, accessToken, refreshToken, meta = {}) => {
                 if (refreshToken) {
                     localStorage.setItem('refresh_token', refreshToken);
                 }
-                set({
+                const tokenRefresh = meta.tokenRefresh === true;
+                set((state) => ({
                     user,
                     accessToken,
-                    refreshToken,
+                    refreshToken: refreshToken ?? state.refreshToken,
                     isAuthenticated: !!accessToken,
-                    loading: false
-                });
+                    loading: false,
+                    sessionStartedAt: tokenRefresh
+                        ? state.sessionStartedAt
+                        : Date.now(),
+                }));
             },
+
+            /** Legacy sessions without sessionStartedAt: anchor once for absolute timeout */
+            ensureSessionAnchor: () =>
+                set((state) => {
+                    if (!state.isAuthenticated || !state.accessToken) return state;
+                    if (state.sessionStartedAt != null) return state;
+                    return { sessionStartedAt: Date.now() };
+                }),
 
             updateUser: (userData) => {
                 const currentUser = get().user;
@@ -32,7 +50,8 @@ const useAuthStore = create(
                 set({
                     user: null,
                     accessToken: null,
-                    isAuthenticated: false
+                    isAuthenticated: false,
+                    sessionStartedAt: null,
                 });
                 // Clear tokens from localStorage if they were stored elsewhere
                 localStorage.removeItem('refresh_token');
@@ -46,7 +65,8 @@ const useAuthStore = create(
             partialize: (state) => ({
                 user: state.user,
                 accessToken: state.accessToken,
-                isAuthenticated: state.isAuthenticated
+                isAuthenticated: state.isAuthenticated,
+                sessionStartedAt: state.sessionStartedAt,
             }),
         }
     )

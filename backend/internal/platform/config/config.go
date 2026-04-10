@@ -70,10 +70,11 @@ type S3Config struct {
 
 // JWTConfig holds JWT configuration
 type JWTConfig struct {
-	Secret     string
-	TTLMinutes int `yaml:"ttl_minutes"`
-	AccessTTL  time.Duration
-	RefreshTTL time.Duration
+	Secret       string
+	TTLMinutes   int `yaml:"ttl_minutes"`    // access token lifetime in minutes (default 15, clamped 5–120)
+	RefreshDays  int `yaml:"refresh_days"`   // refresh token lifetime in days (default 14, clamped 1–90)
+	AccessTTL    time.Duration
+	RefreshTTL   time.Duration
 }
 
 // GatewayConfig holds Gateway configuration

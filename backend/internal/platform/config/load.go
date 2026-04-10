@@ -39,6 +39,18 @@ func Load(configPath string) (*Config, error) {
 	if secret := os.Getenv("JWT_SECRET"); secret != "" {
 		cfg.JWT.Secret = secret
 	}
+	if v := os.Getenv("JWT_ACCESS_MINUTES"); v != "" {
+		var m int
+		if _, err := fmt.Sscanf(v, "%d", &m); err == nil && m > 0 {
+			cfg.JWT.TTLMinutes = m
+		}
+	}
+	if v := os.Getenv("JWT_REFRESH_DAYS"); v != "" {
+		var d int
+		if _, err := fmt.Sscanf(v, "%d", &d); err == nil && d > 0 {
+			cfg.JWT.RefreshDays = d
+		}
+	}
 	if port := os.Getenv("HTTP_PORT"); port != "" {
 		fmt.Sscanf(port, "%d", &cfg.App.HTTPPort)
 	}
@@ -101,7 +113,7 @@ func Load(configPath string) (*Config, error) {
 		cfg.JWT.Secret = "CHANGE_ME"
 	}
 	if cfg.JWT.TTLMinutes == 0 {
-		cfg.JWT.TTLMinutes = 60
+		cfg.JWT.TTLMinutes = 15
 	}
 	if cfg.App.Env == "" {
 		cfg.App.Env = "dev"
@@ -113,9 +125,25 @@ func Load(configPath string) (*Config, error) {
 		cfg.MQ.PublishConfirmTimeout = 5 * time.Second
 	}
 
-	// Calculate JWT TTL durations
-	cfg.JWT.AccessTTL = 15 * time.Minute
-	cfg.JWT.RefreshTTL = 30 * 24 * time.Hour // 30 days
+	// Access token: from ttl_minutes (clamped 5–120), default 15
+	accessMin := cfg.JWT.TTLMinutes
+	if accessMin < 5 {
+		accessMin = 5
+	}
+	if accessMin > 120 {
+		accessMin = 120
+	}
+	cfg.JWT.AccessTTL = time.Duration(accessMin) * time.Minute
+
+	// Refresh token: from refresh_days (clamped 1–90), default 14
+	refreshDays := cfg.JWT.RefreshDays
+	if refreshDays < 1 {
+		refreshDays = 14
+	}
+	if refreshDays > 90 {
+		refreshDays = 90
+	}
+	cfg.JWT.RefreshTTL = time.Duration(refreshDays) * 24 * time.Hour
 
 	// Set default Gateway service timeout (10 seconds)
 	if cfg.Gateway.ServiceTimeout == 0 {

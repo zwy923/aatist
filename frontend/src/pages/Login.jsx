@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Alert,
@@ -50,6 +50,17 @@ export default function Login() {
   }, [searchParams]);
 
   const isStudentMode = mode === "student";
+
+  const sessionNotice = useMemo(() => {
+    const r = searchParams.get("reason");
+    if (r === "session_expired") {
+      return "Your session has expired. Please sign in again.";
+    }
+    if (r === "idle_timeout") {
+      return "You were signed out after a period of inactivity.";
+    }
+    return "";
+  }, [searchParams]);
 
   const switchMode = (nextMode) => {
     setMode(nextMode);
@@ -167,6 +178,11 @@ export default function Login() {
             </button>
           </div>
 
+          {sessionNotice && (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              {sessionNotice}
+            </Alert>
+          )}
           {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
 
           <Box component="form" className="login-form" onSubmit={onSubmit}>

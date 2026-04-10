@@ -41,7 +41,11 @@ import { formatServicePriceLine } from '../shared/utils/priceType';
 import { AALTO_PROGRAMMES, programmeMatchesSchoolFilter } from '../constants/aaltoProgrammes';
 import { aaltoOutlinedSelectSx, aaltoSelectMenuProps } from '../shared/styles/aaltoSelectSx';
 import { talentDisplayName } from '../shared/utils/displayName';
-import { getProfileServiceHeading } from '../constants/serviceCategories';
+import {
+  getProfileServiceHeading,
+  HIRE_TALENT_SERVICE_CATEGORIES,
+  ALL_HIRE_TALENT_SERVICE_SUGGESTIONS,
+} from '../constants/serviceCategories';
 
 const FACULTIES = [
     "Arts, Design and Architecture",
@@ -54,38 +58,8 @@ const FACULTIES = [
 
 const SCHOOLS = [...FACULTIES, "Other"];
 
-const CATEGORIES = [
-    {
-        main: "Graphic & Illustration",
-        items: ["Graphic & Illustration", "Pitch deck & presentation", "Poster Design", "Social media post design", "Print & Packaging"]
-    },
-    {
-        main: "Branding",
-        items: ["LOGO Design", "Brand Design"]
-    },
-    {
-        main: "Web Design",
-        items: ["Website Design", "APP Design"]
-    },
-    {
-        main: "Photography",
-        items: ["Product Photography", "Team Photography", "Event Photography"]
-    },
-    {
-        main: "Video & Motion",
-        items: ["Startup Promo Video", "Animated explainer Video", "Video Editing", "Social Media Short Video", "Event Video Documentation"]
-    },
-    {
-        main: "Creative Styling",
-        items: ["Team Outfit Design"]
-    },
-    {
-        main: "Exhibition & Spatial Design",
-        items: ["Exhibition Design", "Booth Design"]
-    }
-];
-
-const ALL_SUGGESTIONS = [...new Set(CATEGORIES.flatMap((g) => g.items))];
+const CATEGORIES = HIRE_TALENT_SERVICE_CATEGORIES;
+const ALL_SUGGESTIONS = ALL_HIRE_TALENT_SERVICE_SUGGESTIONS;
 
 const highlightMatch = (text, query) => {
     if (!query.trim()) return <span style={{ color: '#6b7280' }}>{text}</span>;

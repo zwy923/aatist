@@ -21,6 +21,7 @@ import PortfolioDetailPage from "./pages/PortfolioDetail.jsx";
 import AboutPage from "./pages/About.jsx";
 import TermsPage from "./pages/Terms.jsx";
 import AuthSessionGate from "./shared/components/auth/AuthSessionGate.jsx";
+import SessionActivityTracker from "./shared/components/auth/SessionActivityTracker.jsx";
 import { ChatProvider } from "./features/messages/ChatProvider.jsx";
 
 import "./styles/global.css";
@@ -67,6 +68,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         }}
       >
         <AuthSessionGate>
+          <SessionActivityTracker />
           <ChatProvider>
           <Routes>
             <Route path="/" element={<Landing />} />
