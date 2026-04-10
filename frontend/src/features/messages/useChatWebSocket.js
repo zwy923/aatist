@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CHAT_FILE_PREFIX } from './chatPayload';
+import { useChatUnreadStore } from '../../shared/stores/chatUnreadStore';
 
 const API_WS_BASE = (() => {
   const u = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
@@ -39,14 +40,18 @@ export function useChatWebSocket(accessToken, currentUserId) {
           const conversationId = data.conversation_id;
           if (conversationId) {
             const fromId = data.from_user_id != null ? String(data.from_user_id) : '';
+            const fromMe = fromId === currentUserIdStr;
             appendMessage(conversationId, {
               id: data.id || `msg-${Date.now()}`,
               from_user_id: fromId,
-              fromMe: fromId === currentUserIdStr,
+              fromMe,
               text: data.content,
               createdAt: data.created_at || new Date().toISOString(),
               temp_id: data.temp_id,
             });
+            if (data.type === 'message' && !fromMe && fromId) {
+              useChatUnreadStore.getState().bumpServerUnreadForConversation(conversationId);
+            }
           }
         }
         if (data.type === 'online' && Array.isArray(data.online_user_ids)) {

@@ -1,7 +1,8 @@
-import React, { createContext, useCallback, useContext, useMemo } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo } from 'react';
 import { useChatWebSocket } from './useChatWebSocket';
 import { useAuth } from '../auth/hooks/useAuth';
-import { useChatUnreadStore } from '../../shared/stores/chatUnreadStore';
+import { messagesApi } from './api/messages';
+import { useChatUnreadStore, unreadMapFromConversations } from '../../shared/stores/chatUnreadStore';
 
 const ChatContext = createContext(null);
 
@@ -10,7 +11,36 @@ export function ChatProvider({ children }) {
   const myId = user?.id ?? user?.user_id;
   const ws = useChatWebSocket(accessToken, myId);
   const lastSeenByUser = useChatUnreadStore((s) => s.lastSeenByUser);
+  const serverUnreadByConversation = useChatUnreadStore((s) => s.serverUnreadByConversation);
   const setLastSeen = useChatUnreadStore((s) => s.setLastSeen);
+  const setServerUnreadMap = useChatUnreadStore((s) => s.setServerUnreadMap);
+
+  /** 全局轮询未读：导航栏红点依赖服务端 unread_count，不能只在 /messages 页拉取 */
+  useEffect(() => {
+    if (!accessToken || !myId) return;
+    let cancelled = false;
+    const syncUnreadFromServer = async () => {
+      try {
+        const res = await messagesApi.getConversations({ limit: 50 });
+        if (cancelled) return;
+        const list = res.data?.data?.conversations || [];
+        setServerUnreadMap(unreadMapFromConversations(list));
+      } catch {
+        /* ignore */
+      }
+    };
+    syncUnreadFromServer();
+    const interval = setInterval(syncUnreadFromServer, 10000);
+    const onVis = () => {
+      if (document.visibilityState === "visible") syncUnreadFromServer();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [accessToken, myId, setServerUnreadMap]);
 
   const markConversationAsRead = useCallback(
     (conversationId, count) => {
@@ -30,16 +60,21 @@ export function ChatProvider({ children }) {
 
   const totalUnreadCount = useMemo(() => {
     const byUser = lastSeenByUser[myId] || {};
+    const wsMsgs = ws.messagesByConversation || {};
+    const ids = new Set([
+      ...Object.keys(serverUnreadByConversation || {}),
+      ...Object.keys(wsMsgs),
+    ]);
     let total = 0;
-    Object.entries(ws.messagesByConversation || {}).forEach(([convId, msgs]) => {
-      const list = msgs || [];
+    ids.forEach((convId) => {
+      const apiN = Number(serverUnreadByConversation[convId]) || 0;
+      const list = wsMsgs[convId] || [];
       const seen = byUser[convId] || 0;
-      const count = list.length;
-      const diff = count >= seen ? count - seen : count;
-      if (diff > 0) total += diff;
+      const wsUnread = Math.max(0, list.length - seen);
+      total += Math.max(apiN, wsUnread);
     });
     return total;
-  }, [myId, lastSeenByUser, ws.messagesByConversation]);
+  }, [myId, lastSeenByUser, ws.messagesByConversation, serverUnreadByConversation]);
 
   const value = useMemo(
     () => ({

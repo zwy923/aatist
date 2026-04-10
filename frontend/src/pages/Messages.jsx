@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Link as RouterLink, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Avatar,
   Badge,
@@ -41,7 +41,7 @@ import PageLayout from "../shared/components/PageLayout";
 import { useAuth } from "../features/auth/hooks/useAuth";
 import { useChat } from "../features/messages/ChatProvider";
 import { conversationId } from "../features/messages/useChatWebSocket";
-import { useChatUnreadStore } from "../shared/stores/chatUnreadStore";
+import { useChatUnreadStore, unreadMapFromConversations } from "../shared/stores/chatUnreadStore";
 import { messagesApi } from "../features/messages/api/messages";
 import { formatChatPreview, parseChatPayload } from "../features/messages/chatPayload";
 import { talentDisplayName } from "../shared/utils/displayName";
@@ -198,6 +198,7 @@ const MessagesPage = () => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const chatFileInputRef = useRef(null);
+  const messagesScrollRef = useRef(null);
   const [attachUploading, setAttachUploading] = useState(false);
   const [toast, setToast] = useState({ open: false, message: "" });
 
@@ -224,6 +225,7 @@ const MessagesPage = () => {
         };
       });
       setConversationsFromApi(enriched);
+      useChatUnreadStore.getState().setServerUnreadMap(unreadMapFromConversations(enriched));
       setSelectedId((prev) => {
         if (enriched.length === 0) return prev;
         const hasPrev = enriched.some((c) => c.id === prev);
@@ -535,14 +537,44 @@ const MessagesPage = () => {
 
   const messages = mergedMessages;
 
+  const scrollChatToBottom = useCallback(() => {
+    const node = messagesScrollRef.current;
+    if (!node) return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = messagesScrollRef.current;
+        if (el) el.scrollTop = el.scrollHeight;
+      });
+    });
+  }, []);
+
+  /** 进入会话 / 历史加载完成后滚到最新消息；双 rAF 等待布局与图片 */
+  useLayoutEffect(() => {
+    if (!activeConversationId || loadingHistory) return;
+    scrollChatToBottom();
+  }, [activeConversationId, loadingHistory, scrollChatToBottom]);
+
+  /** 同一会话内新消息：仅当用户已在底部附近时才跟随滚动 */
+  useLayoutEffect(() => {
+    if (!activeConversationId || loadingHistory) return;
+    const node = messagesScrollRef.current;
+    if (!node || mergedMessages.length === 0) return;
+    const threshold = 120;
+    const nearBottom =
+      node.scrollHeight - node.scrollTop - node.clientHeight < threshold;
+    if (nearBottom) scrollChatToBottom();
+  }, [mergedMessages.length, activeConversationId, loadingHistory, scrollChatToBottom]);
+
   useEffect(() => {
     if (!activeConversationId || !mergedMessages.length) return;
     markConversationAsRead(activeConversationId, mergedMessages.length);
+    useChatUnreadStore.getState().setServerUnreadForConversation(activeConversationId, 0);
   }, [activeConversationId, mergedMessages.length, markConversationAsRead]);
 
   useEffect(() => {
     if (!activeConversationId || !isAuthenticated) return;
     messagesApi.markConversationAsRead(activeConversationId).catch(() => {});
+    useChatUnreadStore.getState().setServerUnreadForConversation(activeConversationId, 0);
   }, [activeConversationId, isAuthenticated]);
 
   const unreadByConversation = useMemo(() => {
@@ -794,6 +826,7 @@ const MessagesPage = () => {
                 const isActive = c.id === selectedId;
                 const showOnline = isUserOnline(c.otherUserId);
 
+                const profilePath = c.otherUserId != null ? `/users/${c.otherUserId}` : null;
                 const avatarNode = (
                   <Avatar
                     src={c.otherUserAvatar || undefined}
@@ -810,6 +843,24 @@ const MessagesPage = () => {
                       .join("")}
                   </Avatar>
                 );
+
+                const avatarWrap =
+                  profilePath != null ? (
+                    <IconButton
+                      component={RouterLink}
+                      to={profilePath}
+                      onClick={(e) => e.stopPropagation()}
+                      size="small"
+                      sx={{ p: 0 }}
+                      aria-label={`View ${c.name || "user"} profile`}
+                    >
+                      {showOnline ? <OnlineBadge>{avatarNode}</OnlineBadge> : avatarNode}
+                    </IconButton>
+                  ) : showOnline ? (
+                    <OnlineBadge>{avatarNode}</OnlineBadge>
+                  ) : (
+                    avatarNode
+                  );
 
                 return (
                   <ListItem
@@ -832,13 +883,7 @@ const MessagesPage = () => {
                         transition: "background-color 0.15s ease",
                       }}
                     >
-                      <ListItemAvatar>
-                        {showOnline ? (
-                          <OnlineBadge>{avatarNode}</OnlineBadge>
-                        ) : (
-                          avatarNode
-                        )}
-                      </ListItemAvatar>
+                      <ListItemAvatar sx={{ minWidth: 52 }}>{avatarWrap}</ListItemAvatar>
                       <ListItemText
                         primary={
                           <Box
@@ -921,19 +966,55 @@ const MessagesPage = () => {
                   background: "#ffffff",
                 }}
               >
-                <Stack direction="row" spacing={2} alignItems="center">
-                  <OnlineBadge invisible={!onlineForConv}>
-                    <Avatar
-                      src={activeConversation.otherUserAvatar || undefined}
-                      sx={{ width: 44, height: 44 }}
+                <Stack direction="row" spacing={2} alignItems="center" sx={{ minWidth: 0, flex: 1 }}>
+                  {activeConversation.otherUserId != null ? (
+                    <IconButton
+                      component={RouterLink}
+                      to={`/users/${activeConversation.otherUserId}`}
+                      sx={{ p: 0 }}
+                      aria-label={`View ${activeConversation.name || "user"} profile`}
                     >
-                      {!activeConversation.otherUserAvatar && activeConversation.name
-                        .split(" ")
-                        .map((x) => x[0])
-                        .join("")}
-                    </Avatar>
-                  </OnlineBadge>
-                  <Box>
+                      <OnlineBadge invisible={!onlineForConv}>
+                        <Avatar
+                          src={activeConversation.otherUserAvatar || undefined}
+                          sx={{ width: 44, height: 44 }}
+                        >
+                          {!activeConversation.otherUserAvatar && activeConversation.name
+                            .split(" ")
+                            .map((x) => x[0])
+                            .join("")}
+                        </Avatar>
+                      </OnlineBadge>
+                    </IconButton>
+                  ) : (
+                    <OnlineBadge invisible={!onlineForConv}>
+                      <Avatar
+                        src={activeConversation.otherUserAvatar || undefined}
+                        sx={{ width: 44, height: 44 }}
+                      >
+                        {!activeConversation.otherUserAvatar && activeConversation.name
+                          .split(" ")
+                          .map((x) => x[0])
+                          .join("")}
+                      </Avatar>
+                    </OnlineBadge>
+                  )}
+                  <Box
+                    component={activeConversation.otherUserId != null ? RouterLink : "div"}
+                    {...(activeConversation.otherUserId != null
+                      ? { to: `/users/${activeConversation.otherUserId}` }
+                      : {})}
+                    sx={{
+                      minWidth: 0,
+                      textDecoration: "none",
+                      color: "inherit",
+                      cursor: activeConversation.otherUserId != null ? "pointer" : "default",
+                      "&:hover":
+                        activeConversation.otherUserId != null
+                          ? { opacity: 0.88 }
+                          : undefined,
+                    }}
+                  >
                     <Typography variant="subtitle1" fontWeight={600}>
                       {activeConversation.name}
                     </Typography>
@@ -942,22 +1023,15 @@ const MessagesPage = () => {
                     </Typography>
                   </Box>
                 </Stack>
-                <Stack direction="row" spacing={1.5} alignItems="center">
-                  <Chip
+                <Tooltip title="More actions">
+                  <IconButton
                     size="small"
-                    variant="outlined"
-                    color="primary"
-                    label={onlineForConv ? "Online" : "Offline"}
-                  />
-                  <Tooltip title="More actions">
-                    <IconButton
-                      size="small"
-                      sx={{ color: "text.secondary" }}
-                      onClick={(e) => setMoreMenuAnchor(e.currentTarget)}
-                    >
-                      <MoreVertIcon />
-                    </IconButton>
-                  </Tooltip>
+                    sx={{ color: "text.secondary" }}
+                    onClick={(e) => setMoreMenuAnchor(e.currentTarget)}
+                  >
+                    <MoreVertIcon />
+                  </IconButton>
+                </Tooltip>
                   <Menu
                     anchorEl={moreMenuAnchor}
                     open={Boolean(moreMenuAnchor)}
@@ -1010,6 +1084,7 @@ const MessagesPage = () => {
 
               {/* 消息列表 */}
               <Box
+                ref={messagesScrollRef}
                 sx={{
                   flex: 1,
                   overflow: "auto",

@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import useAuthStore from '../../../shared/stores/authStore';
+import { useChatUnreadStore } from '../../../shared/stores/chatUnreadStore';
 import { authApi } from '../api/auth';
 
 export const useAuth = () => {
@@ -47,6 +48,7 @@ export const useAuth = () => {
         } catch (error) {
             console.error('Logout API failed', error);
         } finally {
+            useChatUnreadStore.getState().clearServerUnreadState();
             clearAuth();
         }
     }, [clearAuth]);
