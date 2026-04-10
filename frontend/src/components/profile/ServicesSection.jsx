@@ -29,19 +29,21 @@ import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
 import { profileApi, portfolioApi } from "../../features/profile/api/profile";
 import { encodePriceTypePayload, formatServicePriceLine, parsePriceTypeTokens } from "../../shared/utils/priceType";
-
-const BROAD_CATEGORIES = {
-  Design: ["Logo Design", "Brand Identity", "Illustration", "Print Design", "Presentation Design", "Infographics"],
-  "Graphics & Design": ["Logo & Brand Identity", "Illustration & Drawing", "Print Design", "Presentation Design"],
-  "Website & Digital": ["Web Design", "UI/UX Design", "Digital Product"],
-  "Video & Animation": ["Video Editing", "Animation", "Motion Graphics", "Explainer Videos"],
-  Photography: ["Event Photography", "Portrait Photography", "Product Photography", "Food Photography"],
-};
+import { BROAD_CATEGORIES, SPECIFIC_SERVICE_OTHER, getProfileServiceHeading } from "../../constants/serviceCategories";
 
 const FLAT_SERVICES = [];
 Object.entries(BROAD_CATEGORIES).forEach(([broad, specifics]) => {
   specifics.forEach((s) => FLAT_SERVICES.push({ broad, specific: s }));
 });
+
+/** If stored specific is not a preset for this broad category, treat as custom ("Other"). */
+function normalizeSpecificForForm(broadCategory, specificFromStorage) {
+  const presets = BROAD_CATEGORIES[broadCategory] || [];
+  const spec = (specificFromStorage || "").trim();
+  if (!spec) return { specificService: "", specificOtherText: "" };
+  if (presets.includes(spec)) return { specificService: spec, specificOtherText: "" };
+  return { specificService: SPECIFIC_SERVICE_OTHER, specificOtherText: spec };
+}
 
 /** Map stored category string back to broad + specific selects (handles legacy "Specific only" values). */
 function resolveCategoryFields(stored) {
@@ -73,6 +75,7 @@ export default function ServicesSection({
   const [formData, setFormData] = useState({
     broadCategory: "",
     specificService: "",
+    specificOtherText: "",
     title: "",
     description: "",
     shortDescription: "",
@@ -105,6 +108,7 @@ export default function ServicesSection({
     setFormData({
       broadCategory: "",
       specificService: "",
+      specificOtherText: "",
       title: "",
       description: "",
       shortDescription: "",
@@ -124,13 +128,18 @@ export default function ServicesSection({
   };
 
   const handleOpenEdit = useCallback((s) => {
-    const { broadCategory, specificService } = resolveCategoryFields(s.category);
+    const resolved = resolveCategoryFields(s.category);
+    const { specificService, specificOtherText } = normalizeSpecificForForm(
+      resolved.broadCategory,
+      resolved.specificService
+    );
     const tokens = parsePriceTypeTokens(s.price_type);
     const hasAny = tokens.length > 0;
     setFormData({
-      broadCategory,
+      broadCategory: resolved.broadCategory,
       specificService,
-      title: s.title || "",
+      specificOtherText,
+      title: (s.title || "").trim(),
       description: s.description || s.experience_summary || "",
       shortDescription: s.short_description || "",
       priceHourly: tokens.includes("hourly"),
@@ -158,7 +167,22 @@ export default function ServicesSection({
   const handleChange = (field) => (e) => {
     const value = e.target.value;
     if (field === "broadCategory") {
-      setFormData((prev) => ({ ...prev, broadCategory: value, specificService: "" }));
+      setFormData((prev) => ({
+        ...prev,
+        broadCategory: value,
+        specificService: "",
+        specificOtherText: "",
+        title: "",
+      }));
+      return;
+    }
+    if (field === "specificService") {
+      setFormData((prev) => ({
+        ...prev,
+        specificService: value,
+        specificOtherText: value === SPECIFIC_SERVICE_OTHER ? prev.specificOtherText : "",
+        title: value === SPECIFIC_SERVICE_OTHER ? prev.title : "",
+      }));
       return;
     }
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -197,7 +221,27 @@ export default function ServicesSection({
 
   const handleSaveService = async () => {
     const broad = (formData.broadCategory || "").trim();
-    const spec = (formData.specificService || "").trim();
+    if (!broad) {
+      setSnackbar({ open: true, message: "Please select a broad category", severity: "error" });
+      return;
+    }
+    if (!(formData.specificService || "").trim()) {
+      setSnackbar({ open: true, message: "Please select a specific service", severity: "error" });
+      return;
+    }
+    let spec = (formData.specificService || "").trim();
+    if (spec === SPECIFIC_SERVICE_OTHER) {
+      const customTitle = (formData.title || "").trim();
+      if (!customTitle) {
+        setSnackbar({ open: true, message: "Please enter a service title when you choose Other.", severity: "error" });
+        return;
+      }
+      spec = (formData.specificOtherText || "").trim();
+      if (!spec) {
+        setSnackbar({ open: true, message: "Please describe your service when you choose Other.", severity: "error" });
+        return;
+      }
+    }
     const cat = broad && spec && broad !== spec ? `${broad} > ${spec}` : spec || broad;
     if (!cat.trim()) {
       setSnackbar({ open: true, message: "Please select a category", severity: "error" });
@@ -227,7 +271,10 @@ export default function ServicesSection({
       const payload = {
         category: cat,
         experience_summary: desc,
-        title: formData.title.trim() || null,
+        title:
+          formData.specificService === SPECIFIC_SERVICE_OTHER
+            ? (formData.title || "").trim()
+            : "",
         description: formData.description.trim() || null,
         short_description: formData.shortDescription.trim() || null,
         price_type: encodePriceTypePayload({
@@ -299,7 +346,7 @@ export default function ServicesSection({
           >
             <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
               <Box>
-                <Typography fontWeight={600}>{s.title || s.category}</Typography>
+                <Typography fontWeight={600}>{getProfileServiceHeading(s)}</Typography>
                 <Typography variant="body2" color="text.secondary">
                   {s.short_description || s.experience_summary || s.description}
                 </Typography>
@@ -374,16 +421,31 @@ export default function ServicesSection({
                     {(BROAD_CATEGORIES[formData.broadCategory] || []).map((c) => (
                       <MenuItem key={c} value={c}>{c}</MenuItem>
                     ))}
+                    <MenuItem value={SPECIFIC_SERVICE_OTHER}>{SPECIFIC_SERVICE_OTHER}</MenuItem>
                   </Select>
                 </FormControl>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Service Title"
-                  placeholder="e.g., Professional Minimalist Logo Design"
-                  value={formData.title}
-                  onChange={handleChange("title")}
-                />
+                {formData.specificService === SPECIFIC_SERVICE_OTHER && (
+                  <>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Service title"
+                      placeholder="e.g. Packaging design for indie brands"
+                      value={formData.title}
+                      onChange={handleChange("title")}
+                      required
+                    />
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Describe your service"
+                      placeholder="e.g. Custom packaging design for small brands (used for category)"
+                      value={formData.specificOtherText}
+                      onChange={handleChange("specificOtherText")}
+                      required
+                    />
+                  </>
+                )}
               </Stack>
             </Paper>
 

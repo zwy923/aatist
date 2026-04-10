@@ -17,6 +17,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import ImageOutlinedIcon from "@mui/icons-material/ImageOutlined";
 import "../../pages/PublicProfile.css";
 import { formatServicePriceLine } from "../../shared/utils/priceType";
+import { getProfileServiceHeading } from "../../constants/serviceCategories";
 import { talentDisplayName } from "../../shared/utils/displayName";
 
 export default function ProfileView({
@@ -43,7 +44,11 @@ export default function ProfileView({
   const [portfolioMenuAnchor, setPortfolioMenuAnchor] = useState(null);
   const [portfolioMenuId, setPortfolioMenuId] = useState(null);
 
-  const educationParts = [profile?.school, profile?.faculty || profile?.major].filter(Boolean);
+  const educationParts = [
+    profile?.school,
+    profile?.faculty || profile?.major,
+    profile?.study_major,
+  ].filter(Boolean);
   const educationLine = profile?.year
     ? `${profile.year}, ${educationParts.join(" / ")}`
     : educationParts.join(" / ");
@@ -157,7 +162,6 @@ export default function ProfileView({
               {isVerified && (
                 <VerifiedUserIcon className="profile-hero-verified" sx={{ fontSize: 28 }} />
               )}
-              <span className="profile-hero-badge-available">Available</span>
             </div>
             {(educationLine || orgSubtitle) && (
               <div className="profile-hero-education">{educationLine || orgSubtitle}</div>
@@ -325,7 +329,7 @@ export default function ProfileView({
                   >
                     <div className="profile-service-thumbnails">{renderServiceThumbs(s)}</div>
                     <div className="profile-service-body">
-                      <div className="profile-service-title">{s.title || s.category || "Service"}</div>
+                      <div className="profile-service-title">{getProfileServiceHeading(s)}</div>
                       <div className="profile-service-desc">
                         {s.short_description || s.description || s.experience_summary || ""}
                       </div>

@@ -38,6 +38,7 @@ type UpdateProfileInput struct {
 	School              *string
 	Faculty             *string
 	Major               *string
+	StudyMajor          *string
 	Skills              *[]model.Skill
 	PortfolioVisibility *model.PortfolioVisibility
 	// Organization fields
@@ -215,6 +216,9 @@ func (s *profileService) UpdateProfile(ctx context.Context, userID int64, input 
 		}
 		if input.Major != nil {
 			fields["major"] = valueOrNil(normalizeMajor(input.Major))
+		}
+		if input.StudyMajor != nil {
+			fields["study_major"] = valueOrNil(normalizeOptionalStringWithLimit(input.StudyMajor, 255))
 		}
 		if input.Skills != nil {
 			normalizedSkills := sanitizeSkillsWithLevel(*input.Skills)

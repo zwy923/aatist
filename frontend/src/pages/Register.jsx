@@ -24,6 +24,7 @@ import {
   buildRegistrationAcademicFields,
   getProgrammeByName,
   programmeMatchesSchoolFilter,
+  truncateProfileField,
 } from "../constants/aaltoProgrammes";
 import { aaltoOutlinedSelectSx, aaltoSelectMenuProps } from "../shared/styles/aaltoSelectSx";
 
@@ -118,6 +119,7 @@ const createStudentForm = () => ({
   preferredName: "",
   school: "",
   program: "",
+  studyMajor: "",
   yearOfEnrollment: "",
   emailLocalPart: "",
   password: "",
@@ -215,15 +217,18 @@ function Register() {
       return;
     }
 
+    const profile = {};
+    const orgName = clientForm.company.trim();
+    if (orgName) profile.organizationName = orgName;
+    const titleVal = clientForm.title.trim();
+    if (titleVal) profile.contactTitle = titleVal;
+
     const payload = {
       name: clientForm.name.trim(),
       email: clientForm.email.trim(),
       password: clientForm.password,
       role: "organization",
-      profile: {
-        organizationName: clientForm.company.trim(),
-        contactTitle: clientForm.title.trim(),
-      },
+      ...(Object.keys(profile).length > 0 ? { profile } : {}),
     };
 
     const result = await register(payload);
@@ -282,6 +287,7 @@ function Register() {
       return;
     }
 
+    const studyMajorTrimmed = truncateProfileField(studentForm.studyMajor);
     const payload = {
       name: studentForm.name.trim(),
       email,
@@ -292,6 +298,7 @@ function Register() {
         faculty: academic.faculty,
         major: academic.major,
         studentId: studentForm.yearOfEnrollment.trim(),
+        ...(studyMajorTrimmed ? { studyMajor: studyMajorTrimmed } : {}),
         ...(studentForm.preferredName.trim()
           ? { preferredName: studentForm.preferredName.trim() }
           : {}),
@@ -457,9 +464,9 @@ function Register() {
                   />
                 </div>
                 <div className="register-field">
-                  <label>Company Name</label>
+                  <label>Company name (optional)</label>
                   <TextField
-                    placeholder="Your company"
+                    placeholder="Leave blank if not applicable"
                     value={clientForm.company}
                     onChange={(e) => updateClient("company", e.target.value)}
                     fullWidth
@@ -702,6 +709,19 @@ function Register() {
                     ])}
                   </Select>
                 </FormControl>
+              </div>
+            </div>
+            <div className="register-form-row">
+              <div className="register-field register-field-full">
+                <label>Major (optional)</label>
+                <TextField
+                  placeholder="Optional — e.g. track or concentration within your programme"
+                  value={studentForm.studyMajor}
+                  onChange={(e) => updateStudent("studyMajor", e.target.value)}
+                  fullWidth
+                  size="small"
+                  inputProps={{ maxLength: 255 }}
+                />
               </div>
             </div>
 

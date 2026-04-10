@@ -150,7 +150,7 @@ func (s *authService) Register(ctx context.Context, input RegisterInput) (*model
 
 	// Role-specific registration constraints aligned with registration flow:
 	// - student/alumni: require @aalto.fi email and academic profile fields
-	// - organization roles: organization name and contact title optional
+	// - organization (client): organization name and contact title are optional (nil or empty in DB)
 	if role.IsStudentRole() {
 		if !strings.HasSuffix(normalizedEmail, "@aalto.fi") {
 			return nil, nil, errs.NewAppError(errs.ErrInvalidInput, 400, "student registration requires Aalto email (@aalto.fi)")
@@ -195,6 +195,7 @@ func (s *authService) Register(ctx context.Context, input RegisterInput) (*model
 		School:        input.School,
 		Faculty:       input.Faculty,
 		Major:         input.Major,
+		StudyMajor:    input.StudyMajor,
 		// Organization fields
 		OrganizationName:       input.OrganizationName,
 		OrganizationBio:        input.OrganizationBio,

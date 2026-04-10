@@ -17,7 +17,7 @@ const userSelectColumns = `id, email, password_hash, name, preferred_name, avata
 	profile_visibility, portfolio_visibility,
 	is_verified_email, role_verified, oauth_provider, oauth_subject, last_login_at, failed_attempts, locked_until,
 	created_at, updated_at,
-	student_id, school, faculty, major, skills, courses,
+	student_id, school, faculty, major, study_major, skills, courses,
 	organization_name, organization_bio, contact_title, is_affiliated_with_school, org_size`
 
 var profileUpdatableColumns = []string{
@@ -36,6 +36,7 @@ var profileUpdatableColumns = []string{
 	"school",
 	"faculty",
 	"major",
+	"study_major",
 	"preferred_name",
 	"skills",
 	"courses",
@@ -144,10 +145,10 @@ func (r *postgresRepository) UpdatePassword(ctx context.Context, userID int64, p
 func (r *postgresRepository) CreateUser(ctx context.Context, user *model.User) error {
 	query := `INSERT INTO users (email, password_hash, name, preferred_name, role, bio, profile_visibility, portfolio_visibility,
 		is_verified_email, role_verified, oauth_provider, oauth_subject, failed_attempts,
-		student_id, school, faculty, major, skills, courses,
+		student_id, school, faculty, major, study_major, skills, courses,
 		organization_name, organization_bio, contact_title, is_affiliated_with_school, org_size,
 		created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
 		RETURNING id`
 
 	now := time.Now()
@@ -173,6 +174,7 @@ func (r *postgresRepository) CreateUser(ctx context.Context, user *model.User) e
 		user.School,
 		user.Faculty,
 		user.Major,
+		user.StudyMajor,
 		user.Skills,
 		user.Courses,
 		// Organization fields
@@ -457,9 +459,9 @@ func (r *postgresRepository) SearchUsers(ctx context.Context, filter UserSearchF
 		argIdx  = 1
 	)
 
-	// Filter by keyword (Name, Skills, Faculty, or Major)
+	// Filter by keyword (Name, Skills, Faculty, Major, or optional study major)
 	if filter.Query != "" {
-		clauses = append(clauses, fmt.Sprintf("(name ILIKE $%d OR preferred_name ILIKE $%d OR skills::text ILIKE $%d OR faculty ILIKE $%d OR major ILIKE $%d)", argIdx, argIdx, argIdx, argIdx, argIdx))
+		clauses = append(clauses, fmt.Sprintf("(name ILIKE $%d OR preferred_name ILIKE $%d OR skills::text ILIKE $%d OR faculty ILIKE $%d OR major ILIKE $%d OR study_major ILIKE $%d)", argIdx, argIdx, argIdx, argIdx, argIdx, argIdx))
 		args = append(args, "%"+filter.Query+"%")
 		argIdx++
 	}

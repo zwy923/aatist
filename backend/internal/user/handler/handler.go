@@ -100,7 +100,7 @@ func (h *AuthHandler) RegisterHandler(c *gin.Context) {
 	role := h.normalizeRole(req.Role)
 
 	// Prepare student/alumni fields
-	var studentIDPtr, preferredNamePtr, schoolPtr, facultyPtr, majorPtr *string
+	var studentIDPtr, preferredNamePtr, schoolPtr, facultyPtr, majorPtr, studyMajorPtr *string
 	// Prepare organization fields
 	var orgNamePtr, orgBioPtr, contactTitlePtr *string
 	var isAffiliatedPtr *bool
@@ -127,6 +127,10 @@ func (h *AuthHandler) RegisterHandler(c *gin.Context) {
 		if v := strings.TrimSpace(req.Profile.Major); v != "" {
 			value := v
 			majorPtr = &value
+		}
+		if v := strings.TrimSpace(req.Profile.StudyMajor); v != "" {
+			value := v
+			studyMajorPtr = &value
 		}
 		// Organization fields
 		if v := strings.TrimSpace(req.Profile.OrganizationName); v != "" {
@@ -160,6 +164,7 @@ func (h *AuthHandler) RegisterHandler(c *gin.Context) {
 		School:                 schoolPtr,
 		Faculty:                facultyPtr,
 		Major:                  majorPtr,
+		StudyMajor:             studyMajorPtr,
 		OrganizationName:       orgNamePtr,
 		OrganizationBio:        orgBioPtr,
 		ContactTitle:           contactTitlePtr,
@@ -984,6 +989,7 @@ func mapUserToResponse(user *model.User) UserResponse {
 		School:              user.School,
 		Faculty:             user.Faculty,
 		Major:               user.Major,
+		StudyMajor:          user.StudyMajor,
 		Skills:              user.Skills,
 		Courses:             user.Courses,
 		PortfolioVisibility: user.PortfolioVisibility.String(),
@@ -1219,6 +1225,7 @@ func mapUserToPublicResponse(user *model.User) gin.H {
 		resp["school"] = user.School
 		resp["faculty"] = user.Faculty
 		resp["major"] = user.Major
+		resp["study_major"] = user.StudyMajor
 		resp["skills"] = user.Skills
 		resp["courses"] = user.Courses
 		resp["portfolio_visibility"] = user.PortfolioVisibility.String()

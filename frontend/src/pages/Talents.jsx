@@ -41,6 +41,7 @@ import { formatServicePriceLine } from '../shared/utils/priceType';
 import { AALTO_PROGRAMMES, programmeMatchesSchoolFilter } from '../constants/aaltoProgrammes';
 import { aaltoOutlinedSelectSx, aaltoSelectMenuProps } from '../shared/styles/aaltoSelectSx';
 import { talentDisplayName } from '../shared/utils/displayName';
+import { getProfileServiceHeading } from '../constants/serviceCategories';
 
 const FACULTIES = [
     "Arts, Design and Architecture",
@@ -60,7 +61,7 @@ const CATEGORIES = [
     },
     {
         main: "Branding",
-        items: ["LOGO Design", "Brand Design", "LOGO + Brand Design"]
+        items: ["LOGO Design", "Brand Design"]
     },
     {
         main: "Web Design",
@@ -76,7 +77,7 @@ const CATEGORIES = [
     },
     {
         main: "Creative Styling",
-        items: ["Team Outfit Design", "Makeup for photoshoots", "Creative/Artistic Makeup"]
+        items: ["Team Outfit Design"]
     },
     {
         main: "Exhibition & Spatial Design",
@@ -127,7 +128,7 @@ const TalentCard = ({ student }) => {
 
     const services = profile?.services || [];
     const primaryService = services[0];
-    const offers = [...(student.skills || []).map(s => typeof s === 'string' ? s : s?.name).filter(Boolean), ...services.map(s => s.category || s.title).filter(Boolean)];
+    const offers = [...(student.skills || []).map(s => typeof s === 'string' ? s : s?.name).filter(Boolean), ...services.map((s) => getProfileServiceHeading(s)).filter(Boolean)];
     const uniqueOffers = [...new Set(offers)];
     const displayedOffers = uniqueOffers.slice(0, 5);
     const moreOffers = uniqueOffers.length - 5;
@@ -159,10 +160,6 @@ const TalentCard = ({ student }) => {
                     )}
                 </div>
                 <div className="talent-card-education">{educationLine}</div>
-                <div className="talent-card-available">
-                    <span className="talent-card-available-dot" />
-                    Available
-                </div>
                 <div className="talent-card-buttons">
                     <button
                         type="button"
@@ -231,7 +228,7 @@ const TalentCard = ({ student }) => {
                                       alt=""
                                       sx={{
                                         width: 80,
-                                        height: 100,
+                                        height: 80,
                                         objectFit: 'contain',
                                         borderRadius: 1,
                                         bgcolor: '#e8eaed',
@@ -247,7 +244,7 @@ const TalentCard = ({ student }) => {
                                 )}
                             </div>
                             <div className="talent-card-service-title">
-                                {primaryService.title || primaryService.category || 'Service'}
+                                {getProfileServiceHeading(primaryService)}
                             </div>
                             <div className="talent-card-service-desc">
                                 {primaryService.short_description || primaryService.description || primaryService.experience_summary || ''}

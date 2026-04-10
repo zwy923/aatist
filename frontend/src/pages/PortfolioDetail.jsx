@@ -8,6 +8,7 @@ import {
   Tooltip,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import EditIcon from "@mui/icons-material/Edit";
 import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
 import FavoriteIcon from "@mui/icons-material/Favorite";
 import PageLayout from "../shared/components/PageLayout";
@@ -66,7 +67,7 @@ function collectMediaUrls(project) {
 export default function PortfolioDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [project, setProject] = useState(null);
@@ -126,7 +127,6 @@ export default function PortfolioDetailPage() {
       : talentDisplayName(ownerProfile) || ownerProfile?.organization_name || ownerProfile?.name || "Creator";
   const categoryCrumb = (project?.service_category || "Portfolio").toUpperCase();
   const tagList = normalizeTags(project?.tags);
-  const relatedList = normalizeTags(project?.related_services);
   const mediaUrls = useMemo(() => collectMediaUrls(project), [project]);
 
   const creators = useMemo(() => {
@@ -189,6 +189,17 @@ export default function PortfolioDetailPage() {
   const descriptionText =
     project?.description?.trim() || project?.short_caption?.trim() || "No description provided for this project yet.";
 
+  const myUserId = user?.id ?? user?.user_id;
+  const isProjectOwner =
+    isAuthenticated &&
+    project?.user_id != null &&
+    myUserId != null &&
+    String(project.user_id) === String(myUserId);
+
+  const goEditProject = () => {
+    navigate("/profile", { state: { editPortfolioId: projectId } });
+  };
+
   return (
     <PageLayout noContainer>
       <div className="portfolio-detail-page">
@@ -224,28 +235,46 @@ export default function PortfolioDetailPage() {
                   <h1 className="portfolio-detail-title">{project?.title || "Project"}</h1>
                   <span className="portfolio-detail-date">{formatProjectDate(project)}</span>
                 </div>
-                <Tooltip title={favSaved ? "Remove from saved" : "Save project"}>
-                  <span className="portfolio-detail-fav-btn">
-                    <IconButton
-                      onClick={toggleFavorite}
-                      disabled={favLoading}
-                      sx={{
-                        border: "1px solid #dadce0",
-                        bgcolor: "#fff",
-                        "&:hover": { bgcolor: "#f8f9fa" },
-                      }}
-                      aria-label={favSaved ? "Remove from saved" : "Save project"}
-                    >
-                      {favLoading ? (
-                        <CircularProgress size={22} />
-                      ) : favSaved ? (
-                        <FavoriteIcon sx={{ color: "#e91e63" }} />
-                      ) : (
-                        <FavoriteBorderIcon sx={{ color: "#5f6368" }} />
-                      )}
-                    </IconButton>
-                  </span>
-                </Tooltip>
+                {isProjectOwner ? (
+                  <Tooltip title="Edit project">
+                    <span className="portfolio-detail-fav-btn">
+                      <IconButton
+                        onClick={goEditProject}
+                        sx={{
+                          border: "1px solid #dadce0",
+                          bgcolor: "#fff",
+                          "&:hover": { bgcolor: "#f8f9fa" },
+                        }}
+                        aria-label="Edit project"
+                      >
+                        <EditIcon sx={{ color: "#1976d2" }} />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                ) : (
+                  <Tooltip title={favSaved ? "Remove from saved" : "Save project"}>
+                    <span className="portfolio-detail-fav-btn">
+                      <IconButton
+                        onClick={toggleFavorite}
+                        disabled={favLoading}
+                        sx={{
+                          border: "1px solid #dadce0",
+                          bgcolor: "#fff",
+                          "&:hover": { bgcolor: "#f8f9fa" },
+                        }}
+                        aria-label={favSaved ? "Remove from saved" : "Save project"}
+                      >
+                        {favLoading ? (
+                          <CircularProgress size={22} />
+                        ) : favSaved ? (
+                          <FavoriteIcon sx={{ color: "#e91e63" }} />
+                        ) : (
+                          <FavoriteBorderIcon sx={{ color: "#5f6368" }} />
+                        )}
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                )}
               </div>
 
               <h2 className="portfolio-detail-label">Created by</h2>
@@ -275,19 +304,6 @@ export default function PortfolioDetailPage() {
                     </span>
                   ))}
                 </div>
-              )}
-
-              {relatedList.length > 0 && (
-                <>
-                  <h2 className="portfolio-detail-label">Service involved</h2>
-                  <div className="portfolio-detail-service-tags">
-                    {relatedList.map((t) => (
-                      <span key={t} className="portfolio-detail-service-tag">
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                </>
               )}
             </div>
 

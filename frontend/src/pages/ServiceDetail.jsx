@@ -24,6 +24,7 @@ import { StateContainer } from "../shared/components/ui/StateContainer";
 import { profileApi } from "../features/profile/api/profile";
 import useAuthStore from "../shared/stores/authStore";
 import "./ServiceDetail.css";
+import { getProfileServiceHeading } from "../constants/serviceCategories";
 import { parsePriceTypeTokens } from "../shared/utils/priceType";
 import { talentDisplayName } from "../shared/utils/displayName";
 
@@ -103,7 +104,7 @@ export default function ServiceDetailPage() {
       const urls = found?.media_urls?.length ? found.media_urls : [];
       setActiveMediaIndex(0);
       const name = data?.name || "there";
-      const svcTitle = found?.title || found?.category || "your service";
+      const svcTitle = found ? getProfileServiceHeading(found) : "your service";
       setMessageDraft(
         `Hi ${name.split(" ")[0]}, I'm interested in your ${svcTitle} service. I'm working on `
       );
@@ -243,7 +244,6 @@ export default function ServiceDetailPage() {
                     ) : (
                       <p className="service-detail-subtitle">Aalto talent</p>
                     )}
-                    <span className="service-detail-badge-available">Available</span>
                   </div>
                 </div>
                 <div className="service-detail-actions">
@@ -341,7 +341,7 @@ export default function ServiceDetailPage() {
 
                 <div className="service-detail-info-col">
                   <h2 className="service-detail-service-title">
-                    {service?.title || service?.category || "Service"}
+                    {service ? getProfileServiceHeading(service) : "Service"}
                   </h2>
 
                   <h3 className="service-detail-section-title">About this service</h3>

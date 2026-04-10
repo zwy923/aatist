@@ -93,18 +93,6 @@
   line-height: 1.4;
 }
 
-.service-detail-badge-available {
-  display: inline-flex;
-  align-items: center;
-  margin-top: 10px;
-  padding: 4px 12px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  background: #e6f7ed;
-  color: #137333;
-}
-
 .service-detail-actions {
   display: flex;
   align-items: center;

@@ -480,25 +480,6 @@
   line-height: 1.3;
 }
 
-.talent-card-available {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
-  border-radius: 20px;
-  background: rgba(34, 197, 94, 0.12);
-  color: #16a34a;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.talent-card-available-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #16a34a;
-}
-
 .talent-card-buttons {
   display: flex;
   flex-direction: column;
@@ -589,7 +570,7 @@
 
 .talent-card-service-thumb {
   width: 80px;
-  height: 100px;
+  height: 80px;
   border-radius: 6px;
   background: #e0e0e0;
   object-fit: cover;

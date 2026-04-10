@@ -180,6 +180,7 @@ type User struct {
 	School              *string                 `db:"school" json:"school,omitempty"`
 	Faculty             *string                 `db:"faculty" json:"faculty,omitempty"`
 	Major               *string                 `db:"major" json:"major,omitempty"`
+	StudyMajor          *string                 `db:"study_major" json:"study_major,omitempty"`
 	Skills              Skills                  `db:"skills" json:"skills,omitempty"`
 	Courses             Courses                 `db:"courses" json:"courses,omitempty"`
 	PortfolioVisibility PortfolioVisibility     `db:"portfolio_visibility" json:"portfolio_visibility"`

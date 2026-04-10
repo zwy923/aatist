@@ -15,7 +15,8 @@ type RegisterProfile struct {
 	School        string `json:"school,omitempty"`
 	Faculty       string `json:"faculty,omitempty"`
 	Major         string `json:"major,omitempty"`
-	// Organization fields
+	StudyMajor    string `json:"studyMajor,omitempty"`
+	// Organization fields (optional for client / organization registration)
 	OrganizationName       string `json:"organizationName,omitempty"`
 	OrganizationBio        string `json:"organizationBio,omitempty"`
 	ContactTitle           string `json:"contactTitle,omitempty"`
@@ -70,6 +71,7 @@ type UserResponse struct {
 	School              *string       `json:"school,omitempty"`
 	Faculty             *string       `json:"faculty,omitempty"`
 	Major               *string       `json:"major,omitempty"`
+	StudyMajor          *string       `json:"study_major,omitempty"`
 	Skills              model.Skills  `json:"skills,omitempty"`
 	Courses             model.Courses `json:"courses,omitempty"`
 	PortfolioVisibility string        `json:"portfolio_visibility,omitempty"`
@@ -141,6 +143,7 @@ type UpdateProfileRequest struct {
 	School              *string       `json:"school" binding:"omitempty,max=255"`
 	Faculty             *string       `json:"faculty" binding:"omitempty,max=255"`
 	Major               *string       `json:"major" binding:"omitempty,max=255"`
+	StudyMajor          *string       `json:"study_major" binding:"omitempty,max=255"`
 	Skills              *[]SkillInput `json:"skills"`
 	PortfolioVisibility *string       `json:"portfolio_visibility" binding:"omitempty,oneof=public aalto_only private"`
 	// Organization fields
@@ -174,6 +177,7 @@ func (r UpdateProfileRequest) ToServiceInput() service.UpdateProfileInput {
 		School:                 r.School,
 		Faculty:                r.Faculty,
 		Major:                  r.Major,
+		StudyMajor:             r.StudyMajor,
 		Bio:                    r.Bio,
 		Website:                r.Website,
 		LinkedIn:               r.LinkedIn,

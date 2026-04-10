@@ -25,6 +25,7 @@ type RegisterInput struct {
 	School                 *string
 	Faculty                *string
 	Major                  *string
+	StudyMajor             *string
 	// Organization fields
 	OrganizationName       *string
 	OrganizationBio        *string

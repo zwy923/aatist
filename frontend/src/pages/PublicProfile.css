@@ -137,17 +137,6 @@
   color: #4caf50;
 }
 
-.profile-hero-badge-available {
-  display: inline-flex;
-  align-items: center;
-  padding: 5px 12px;
-  border-radius: 999px;
-  background: #2e7d32;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-}
-
 .profile-hero-education {
   font-size: 15px;
   color: rgba(255, 255, 255, 0.88);
@@ -377,7 +366,7 @@
 
 .profile-service-thumb {
   position: relative;
-  aspect-ratio: 3 / 4;
+  aspect-ratio: 1 / 1;
   background: #dadce0;
   border-radius: 8px;
   overflow: hidden;
