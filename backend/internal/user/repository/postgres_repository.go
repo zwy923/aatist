@@ -459,10 +459,23 @@ func (r *postgresRepository) SearchUsers(ctx context.Context, filter UserSearchF
 		argIdx  = 1
 	)
 
-	// Filter by keyword (Name, Skills, Faculty, Major, or optional study major)
+	// Filter by keyword: user profile fields OR at least one public-facing service row
+	// (category is stored e.g. "Broad > Specific" from Add Service; title/text for "Other").
 	if filter.Query != "" {
-		clauses = append(clauses, fmt.Sprintf("(name ILIKE $%d OR preferred_name ILIKE $%d OR skills::text ILIKE $%d OR faculty ILIKE $%d OR major ILIKE $%d OR study_major ILIKE $%d)", argIdx, argIdx, argIdx, argIdx, argIdx, argIdx))
-		args = append(args, "%"+filter.Query+"%")
+		pat := "%" + filter.Query + "%"
+		userMatch := fmt.Sprintf(
+			"(name ILIKE $%d OR preferred_name ILIKE $%d OR skills::text ILIKE $%d OR faculty ILIKE $%d OR major ILIKE $%d OR study_major ILIKE $%d)",
+			argIdx, argIdx, argIdx, argIdx, argIdx, argIdx,
+		)
+		serviceMatch := fmt.Sprintf(
+			`EXISTS (SELECT 1 FROM user_services us WHERE us.user_id = users.id AND (`+
+				`us.category ILIKE $%d OR COALESCE(us.title,'') ILIKE $%d OR `+
+				`COALESCE(us.short_description,'') ILIKE $%d OR COALESCE(us.description,'') ILIKE $%d OR `+
+				`us.experience_summary ILIKE $%d))`,
+			argIdx, argIdx, argIdx, argIdx, argIdx,
+		)
+		clauses = append(clauses, fmt.Sprintf("(%s OR %s)", userMatch, serviceMatch))
+		args = append(args, pat)
 		argIdx++
 	}
 

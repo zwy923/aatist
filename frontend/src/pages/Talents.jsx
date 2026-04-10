@@ -582,7 +582,15 @@ const Talents = () => {
                     <div className="talents-categories-grid">
                         {CATEGORIES.map((group) => (
                             <div key={group.main} className="talents-category-group">
-                                <span className="talents-category-main">{group.main}</span>
+                                <span
+                                    className="talents-category-main"
+                                    onClick={() => handleCategoryClick(group.main)}
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleCategoryClick(group.main)}
+                                >
+                                    {group.main}
+                                </span>
                                 <div className="talents-category-items">
                                     {group.items.map((tag) => (
                                         <span
