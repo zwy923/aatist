@@ -61,6 +61,16 @@ const SCHOOLS = [...FACULTIES, "Other"];
 const CATEGORIES = HIRE_TALENT_SERVICE_CATEGORIES;
 const ALL_SUGGESTIONS = ALL_HIRE_TALENT_SERVICE_SUGGESTIONS;
 
+// AATIST letters positioned at bottom-left
+const TALENTS_AATIST_LETTERS = [
+  { char: "A", x: 10, y: 'bottom', r: 10 },
+  { char: "A", x: 110, y: 'bottom', r: -32 },
+  { char: "T", x: 200, y: 'bottom', r: 24 },
+  { char: "I", x: 300, y: 'bottom', r: -3 },
+  { char: "S", x: 380, y: 'bottom', r: -18 },
+  { char: "T", x: 460, y: 'bottom', r: 5, scale: 1.15 },
+];
+
 const highlightMatch = (text, query) => {
     if (!query.trim()) return <span style={{ color: '#6b7280' }}>{text}</span>;
     const q = query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -574,6 +584,22 @@ const Talents = () => {
                                 </div>
                             )}
                         </div>
+                    </div>
+                    {/* AATIST watermark letters */}
+                    <div className="talents-hero-watermark" aria-hidden="true">
+                        {TALENTS_AATIST_LETTERS.map((letter, index) => (
+                            <span
+                                key={`${letter.char}-${index}`}
+                                className="talents-watermark-letter"
+                                style={{
+                                    left: `${letter.x}px`,
+                                    ...(letter.y === 'bottom' ? { bottom: 0 } : { top: `${letter.y}px` }),
+                                    transform: `rotate(${letter.r}deg)${letter.scale ? ` scale(${letter.scale})` : ''}`,
+                                }}
+                            >
+                                {letter.char}
+                            </span>
+                        ))}
                     </div>
                 </section>
 
