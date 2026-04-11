@@ -3,7 +3,7 @@
   min-height: 60vh;
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
+  background: #000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -18,31 +18,57 @@
 }
 
 .talents-hero::before {
-  content: "AATIST";
+  content: "";
+  display: none;
+}
+
+.talents-hero-watermark {
   position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 140px;
-  font-weight: 900;
-  color: rgba(255, 255, 255, 0.04);
-  letter-spacing: 0.02em;
+  left: 0;
+  top: 0;
+  width: 50%;
+  height: 100%;
   pointer-events: none;
+  z-index: 0;
+}
+
+.talents-watermark-letter {
+  position: absolute;
+  font-size: 150px;
+  font-weight: 700;
+  color: #504B43;
+  letter-spacing: 0.02em;
+  display: inline-block;
+  transform-origin: center;
+}
+
+.talents-hero::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 50%;
+  height: 100%;
+  background-image: url('/talents-bg.jpg');
+  background-size: 120%;
+  background-position: center;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .talents-hero-content {
-  position: relative;
+  position: absolute;
   z-index: 1;
   color: #d8ecff;
-  padding: 48px 40px;
-  width: 100%;
-  max-width: 900px;
-  margin: 0 auto;
+  padding: 48px 196px;
+  left: 0;
+  right: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
+  align-items: flex-start;
+  text-align: left;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .talents-hero-title {
@@ -50,6 +76,7 @@
   font-weight: 700;
   line-height: 1.2;
   margin-bottom: 12px;
+  max-width: calc(50vw - 200px);
 }
 
 .talents-hero-title .highlight {
@@ -78,7 +105,7 @@
 .talents-hero-search-wrapper {
   position: relative;
   width: 100%;
-  max-width: 880px;
+  max-width: none;
 }
 
 .talents-hero-expanded .talents-hero-search-wrapper {
