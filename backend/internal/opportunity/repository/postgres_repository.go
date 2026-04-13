@@ -13,8 +13,9 @@ import (
 	"github.com/lib/pq"
 )
 
+// COALESCE: 旧数据或手工插入可能使 languages/tags 为 NULL，直接扫入 []string 会报错导致列表 500
 const opportunitySelectColumns = `id, title, organization, category, budget_type, budget_value, 
-	location, duration_months, languages, start_date, published_at, urgent, description, tags, 
+	location, duration_months, COALESCE(languages, '{}') AS languages, start_date, published_at, urgent, description, COALESCE(tags, '{}') AS tags, 
 	created_by, status, created_at, updated_at`
 
 type (
@@ -218,7 +219,7 @@ func (r *postgresOpportunityRepository) List(ctx context.Context, filter Opportu
 				title ILIKE $%d ESCAPE '\'
 				OR (description IS NOT NULL AND description ILIKE $%d ESCAPE '\')
 				OR category ILIKE $%d ESCAPE '\'
-				OR EXISTS (SELECT 1 FROM unnest(tags) AS t WHERE t ILIKE $%d ESCAPE '\')
+				OR EXISTS (SELECT 1 FROM unnest(COALESCE(tags, '{}')) AS t WHERE t ILIKE $%d ESCAPE '\')
 			)`, n, n, n, n))
 		}
 	}
@@ -330,7 +331,7 @@ func (r *postgresOpportunityRepository) Count(ctx context.Context, filter Opport
 				title ILIKE $%d ESCAPE '\'
 				OR (description IS NOT NULL AND description ILIKE $%d ESCAPE '\')
 				OR category ILIKE $%d ESCAPE '\'
-				OR EXISTS (SELECT 1 FROM unnest(tags) AS t WHERE t ILIKE $%d ESCAPE '\')
+				OR EXISTS (SELECT 1 FROM unnest(COALESCE(tags, '{}')) AS t WHERE t ILIKE $%d ESCAPE '\')
 			)`, n, n, n, n))
 		}
 	}
