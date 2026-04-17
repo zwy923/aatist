@@ -207,8 +207,9 @@ func main() {
 		protectedPortfolio.DELETE("/me/portfolio/:id", portfolioHandler.DeleteProjectHandler)
 	}
 
-	// ----- Opportunity routes -----
+	// ----- Opportunity routes (public; optional Bearer → user context for is_favorite / saved) -----
 	opportunities := api.Group("/opportunities")
+	opportunities.Use(middleware.InjectUserFromJWTIfNoGatewayHeaders(jwt))
 	{
 		opportunities.GET("", oppHandler.ListOpportunitiesHandler)
 		opportunities.GET("/locations", oppHandler.ListOpportunityLocationsHandler)

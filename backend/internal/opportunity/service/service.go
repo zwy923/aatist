@@ -8,6 +8,7 @@ import (
 	"github.com/aatist/backend/internal/opportunity/model"
 	"github.com/aatist/backend/internal/opportunity/repository"
 	"github.com/aatist/backend/pkg/errs"
+	"github.com/lib/pq"
 )
 
 // OpportunityService defines the interface for opportunity operations
@@ -152,11 +153,11 @@ func (s *opportunityService) Create(ctx context.Context, input CreateOpportunity
 		BudgetValue:    input.BudgetValue,
 		Location:       input.Location,
 		DurationMonths: input.DurationMonths,
-		Languages:      input.Languages,
+		Languages:      pq.StringArray(input.Languages),
 		StartDate:      input.StartDate,
 		Urgent:         input.Urgent,
 		Description:    input.Description,
-		Tags:           input.Tags,
+		Tags:           pq.StringArray(input.Tags),
 		CreatedBy:      input.CreatedBy,
 		Status:         model.StatusActive,
 	}
@@ -208,7 +209,7 @@ func (s *opportunityService) Update(ctx context.Context, opportunityID, userID i
 		opp.DurationMonths = input.DurationMonths
 	}
 	if input.Languages != nil {
-		opp.Languages = input.Languages
+		opp.Languages = pq.StringArray(input.Languages)
 	}
 	if input.StartDate != nil {
 		opp.StartDate = input.StartDate
@@ -220,7 +221,7 @@ func (s *opportunityService) Update(ctx context.Context, opportunityID, userID i
 		opp.Description = input.Description
 	}
 	if input.Tags != nil {
-		opp.Tags = input.Tags
+		opp.Tags = pq.StringArray(input.Tags)
 	}
 
 	if err := s.oppRepo.Update(ctx, opp); err != nil {
@@ -235,6 +236,10 @@ func (s *opportunityService) GetByID(ctx context.Context, id int64) (*model.Oppo
 }
 
 func (s *opportunityService) List(ctx context.Context, filter ListOpportunitiesFilter) (*ListOpportunitiesResult, error) {
+	if filter.Page < 1 {
+		filter.Page = 1
+	}
+
 	// Convert sort string to repository sort type
 	var sort repository.OpportunityListSort
 	switch filter.Sort {

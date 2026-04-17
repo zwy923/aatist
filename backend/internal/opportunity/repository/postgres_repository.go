@@ -155,10 +155,11 @@ func (r *postgresOpportunityRepository) List(ctx context.Context, filter Opportu
 	if limit <= 0 || limit > 100 {
 		limit = 20
 	}
-	offset := (filter.Page - 1) * limit
-	if offset < 0 {
-		offset = 0
+	page := filter.Page
+	if page < 1 {
+		page = 1
 	}
+	offset := (page - 1) * limit
 
 	var (
 		args    []interface{}
