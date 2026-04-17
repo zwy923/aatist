@@ -168,6 +168,7 @@ func main() {
 
 	// ----- Protected user routes -----
 	protectedUsers := api.Group("/users")
+	protectedUsers.Use(middleware.InjectUserFromJWTIfNoGatewayHeaders(jwt))
 	protectedUsers.Use(middleware.RequireGatewayAuth())
 	{
 		protectedUsers.GET("/me", authHandler.GetCurrentUserHandler)
@@ -197,6 +198,7 @@ func main() {
 	}
 	api.Group("/users").GET("/:id/portfolio", portfolioHandler.GetUserPortfolioHandler)
 	protectedPortfolio := api.Group("/users")
+	protectedPortfolio.Use(middleware.InjectUserFromJWTIfNoGatewayHeaders(jwt))
 	protectedPortfolio.Use(middleware.RequireGatewayAuth())
 	{
 		protectedPortfolio.GET("/me/portfolio", portfolioHandler.GetMyPortfolioHandler)
@@ -213,6 +215,7 @@ func main() {
 		opportunities.GET("/:id", oppHandler.GetOpportunityHandler)
 	}
 	protectedOpp := api.Group("/opportunities")
+	protectedOpp.Use(middleware.InjectUserFromJWTIfNoGatewayHeaders(jwt))
 	protectedOpp.Use(middleware.RequireGatewayAuth())
 	{
 		protectedOpp.POST("", oppHandler.CreateOpportunityHandler)
@@ -228,6 +231,7 @@ func main() {
 		protectedOpp.GET("/:id/applications", oppHandler.ListOpportunityApplicationsHandler)
 	}
 	protectedUsersOpp := api.Group("/users")
+	protectedUsersOpp.Use(middleware.InjectUserFromJWTIfNoGatewayHeaders(jwt))
 	protectedUsersOpp.Use(middleware.RequireGatewayAuth())
 	{
 		protectedUsersOpp.GET("/me/applications", oppHandler.ListMyApplicationsHandler)
@@ -240,6 +244,7 @@ func main() {
 		internalNotif.POST("", notificationHandler.CreateNotificationHandler)
 	}
 	userNotifications := api.Group("/notifications")
+	userNotifications.Use(middleware.InjectUserFromJWTIfNoGatewayHeaders(jwt))
 	userNotifications.Use(middleware.TrustGatewayMiddleware())
 	userNotifications.Use(middleware.RequireGatewayAuth())
 	{

@@ -92,6 +92,11 @@ func InjectUserFromJWTIfNoGatewayHeaders(j *auth.JWT) gin.HandlerFunc {
 		c.Request.Header.Set(HeaderUserID, strconv.FormatInt(claims.UserID, 10))
 		c.Request.Header.Set(HeaderUserRole, claims.Role)
 		c.Request.Header.Set(HeaderUserEmail, claims.Email)
+		// Match GatewayAuthMiddleware + TrustGateway: handlers use middleware.GetUserID (context), not headers.
+		c.Set("user_id", claims.UserID)
+		c.Set("role", claims.Role)
+		c.Set("email", claims.Email)
+		c.Set("claims", claims)
 		c.Next()
 	}
 }
