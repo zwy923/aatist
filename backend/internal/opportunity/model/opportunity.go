@@ -2,6 +2,8 @@ package model
 
 import (
 	"time"
+
+	"github.com/lib/pq"
 )
 
 // OpportunityStatus represents the status of an opportunity
@@ -76,12 +78,13 @@ type Opportunity struct {
 	BudgetValue    *float64          `db:"budget_value" json:"budget_value"`
 	Location       string            `db:"location" json:"location"`
 	DurationMonths *int              `db:"duration_months" json:"duration_months,omitempty"`
-	Languages      []string          `db:"languages" json:"languages"`
+	// pq.StringArray implements sql.Scanner for PostgreSQL text[] (plain []string can fail to scan).
+	Languages      pq.StringArray    `db:"languages" json:"languages"`
 	StartDate      *time.Time        `db:"start_date" json:"start_date,omitempty"`
 	PublishedAt    time.Time         `db:"published_at" json:"published_at"`
 	Urgent         bool              `db:"urgent" json:"urgent"`
 	Description    *string           `db:"description" json:"description,omitempty"`
-	Tags           []string          `db:"tags" json:"tags"`
+	Tags           pq.StringArray    `db:"tags" json:"tags"`
 	CreatedBy      int64             `db:"created_by" json:"created_by"`
 	Status         OpportunityStatus `db:"status" json:"status"`
 	CreatedAt      time.Time         `db:"created_at" json:"created_at"`
