@@ -40,7 +40,7 @@ import './Talents.css';
 import { formatServicePriceLine } from '../shared/utils/priceType';
 import { AALTO_PROGRAMMES, programmeMatchesSchoolFilter } from '../constants/aaltoProgrammes';
 import { aaltoOutlinedSelectSx, aaltoSelectMenuProps } from '../shared/styles/aaltoSelectSx';
-import { talentDisplayName } from '../shared/utils/displayName';
+import { talentDisplayName, dedupeStringsIgnoreCase } from '../shared/utils/displayName';
 import {
   getProfileServiceHeading,
   HIRE_TALENT_SERVICE_CATEGORIES,
@@ -117,7 +117,8 @@ const TalentCard = ({ student }) => {
     const displayedOffers = uniqueOffers.slice(0, 5);
     const moreOffers = uniqueOffers.length - 5;
 
-    const educationLine = [student.school, student.faculty || student.major].filter(Boolean).join(', ') || 'Student';
+    const educationLine =
+      dedupeStringsIgnoreCase([student.school, student.faculty || student.major]).join(', ') || 'Student';
     const displayName = talentDisplayName(student) || 'Student';
 
     return (

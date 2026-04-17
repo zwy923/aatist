@@ -27,13 +27,12 @@ import useAuthStore from "../shared/stores/authStore";
 import "./ServiceDetail.css";
 import { getProfileServiceHeading } from "../constants/serviceCategories";
 import { parsePriceTypeTokens } from "../shared/utils/priceType";
-import { talentDisplayName } from "../shared/utils/displayName";
+import { talentDisplayName, dedupeStringsIgnoreCase } from "../shared/utils/displayName";
 
 const PREFILL_KEY = "aatist_chat_prefill";
 
 function formatEducationLine(profile) {
-  const parts = [profile?.school, profile?.faculty || profile?.major].filter(Boolean);
-  const line = parts.join(" / ");
+  const line = dedupeStringsIgnoreCase([profile?.school, profile?.faculty || profile?.major]).join(" / ");
   if (profile?.year) {
     return `${profile.year}, ${line}`;
   }

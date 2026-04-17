@@ -18,7 +18,7 @@ import PageLayout from "../shared/components/PageLayout";
 import { StateContainer } from "../shared/components/ui/StateContainer";
 import { portfolioApi, profileApi } from "../features/profile/api/profile";
 import useAuthStore from "../shared/stores/authStore";
-import { talentDisplayName } from "../shared/utils/displayName";
+import { talentDisplayName, dedupeStringsIgnoreCase } from "../shared/utils/displayName";
 import "./PortfolioDetail.css";
 
 function formatProjectDate(project) {
@@ -37,8 +37,7 @@ function formatProjectDate(project) {
 }
 
 function educationSubtitle(profile) {
-  const parts = [profile?.school, profile?.faculty || profile?.major].filter(Boolean);
-  const line = parts.join(" / ");
+  const line = dedupeStringsIgnoreCase([profile?.school, profile?.faculty || profile?.major]).join(" / ");
   if (profile?.year && line) return `${profile.year}, ${line}`;
   if (profile?.year) return String(profile.year);
   return line || "Aalto talent";
