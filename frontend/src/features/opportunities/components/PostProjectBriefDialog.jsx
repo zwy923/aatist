@@ -193,6 +193,7 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess, defau
       onClose={onClose}
       maxWidth="md"
       fullWidth
+      lang="en-US"
       PaperProps={{
         elevation: 8,
         sx: {
@@ -414,6 +415,7 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess, defau
                 value={formData.startDate}
                 onChange={handleChange("startDate")}
                 InputLabelProps={{ shrink: true }}
+                slotProps={{ htmlInput: { lang: "en-US" } }}
                 sx={{ minWidth: 180 }}
                 disabled={formData.timelineFlexible}
               />

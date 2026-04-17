@@ -9,6 +9,7 @@ import {
   Dialog,
   DialogContent,
   IconButton,
+  Snackbar,
   TextField,
   Tooltip,
 } from "@mui/material";
@@ -78,6 +79,7 @@ export default function ServiceDetailPage() {
   const [messageDraft, setMessageDraft] = useState("");
   const [favLoading, setFavLoading] = useState(false);
   const [favSaved, setFavSaved] = useState(false);
+  const [favError, setFavError] = useState(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const uid = userId ? Number(userId) : NaN;
@@ -180,6 +182,7 @@ export default function ServiceDetailPage() {
       return;
     }
     setFavLoading(true);
+    setFavError(null);
     try {
       if (favSaved) {
         await profileApi.removeSavedItemByTarget("user", uid);
@@ -189,7 +192,11 @@ export default function ServiceDetailPage() {
         setFavSaved(true);
       }
     } catch (err) {
-      console.error(err);
+      const msg =
+        err?.message ||
+        err?.response?.data?.error?.message ||
+        "Could not update saved items. Please try again.";
+      setFavError(msg);
     } finally {
       setFavLoading(false);
     }
@@ -525,6 +532,16 @@ export default function ServiceDetailPage() {
           </StateContainer>
         </Container>
       </div>
+      <Snackbar
+        open={Boolean(favError)}
+        autoHideDuration={6000}
+        onClose={() => setFavError(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert onClose={() => setFavError(null)} severity="error" variant="filled" sx={{ width: "100%" }}>
+          {favError}
+        </Alert>
+      </Snackbar>
     </PageLayout>
   );
 }

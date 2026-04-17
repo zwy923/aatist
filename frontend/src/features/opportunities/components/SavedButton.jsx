@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { IconButton, Tooltip, CircularProgress } from '@mui/material';
+import React, { useEffect, useState } from 'react';
+import { Alert, IconButton, Snackbar, Tooltip, CircularProgress } from '@mui/material';
 import { Bookmark, BookmarkBorder, Favorite, FavoriteBorder } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { profileApi } from '../../profile/api/profile';
 import useAuthStore from '../../../shared/stores/authStore';
 
@@ -15,20 +16,27 @@ const SavedButton = ({
 }) => {
     const [isSaved, setIsSaved] = useState(initialSaved);
     const [loading, setLoading] = useState(false);
+    const [errorMsg, setErrorMsg] = useState(null);
     const { isAuthenticated } = useAuthStore();
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        setIsSaved(initialSaved);
+    }, [initialSaved]);
 
     const handleToggle = async (e) => {
         e.preventDefault();
         e.stopPropagation();
 
         if (!isAuthenticated) {
-            // Handle unauthenticated state (e.g., redirect to login or show message)
-            alert('Please login to save opportunities');
+            navigate(`/auth/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
             return;
         }
 
         setLoading(true);
+        setErrorMsg(null);
         try {
+            const wasSaved = isSaved;
             if (isSaved) {
                 await profileApi.removeSavedItemByTarget(type, targetId);
                 setIsSaved(false);
@@ -36,9 +44,13 @@ const SavedButton = ({
                 await profileApi.saveItem(type, targetId);
                 setIsSaved(true);
             }
-            if (onToggle) onToggle(!isSaved);
+            if (onToggle) onToggle(!wasSaved);
         } catch (error) {
-            console.error('Failed to toggle save state:', error);
+            const msg =
+                error?.message ||
+                error?.response?.data?.error?.message ||
+                'Could not update saved items. Please try again.';
+            setErrorMsg(msg);
         } finally {
             setLoading(false);
         }
@@ -48,29 +60,41 @@ const SavedButton = ({
     const Outline = iconSet === 'favorite' ? FavoriteBorder : BookmarkBorder;
 
     return (
-        <Tooltip title={isSaved ? 'Remove from saved' : 'Save opportunity'}>
-            <IconButton
-                size={size}
-                onClick={handleToggle}
-                disabled={loading}
-                sx={{
-                    color: isSaved ? 'primary.main' : 'text.secondary',
-                    '&:hover': {
-                        color: 'primary.main',
-                        backgroundColor: 'rgba(93, 224, 255, 0.1)',
-                    },
-                    ...sx,
-                }}
+        <>
+            <Tooltip title={isSaved ? 'Remove from saved' : 'Save opportunity'}>
+                <IconButton
+                    size={size}
+                    onClick={handleToggle}
+                    disabled={loading}
+                    sx={{
+                        color: isSaved ? 'primary.main' : 'text.secondary',
+                        '&:hover': {
+                            color: 'primary.main',
+                            backgroundColor: 'rgba(93, 224, 255, 0.1)',
+                        },
+                        ...sx,
+                    }}
+                >
+                    {loading ? (
+                        <CircularProgress size={iconSet === 'favorite' ? 20 : 24} color="inherit" />
+                    ) : isSaved ? (
+                        <Filled fontSize={size === 'small' ? 'small' : 'medium'} />
+                    ) : (
+                        <Outline fontSize={size === 'small' ? 'small' : 'medium'} />
+                    )}
+                </IconButton>
+            </Tooltip>
+            <Snackbar
+                open={Boolean(errorMsg)}
+                autoHideDuration={6000}
+                onClose={() => setErrorMsg(null)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
             >
-                {loading ? (
-                    <CircularProgress size={iconSet === 'favorite' ? 20 : 24} color="inherit" />
-                ) : isSaved ? (
-                    <Filled fontSize={size === 'small' ? 'small' : 'medium'} />
-                ) : (
-                    <Outline fontSize={size === 'small' ? 'small' : 'medium'} />
-                )}
-            </IconButton>
-        </Tooltip>
+                <Alert onClose={() => setErrorMsg(null)} severity="error" variant="filled" sx={{ width: '100%' }}>
+                    {errorMsg}
+                </Alert>
+            </Snackbar>
+        </>
     );
 };
 

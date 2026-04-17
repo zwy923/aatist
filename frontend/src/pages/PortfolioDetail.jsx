@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
+  Alert,
   Box,
   CircularProgress,
   Container,
   IconButton,
+  Snackbar,
   Tooltip,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -74,6 +76,7 @@ export default function PortfolioDetailPage() {
   const [ownerProfile, setOwnerProfile] = useState(null);
   const [favLoading, setFavLoading] = useState(false);
   const [favSaved, setFavSaved] = useState(false);
+  const [favError, setFavError] = useState(null);
 
   const projectId = id ? Number(id) : NaN;
 
@@ -171,6 +174,7 @@ export default function PortfolioDetailPage() {
       return;
     }
     setFavLoading(true);
+    setFavError(null);
     try {
       if (favSaved) {
         await profileApi.removeSavedItemByTarget("project", projectId);
@@ -180,7 +184,11 @@ export default function PortfolioDetailPage() {
         setFavSaved(true);
       }
     } catch (err) {
-      console.error(err);
+      const msg =
+        err?.message ||
+        err?.response?.data?.error?.message ||
+        "Could not update saved items. Please try again.";
+      setFavError(msg);
     } finally {
       setFavLoading(false);
     }
@@ -349,6 +357,16 @@ export default function PortfolioDetailPage() {
           </StateContainer>
         </Container>
       </div>
+      <Snackbar
+        open={Boolean(favError)}
+        autoHideDuration={6000}
+        onClose={() => setFavError(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert onClose={() => setFavError(null)} severity="error" variant="filled" sx={{ width: "100%" }}>
+          {favError}
+        </Alert>
+      </Snackbar>
     </PageLayout>
   );
 }
