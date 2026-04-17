@@ -243,27 +243,29 @@ export default function PortfolioDetailPage() {
             emptyMessage="Project not found."
             onRetry={load}
           >
-            <div className="portfolio-detail-topbar">
-              <nav className="portfolio-detail-back-row" aria-label="Breadcrumb">
-                <IconButton
-                  size="small"
-                  aria-label="Go back"
-                  onClick={() => navigate(-1)}
-                  sx={{ color: "#5f6368", mr: 0.5 }}
-                >
-                  <ArrowBackIcon fontSize="small" />
-                </IconButton>
-                <Link to="/talents">Hire Talent</Link>
-                <span className="sep">/</span>
-                <span>{categoryCrumb}</span>
-                <span className="sep">/</span>
-                <span>{ownerName}</span>
-              </nav>
-            </div>
+            <article className="portfolio-detail-article">
+              <div className="portfolio-detail-topbar">
+                <nav className="portfolio-detail-back-row" aria-label="Breadcrumb">
+                  <IconButton
+                    size="small"
+                    aria-label="Go back"
+                    onClick={() => navigate(-1)}
+                    className="portfolio-detail-back-btn"
+                    sx={{ color: "#5f6368", mr: 0.5 }}
+                  >
+                    <ArrowBackIcon fontSize="small" />
+                  </IconButton>
+                  <Link to="/talents">Hire Talent</Link>
+                  <span className="sep">/</span>
+                  <span>{categoryCrumb}</span>
+                  <span className="sep">/</span>
+                  <span className="portfolio-detail-crumb-current">{ownerName}</span>
+                </nav>
+              </div>
 
-            <div className="portfolio-detail-header">
+              <div className="portfolio-detail-header">
               <div className="portfolio-detail-title-row">
-                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "12px 24px", flex: 1 }}>
+                <div className="portfolio-detail-title-block">
                   <h1 className="portfolio-detail-title">{project?.title || "Project"}</h1>
                   <span className="portfolio-detail-date">{formatProjectDate(project)}</span>
                 </div>
@@ -363,7 +365,9 @@ export default function PortfolioDetailPage() {
                 </div>
               )}
             </div>
+            </article>
 
+            <section className="portfolio-detail-media-section" aria-label="Project media">
             <div className="portfolio-detail-media">
               <div className="portfolio-detail-media-row">
                 <div className="portfolio-detail-media-hero">
@@ -403,6 +407,7 @@ export default function PortfolioDetailPage() {
                 </div>
               )}
             </div>
+            </section>
           </StateContainer>
         </Container>
       </div>

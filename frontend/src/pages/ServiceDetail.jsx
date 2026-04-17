@@ -14,8 +14,8 @@ import {
   Tooltip,
 } from "@mui/material";
 import VerifiedUserIcon from "@mui/icons-material/VerifiedUser";
-import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
-import FavoriteIcon from "@mui/icons-material/Favorite";
+import StarBorderIcon from "@mui/icons-material/StarBorder";
+import StarIcon from "@mui/icons-material/Star";
 import SendIcon from "@mui/icons-material/Send";
 import CloseIcon from "@mui/icons-material/Close";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
@@ -308,9 +308,9 @@ export default function ServiceDetailPage() {
                           {favLoading ? (
                             <CircularProgress size={22} />
                           ) : favSaved ? (
-                            <FavoriteIcon sx={{ color: "#e91e63" }} />
+                            <StarIcon sx={{ color: "#048B7F" }} />
                           ) : (
-                            <FavoriteBorderIcon sx={{ color: "#5f6368" }} />
+                            <StarBorderIcon sx={{ color: "#5f6368" }} />
                           )}
                         </IconButton>
                       </span>

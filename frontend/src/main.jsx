@@ -20,6 +20,7 @@ import ServiceDetailPage from "./pages/ServiceDetail.jsx";
 import PortfolioDetailPage from "./pages/PortfolioDetail.jsx";
 import AboutPage from "./pages/About.jsx";
 import TermsPage from "./pages/Terms.jsx";
+import PrivacyPage from "./pages/Privacy.jsx";
 import AuthSessionGate from "./shared/components/auth/AuthSessionGate.jsx";
 import SessionActivityTracker from "./shared/components/auth/SessionActivityTracker.jsx";
 import { ChatProvider } from "./features/messages/ChatProvider.jsx";
@@ -87,6 +88,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             <Route path="/talents" element={<TalentsPage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/terms" element={<TermsPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/portfolio/:id" element={<PortfolioDetailPage />} />
             <Route path="/users/:userId/services/:serviceId" element={<ServiceDetailPage />} />
             <Route path="/users/:id" element={<PublicProfilePage />} />

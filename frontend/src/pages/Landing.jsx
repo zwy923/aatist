@@ -294,6 +294,15 @@ function Landing() {
           </div>
         </article>
       </section>
+
+      <footer className="landing-footer" aria-label="Legal">
+        <p className="landing-footer-line">
+          <Link to="/privacy">Privacy Policy</Link>
+          <span className="landing-footer-sep"> · </span>
+          <Link to="/terms">Terms of Use</Link>
+        </p>
+        <p className="landing-footer-meta">Last updated: 17 April 2026</p>
+      </footer>
     </main>
   );
 }

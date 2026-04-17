@@ -389,3 +389,40 @@
     display: none;
   }
 }
+
+/* Footer — legal links (small text) */
+.landing-footer {
+  padding: 14px 20px 20px;
+  text-align: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: #000;
+}
+
+.landing-footer-line {
+  margin: 0 0 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(216, 236, 255, 0.75);
+}
+
+.landing-footer-line a {
+  color: rgba(216, 236, 255, 0.85);
+  text-decoration: none;
+}
+
+.landing-footer-line a:hover {
+  text-decoration: underline;
+  color: #3194ee;
+}
+
+.landing-footer-sep {
+  color: rgba(255, 255, 255, 0.35);
+  margin: 0 5px;
+}
+
+.landing-footer-meta {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: rgba(216, 236, 255, 0.45);
+}

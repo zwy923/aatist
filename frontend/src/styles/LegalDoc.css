@@ -1,0 +1,134 @@
+/* Privacy Policy & Terms of Use — readable legal prose */
+
+.legal-doc-page {
+  min-height: 100vh;
+  background: #f8fafc;
+}
+
+.legal-doc-main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+}
+
+@media (min-width: 600px) {
+  .legal-doc-main {
+    padding: 40px 28px 80px;
+  }
+}
+
+.legal-doc-article {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 28px 22px 36px;
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+}
+
+@media (min-width: 600px) {
+  .legal-doc-article {
+    padding: 36px 40px 48px;
+  }
+}
+
+.legal-doc-h1 {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 8px;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.legal-doc-updated {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin: 0 0 24px;
+}
+
+.legal-doc-lead {
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: #334155;
+  margin: 0 0 28px;
+}
+
+.legal-doc-article h2 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 28px 0 12px;
+  line-height: 1.35;
+}
+
+.legal-doc-article h2:first-of-type {
+  margin-top: 0;
+}
+
+.legal-doc-article p {
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  color: #334155;
+  margin: 0 0 12px;
+}
+
+.legal-doc-article ul {
+  margin: 0 0 16px;
+  padding-left: 1.25rem;
+  color: #334155;
+  font-size: 0.9375rem;
+  line-height: 1.65;
+}
+
+.legal-doc-article li {
+  margin-bottom: 6px;
+}
+
+.legal-doc-article a {
+  color: #048b7f;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.legal-doc-article a:hover {
+  color: #036b62;
+}
+
+.legal-doc-contact {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+/* Optional links below Terms when opened from auth flows */
+.legal-doc-bottom-nav {
+  margin-top: 20px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.legal-doc-bottom-nav a {
+  color: #048b7f;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.legal-doc-bottom-nav a:hover {
+  text-decoration: underline;
+}
+
+.legal-doc-bottom-nav button {
+  background: none;
+  border: none;
+  color: #64748b;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+
+.legal-doc-bottom-nav button:hover {
+  color: #334155;
+}

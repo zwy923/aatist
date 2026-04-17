@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, IconButton, Snackbar, Tooltip, CircularProgress } from '@mui/material';
-import { Bookmark, BookmarkBorder, Favorite, FavoriteBorder } from '@mui/icons-material';
+import { Bookmark, BookmarkBorder, Star, StarBorder } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { profileApi } from '../../profile/api/profile';
 import useAuthStore from '../../../shared/stores/authStore';
@@ -56,8 +56,12 @@ const SavedButton = ({
         }
     };
 
-    const Filled = iconSet === 'favorite' ? Favorite : Bookmark;
-    const Outline = iconSet === 'favorite' ? FavoriteBorder : BookmarkBorder;
+    const iconMap = {
+        star: { Filled: Star, Outline: StarBorder },
+        bookmark: { Filled: Bookmark, Outline: BookmarkBorder },
+    };
+    const { Filled, Outline } = iconMap[iconSet] || iconMap.bookmark;
+    const compactIcon = iconSet === 'star';
     const brandTeal = '#048B7F';
     const savedAccent = type === 'opportunity' ? brandTeal : 'primary.main';
 
@@ -79,7 +83,7 @@ const SavedButton = ({
                     }}
                 >
                     {loading ? (
-                        <CircularProgress size={iconSet === 'favorite' ? 20 : 24} color="inherit" />
+                        <CircularProgress size={compactIcon ? 20 : 24} color="inherit" />
                     ) : isSaved ? (
                         <Filled fontSize={size === 'small' ? 'small' : 'medium'} />
                     ) : (

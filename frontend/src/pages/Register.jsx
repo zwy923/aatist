@@ -201,7 +201,7 @@ function Register() {
     setSuccess("");
 
     if (!clientForm.agreed) {
-      setError("Please agree to the Terms & Privacy Policy.");
+      setError("Please agree to the Terms of Use and Privacy Policy.");
       return;
     }
     if (!clientForm.name.trim()) {
@@ -534,13 +534,21 @@ function Register() {
                 }
                 label={
                   <span>
-                    I agree to{" "}
+                    I agree to the{" "}
                     <Link
                       to="/terms"
                       state={{ from: "register", registerMode: "client" }}
                       className="register-terms-link"
                     >
-                      Terms & Privacy Policy
+                      Terms of Use
+                    </Link>
+                    {" "}and{" "}
+                    <Link
+                      to="/privacy"
+                      state={{ from: "register", registerMode: "client" }}
+                      className="register-terms-link"
+                    >
+                      Privacy Policy
                     </Link>
                   </span>
                 }
@@ -783,13 +791,21 @@ function Register() {
               }
               label={
                 <span>
-                  I agree to{" "}
+                  I agree to the{" "}
                   <Link
                     to="/terms"
                     state={{ from: "register", registerMode: "student" }}
                     className="register-terms-link"
                   >
-                    Terms & Privacy Policy
+                    Terms of Use
+                  </Link>
+                  {" "}and{" "}
+                  <Link
+                    to="/privacy"
+                    state={{ from: "register", registerMode: "student" }}
+                    className="register-terms-link"
+                  >
+                    Privacy Policy
                   </Link>
                 </span>
               }

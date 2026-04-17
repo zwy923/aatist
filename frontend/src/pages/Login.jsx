@@ -81,7 +81,7 @@ export default function Login() {
       return;
     }
     if (isStudentMode && !termsChecked) {
-      setError("Please confirm you are an Aalto student and agree to Terms & Privacy Policy.");
+      setError("Please confirm you are an Aalto student and agree to the Terms of Use and Privacy Policy.");
       return;
     }
 
@@ -224,13 +224,21 @@ export default function Login() {
                 }
                 label={
                   <span>
-                    I confirm that I am an Aalto student and agree to{" "}
+                    I confirm that I am an Aalto student and agree to the{" "}
                     <Link
                       to="/terms"
                       state={{ from: "login", loginMode: mode }}
                       className="login-terms-link"
                     >
-                      Terms & Privacy Policy
+                      Terms of Use
+                    </Link>
+                    {" "}and{" "}
+                    <Link
+                      to="/privacy"
+                      state={{ from: "login", loginMode: mode }}
+                      className="login-terms-link"
+                    >
+                      Privacy Policy
                     </Link>
                   </span>
                 }

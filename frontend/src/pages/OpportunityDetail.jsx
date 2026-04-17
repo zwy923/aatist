@@ -111,7 +111,7 @@ export default function OpportunityDetailPage() {
                   {opportunity?.title}
                 </Typography>
                 {opportunity?.id && (
-                  <SavedButton targetId={opportunity.id} initialSaved={opportunity.is_favorite} />
+                  <SavedButton targetId={opportunity.id} initialSaved={opportunity.is_favorite} iconSet="star" />
                 )}
               </Stack>
 

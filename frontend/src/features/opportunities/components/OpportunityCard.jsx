@@ -2,7 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
-import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
+import StarBorderIcon from "@mui/icons-material/StarBorder";
 import SavedButton from "./SavedButton";
 
 function formatTimeAgo(dateString) {
@@ -89,14 +89,14 @@ export default function OpportunityCard({ opportunity: raw }) {
 
       <div className="opp-card-foot">
         <Link to={`/opportunities/${id}`} className="opp-card-interested">
-          <FavoriteBorderIcon sx={{ fontSize: 20 }} />
+          <StarBorderIcon sx={{ fontSize: 20 }} />
           I am Interested
         </Link>
         <div className="opp-card-foot-right">
           <SavedButton
             targetId={id}
             initialSaved={savedByMe}
-            iconSet="favorite"
+            iconSet="star"
             size="small"
           />
           <ArrowForwardIcon sx={{ fontSize: 22 }} />
