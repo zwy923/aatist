@@ -58,6 +58,8 @@ const SavedButton = ({
 
     const Filled = iconSet === 'favorite' ? Favorite : Bookmark;
     const Outline = iconSet === 'favorite' ? FavoriteBorder : BookmarkBorder;
+    const brandTeal = '#048B7F';
+    const savedAccent = type === 'opportunity' ? brandTeal : 'primary.main';
 
     return (
         <>
@@ -67,10 +69,11 @@ const SavedButton = ({
                     onClick={handleToggle}
                     disabled={loading}
                     sx={{
-                        color: isSaved ? 'primary.main' : 'text.secondary',
+                        color: isSaved ? savedAccent : 'text.secondary',
                         '&:hover': {
-                            color: 'primary.main',
-                            backgroundColor: 'rgba(93, 224, 255, 0.1)',
+                            color: savedAccent,
+                            backgroundColor:
+                                type === 'opportunity' ? 'rgba(4, 139, 127, 0.1)' : 'rgba(93, 224, 255, 0.1)',
                         },
                         ...sx,
                     }}

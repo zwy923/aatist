@@ -98,7 +98,6 @@ export default function OpportunityCard({ opportunity: raw }) {
             initialSaved={savedByMe}
             iconSet="favorite"
             size="small"
-            sx={{ color: "#5f6368" }}
           />
           <ArrowForwardIcon sx={{ fontSize: 22 }} />
         </div>

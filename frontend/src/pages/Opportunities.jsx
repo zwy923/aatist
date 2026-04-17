@@ -168,7 +168,7 @@ export default function OpportunitiesPage() {
     <PageLayout
       noContainer
       rootClassName="opp-page-root"
-      rootSx={{ bgcolor: "#c4ff3e" }}
+      rootSx={{ bgcolor: "#e6f4f3" }}
       contentSx={{ py: 0, bgcolor: "transparent" }}
     >
       <div className="opp-shell">
@@ -281,7 +281,7 @@ export default function OpportunitiesPage() {
               onRetry={() => setSearchParams(new URLSearchParams(searchParams))}
               loadingComponent={
                 <div className="opp-loading">
-                  <CircularProgress sx={{ color: "#0a5c5c" }} />
+                  <CircularProgress sx={{ color: "#048B7F" }} />
                 </div>
               }
             >

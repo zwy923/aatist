@@ -72,6 +72,19 @@
   flex-shrink: 0;
 }
 
+/* Explicit save portfolio control (non-owner) */
+.portfolio-detail-save-wrap {
+  flex-shrink: 0;
+  width: 100%;
+}
+
+@media (min-width: 600px) {
+  .portfolio-detail-save-wrap {
+    width: auto;
+    align-self: flex-start;
+  }
+}
+
 .portfolio-detail-label {
   font-size: 14px;
   font-weight: 600;

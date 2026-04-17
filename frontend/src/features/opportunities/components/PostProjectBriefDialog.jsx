@@ -45,9 +45,9 @@ const TIMELINE_OPTIONS = [
   { value: "3months", label: "~3 months", months: 3 },
 ];
 
-const accent = "#0f766e";
-const accentDark = "#115e59";
-const surfaceMuted = "#f0fdfa";
+const accent = "#048B7F";
+const accentDark = "#036b62";
+const surfaceMuted = "#e6f4f3";
 
 function SectionHeader({ step, title, subtitle }) {
   return (
@@ -206,7 +206,7 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess, defau
       <DialogTitle
         component="div"
         sx={{
-          background: `linear-gradient(125deg, ${accentDark} 0%, ${accent} 42%, #14b8a6 100%)`,
+          background: `linear-gradient(125deg, ${accentDark} 0%, ${accent} 42%, #2ea89d 100%)`,
           color: "#fff",
           py: 2.5,
           px: 3,

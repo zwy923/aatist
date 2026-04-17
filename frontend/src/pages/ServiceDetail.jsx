@@ -124,6 +124,30 @@ export default function ServiceDetailPage() {
     load();
   }, [load]);
 
+  /** Saved talents are stored as item_type=user + item_id=talent user id — sync heart icon on enter / after login */
+  useEffect(() => {
+    if (!isAuthenticated || !Number.isFinite(uid)) {
+      setFavSaved(false);
+      return undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const savedRes = await profileApi.getSavedItems({ type: "user" });
+        const raw = savedRes.data?.data;
+        const list = Array.isArray(raw) ? raw : raw?.items ?? [];
+        if (cancelled) return;
+        const saved = list.some((it) => Number(it.item_id) === Number(uid));
+        setFavSaved(saved);
+      } catch {
+        if (!cancelled) setFavSaved(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, uid]);
+
   const mediaUrls = useMemo(() => {
     if (!service?.media_urls?.length) return [];
     return service.media_urls.filter(Boolean);

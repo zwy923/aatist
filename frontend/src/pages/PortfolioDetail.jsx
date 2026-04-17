@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   Alert,
   Box,
+  Button,
   CircularProgress,
   Container,
   IconButton,
@@ -10,9 +11,9 @@ import {
   Tooltip,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import BookmarkIcon from "@mui/icons-material/Bookmark";
+import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
 import EditIcon from "@mui/icons-material/Edit";
-import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
-import FavoriteIcon from "@mui/icons-material/Favorite";
 import PageLayout from "../shared/components/PageLayout";
 import { StateContainer } from "../shared/components/ui/StateContainer";
 import { portfolioApi, profileApi } from "../features/profile/api/profile";
@@ -122,6 +123,30 @@ export default function PortfolioDetailPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  /** Sync bookmark state with GET /users/me/saved?type=project */
+  useEffect(() => {
+    if (!isAuthenticated || !Number.isFinite(projectId)) {
+      setFavSaved(false);
+      return undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const savedRes = await profileApi.getSavedItems({ type: "project" });
+        const raw = savedRes.data?.data;
+        const list = Array.isArray(raw) ? raw : raw?.items ?? [];
+        if (cancelled) return;
+        const saved = list.some((it) => Number(it.item_id) === Number(projectId));
+        setFavSaved(saved);
+      } catch {
+        if (!cancelled) setFavSaved(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, projectId]);
 
   const ownerRole = ownerProfile?.role?.toLowerCase?.();
   const ownerName =
@@ -260,28 +285,53 @@ export default function PortfolioDetailPage() {
                     </span>
                   </Tooltip>
                 ) : (
-                  <Tooltip title={favSaved ? "Remove from saved" : "Save project"}>
-                    <span className="portfolio-detail-fav-btn">
-                      <IconButton
-                        onClick={toggleFavorite}
-                        disabled={favLoading}
-                        sx={{
-                          border: "1px solid #dadce0",
-                          bgcolor: "#fff",
-                          "&:hover": { bgcolor: "#f8f9fa" },
-                        }}
-                        aria-label={favSaved ? "Remove from saved" : "Save project"}
-                      >
-                        {favLoading ? (
-                          <CircularProgress size={22} />
+                  <div className="portfolio-detail-save-wrap">
+                    <Button
+                      variant={favSaved ? "outlined" : "contained"}
+                      startIcon={
+                        favLoading ? (
+                          <CircularProgress size={18} color="inherit" />
                         ) : favSaved ? (
-                          <FavoriteIcon sx={{ color: "#e91e63" }} />
+                          <BookmarkIcon />
                         ) : (
-                          <FavoriteBorderIcon sx={{ color: "#5f6368" }} />
-                        )}
-                      </IconButton>
-                    </span>
-                  </Tooltip>
+                          <BookmarkBorderIcon />
+                        )
+                      }
+                      onClick={toggleFavorite}
+                      disabled={favLoading}
+                      aria-pressed={favSaved}
+                      aria-label={favSaved ? "Remove portfolio from saved list" : "Save portfolio to your list"}
+                      sx={{
+                        textTransform: "none",
+                        fontWeight: 700,
+                        borderRadius: "10px",
+                        px: 2.25,
+                        py: 1,
+                        minWidth: { xs: "100%", sm: 168 },
+                        maxWidth: { xs: "100%", sm: "none" },
+                        boxShadow: "none",
+                        flexShrink: 0,
+                        ...(favSaved
+                          ? {
+                              color: "#048B7F",
+                              borderColor: "#048B7F",
+                              borderWidth: 2,
+                              bgcolor: "#fff",
+                              "&:hover": {
+                                borderColor: "#05988c",
+                                bgcolor: "rgba(4, 139, 127, 0.06)",
+                              },
+                            }
+                          : {
+                              bgcolor: "#048B7F",
+                              color: "#fff",
+                              "&:hover": { bgcolor: "#05988c" },
+                            }),
+                      }}
+                    >
+                      {favSaved ? "Saved" : "Save portfolio"}
+                    </Button>
+                  </div>
                 )}
               </div>
 
