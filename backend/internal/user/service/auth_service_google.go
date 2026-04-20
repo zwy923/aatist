@@ -196,7 +196,7 @@ func (s *authService) issueTokens(ctx context.Context, user *model.User) (*Token
 		s.logger.Error("Failed to generate access token", zap.Error(err))
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
-	refreshToken, err := s.jwt.GenerateRefreshToken(user.ID)
+	refreshToken, err := s.jwt.GenerateRefreshToken(user.ID, user.Email)
 	if err != nil {
 		s.logger.Error("Failed to generate refresh token", zap.Error(err))
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)

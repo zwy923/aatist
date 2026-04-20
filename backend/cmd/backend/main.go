@@ -170,6 +170,7 @@ func main() {
 	protectedUsers := api.Group("/users")
 	protectedUsers.Use(middleware.InjectUserFromJWTIfNoGatewayHeaders(jwt))
 	protectedUsers.Use(middleware.RequireGatewayAuth())
+	protectedUsers.Use(middleware.JWTUserBindingMiddleware(jwt, userRepo))
 	{
 		protectedUsers.GET("/me", authHandler.GetCurrentUserHandler)
 		protectedUsers.PATCH("/me", authHandler.UpdateCurrentUserHandler)
@@ -200,6 +201,7 @@ func main() {
 	protectedPortfolio := api.Group("/users")
 	protectedPortfolio.Use(middleware.InjectUserFromJWTIfNoGatewayHeaders(jwt))
 	protectedPortfolio.Use(middleware.RequireGatewayAuth())
+	protectedPortfolio.Use(middleware.JWTUserBindingMiddleware(jwt, userRepo))
 	{
 		protectedPortfolio.GET("/me/portfolio", portfolioHandler.GetMyPortfolioHandler)
 		protectedPortfolio.POST("/me/portfolio", portfolioHandler.CreateProjectHandler)
@@ -218,6 +220,7 @@ func main() {
 	protectedOpp := api.Group("/opportunities")
 	protectedOpp.Use(middleware.InjectUserFromJWTIfNoGatewayHeaders(jwt))
 	protectedOpp.Use(middleware.RequireGatewayAuth())
+	protectedOpp.Use(middleware.JWTUserBindingMiddleware(jwt, userRepo))
 	{
 		protectedOpp.POST("", oppHandler.CreateOpportunityHandler)
 		protectedOpp.PATCH("/:id", oppHandler.UpdateOpportunityHandler)
@@ -234,6 +237,7 @@ func main() {
 	protectedUsersOpp := api.Group("/users")
 	protectedUsersOpp.Use(middleware.InjectUserFromJWTIfNoGatewayHeaders(jwt))
 	protectedUsersOpp.Use(middleware.RequireGatewayAuth())
+	protectedUsersOpp.Use(middleware.JWTUserBindingMiddleware(jwt, userRepo))
 	{
 		protectedUsersOpp.GET("/me/applications", oppHandler.ListMyApplicationsHandler)
 	}
@@ -246,8 +250,8 @@ func main() {
 	}
 	userNotifications := api.Group("/notifications")
 	userNotifications.Use(middleware.InjectUserFromJWTIfNoGatewayHeaders(jwt))
-	userNotifications.Use(middleware.TrustGatewayMiddleware())
 	userNotifications.Use(middleware.RequireGatewayAuth())
+	userNotifications.Use(middleware.JWTUserBindingMiddleware(jwt, userRepo))
 	{
 		userNotifications.GET("", notificationHandler.GetNotificationsHandler)
 		userNotifications.GET("/unread-count", notificationHandler.GetUnreadCountHandler)

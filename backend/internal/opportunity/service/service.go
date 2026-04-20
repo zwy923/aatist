@@ -63,6 +63,7 @@ type ApplicationService interface {
 type CreateOpportunityInput struct {
 	Title          string
 	Organization   string
+	Position       string
 	Category       string
 	BudgetType     string
 	BudgetValue    *float64
@@ -80,6 +81,7 @@ type CreateOpportunityInput struct {
 type UpdateOpportunityInput struct {
 	Title          *string
 	Organization   *string
+	Position       *string
 	Category       *string
 	BudgetType     *string
 	BudgetValue    *float64
@@ -148,6 +150,7 @@ func (s *opportunityService) Create(ctx context.Context, input CreateOpportunity
 	opp := &model.Opportunity{
 		Title:          input.Title,
 		Organization:   input.Organization,
+		Position:       input.Position,
 		Category:       input.Category,
 		BudgetType:     budgetType,
 		BudgetValue:    input.BudgetValue,
@@ -166,7 +169,7 @@ func (s *opportunityService) Create(ctx context.Context, input CreateOpportunity
 		return nil, fmt.Errorf("failed to create opportunity: %w", err)
 	}
 
-	return opp, nil
+	return s.oppRepo.FindByID(ctx, opp.ID)
 }
 
 func (s *opportunityService) Update(ctx context.Context, opportunityID, userID int64, input UpdateOpportunityInput) (*model.Opportunity, error) {
@@ -185,6 +188,9 @@ func (s *opportunityService) Update(ctx context.Context, opportunityID, userID i
 	}
 	if input.Organization != nil {
 		opp.Organization = *input.Organization
+	}
+	if input.Position != nil {
+		opp.Position = *input.Position
 	}
 	if input.Category != nil {
 		opp.Category = *input.Category

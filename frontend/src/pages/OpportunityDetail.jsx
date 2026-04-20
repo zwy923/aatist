@@ -138,11 +138,17 @@ export default function OpportunityDetailPage() {
                 )}
               </Stack>
 
-              <Stack direction="row" spacing={2} sx={{ mb: 2, color: "text.secondary" }}>
+              <Stack direction="row" spacing={2} sx={{ mb: 2, color: "text.secondary", flexWrap: "wrap" }}>
+                {opportunity?.published_at && (
+                  <Typography variant="body2" sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                    <CalendarTodayIcon fontSize="small" />
+                    Published: {formatDate(opportunity.published_at)}
+                  </Typography>
+                )}
                 {opportunity?.start_date && (
                   <Typography variant="body2" sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                     <CalendarTodayIcon fontSize="small" />
-                    Starts: {formatDate(opportunity.start_date)}
+                    Deadline: {formatDate(opportunity.start_date)}
                   </Typography>
                 )}
                 {opportunity?.duration_months != null && (
@@ -168,11 +174,22 @@ export default function OpportunityDetailPage() {
 
           <Grid item xs={12} md={4}>
             <Paper sx={{ p: 2.5, border: "1px solid #e5e7eb", borderRadius: 3, position: "sticky", top: 20 }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                Posted by organization
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                Posted by
+              </Typography>
+              <Typography fontWeight={700} sx={{ mb: 0.5 }}>
+                {opportunity?.creator_name || "—"}
+              </Typography>
+              {opportunity?.position ? (
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  {opportunity.position}
+                </Typography>
+              ) : null}
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                Organization
               </Typography>
               <Typography fontWeight={600} sx={{ mb: 2 }}>
-                {opportunity?.organization || "Client"}
+                {opportunity?.organization || "—"}
               </Typography>
 
               <Button

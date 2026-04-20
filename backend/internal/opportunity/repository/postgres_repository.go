@@ -14,9 +14,12 @@ import (
 )
 
 // COALESCE: 旧数据或手工插入可能使 languages/tags 为 NULL，直接扫入 []string 会报错导致列表 500
-const opportunitySelectColumns = `id, title, organization, category, budget_type, budget_value, 
-	location, duration_months, COALESCE(languages, '{}') AS languages, start_date, published_at, urgent, description, COALESCE(tags, '{}') AS tags, 
-	created_by, status, created_at, updated_at`
+const (
+	opportunitySelectJoined = `o.id, o.title, o.organization, o.category, o.budget_type, o.budget_value, 
+	o.location, o.duration_months, COALESCE(o.languages, '{}') AS languages, o.start_date, o.published_at, o.urgent, o.description, COALESCE(o.tags, '{}') AS tags, 
+	o.created_by, o.status, o.created_at, o.updated_at, o.position, u.name AS creator_name`
+	opportunityFromJoined = ` FROM opportunities o INNER JOIN users u ON u.id = o.created_by `
+)
 
 type (
 	postgresOpportunityRepository struct {
@@ -46,10 +49,10 @@ func escapeLikePattern(s string) string {
 // OpportunityRepository implementation
 func (r *postgresOpportunityRepository) Create(ctx context.Context, opp *model.Opportunity) error {
 	query := `
-		INSERT INTO opportunities (title, organization, category, budget_type, budget_value, 
+		INSERT INTO opportunities (title, organization, position, category, budget_type, budget_value, 
 			location, duration_months, languages, start_date, published_at, urgent, description, 
 			tags, created_by, status, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
 		RETURNING id
 	`
 	now := time.Now()
@@ -70,6 +73,7 @@ func (r *postgresOpportunityRepository) Create(ctx context.Context, opp *model.O
 	err := r.db.GetContext(ctx, &opp.ID, query,
 		opp.Title,
 		opp.Organization,
+		opp.Position,
 		opp.Category,
 		opp.BudgetType,
 		opp.BudgetValue,
@@ -95,10 +99,10 @@ func (r *postgresOpportunityRepository) Create(ctx context.Context, opp *model.O
 func (r *postgresOpportunityRepository) Update(ctx context.Context, opp *model.Opportunity) error {
 	query := `
 		UPDATE opportunities
-		SET title = $1, organization = $2, category = $3, budget_type = $4, budget_value = $5,
-			location = $6, duration_months = $7, languages = $8, start_date = $9, urgent = $10,
-			description = $11, tags = $12, status = $13, updated_at = $14
-		WHERE id = $15 AND created_by = $16
+		SET title = $1, organization = $2, position = $3, category = $4, budget_type = $5, budget_value = $6,
+			location = $7, duration_months = $8, languages = $9, start_date = $10, urgent = $11,
+			description = $12, tags = $13, status = $14, updated_at = $15
+		WHERE id = $16 AND created_by = $17
 		RETURNING updated_at
 	`
 	opp.UpdatedAt = time.Now()
@@ -113,6 +117,7 @@ func (r *postgresOpportunityRepository) Update(ctx context.Context, opp *model.O
 	err := r.db.GetContext(ctx, &opp.UpdatedAt, query,
 		opp.Title,
 		opp.Organization,
+		opp.Position,
 		opp.Category,
 		opp.BudgetType,
 		opp.BudgetValue,
@@ -138,7 +143,7 @@ func (r *postgresOpportunityRepository) Update(ctx context.Context, opp *model.O
 }
 
 func (r *postgresOpportunityRepository) FindByID(ctx context.Context, id int64) (*model.Opportunity, error) {
-	query := fmt.Sprintf("SELECT %s FROM opportunities WHERE id = $1", opportunitySelectColumns)
+	query := fmt.Sprintf("SELECT %s %s WHERE o.id = $1", opportunitySelectJoined, opportunityFromJoined)
 	var opp model.Opportunity
 	err := r.db.GetContext(ctx, &opp, query, id)
 	if err != nil {
@@ -167,47 +172,47 @@ func (r *postgresOpportunityRepository) List(ctx context.Context, filter Opportu
 		where   []string
 	)
 
-	builder.WriteString(fmt.Sprintf("SELECT %s FROM opportunities", opportunitySelectColumns))
+	builder.WriteString(fmt.Sprintf("SELECT %s %s", opportunitySelectJoined, opportunityFromJoined))
 
 	// Build WHERE clause
 	if filter.Category != nil && *filter.Category != "" {
 		args = append(args, *filter.Category)
-		where = append(where, fmt.Sprintf("category = $%d", len(args)))
+		where = append(where, fmt.Sprintf("o.category = $%d", len(args)))
 	}
 
 	if filter.Location != nil && *filter.Location != "" {
 		args = append(args, *filter.Location)
-		where = append(where, fmt.Sprintf("location = $%d", len(args)))
+		where = append(where, fmt.Sprintf("o.location = $%d", len(args)))
 	}
 
 	if filter.BudgetMin != nil {
 		args = append(args, *filter.BudgetMin)
-		where = append(where, fmt.Sprintf("budget_value >= $%d", len(args)))
+		where = append(where, fmt.Sprintf("o.budget_value >= $%d", len(args)))
 	}
 
 	if filter.BudgetMax != nil {
 		args = append(args, *filter.BudgetMax)
-		where = append(where, fmt.Sprintf("budget_value <= $%d", len(args)))
+		where = append(where, fmt.Sprintf("o.budget_value <= $%d", len(args)))
 	}
 
 	if filter.StartDateFrom != nil {
 		args = append(args, *filter.StartDateFrom)
-		where = append(where, fmt.Sprintf("start_date >= $%d", len(args)))
+		where = append(where, fmt.Sprintf("o.start_date >= $%d", len(args)))
 	}
 
 	if filter.StartDateTo != nil {
 		args = append(args, *filter.StartDateTo)
-		where = append(where, fmt.Sprintf("start_date <= $%d", len(args)))
+		where = append(where, fmt.Sprintf("o.start_date <= $%d", len(args)))
 	}
 
 	if len(filter.Languages) > 0 {
 		args = append(args, pq.Array(filter.Languages))
-		where = append(where, fmt.Sprintf("languages && $%d", len(args)))
+		where = append(where, fmt.Sprintf("o.languages && $%d", len(args)))
 	}
 
 	if filter.Urgent != nil {
 		args = append(args, *filter.Urgent)
-		where = append(where, fmt.Sprintf("urgent = $%d", len(args)))
+		where = append(where, fmt.Sprintf("o.urgent = $%d", len(args)))
 	}
 
 	if filter.Search != nil {
@@ -217,20 +222,20 @@ func (r *postgresOpportunityRepository) List(ctx context.Context, filter Opportu
 			args = append(args, pat)
 			n := len(args)
 			where = append(where, fmt.Sprintf(`(
-				title ILIKE $%d ESCAPE '\'
-				OR (description IS NOT NULL AND description ILIKE $%d ESCAPE '\')
-				OR category ILIKE $%d ESCAPE '\'
-				OR EXISTS (SELECT 1 FROM unnest(COALESCE(tags, '{}')) AS t WHERE t ILIKE $%d ESCAPE '\')
+				o.title ILIKE $%d ESCAPE '\'
+				OR (o.description IS NOT NULL AND o.description ILIKE $%d ESCAPE '\')
+				OR o.category ILIKE $%d ESCAPE '\'
+				OR EXISTS (SELECT 1 FROM unnest(COALESCE(o.tags, '{}')) AS t WHERE t ILIKE $%d ESCAPE '\')
 			)`, n, n, n, n))
 		}
 	}
 
 	if filter.Status != nil && *filter.Status != "" {
 		args = append(args, *filter.Status)
-		where = append(where, fmt.Sprintf("status = $%d", len(args)))
+		where = append(where, fmt.Sprintf("o.status = $%d", len(args)))
 	} else {
 		// Default to active only
-		where = append(where, "status = 'active'")
+		where = append(where, "o.status = 'active'")
 	}
 
 	if len(where) > 0 {
@@ -241,11 +246,11 @@ func (r *postgresOpportunityRepository) List(ctx context.Context, filter Opportu
 	builder.WriteString(" ORDER BY ")
 	switch filter.Sort {
 	case SortStartDate:
-		builder.WriteString("start_date")
+		builder.WriteString("o.start_date")
 	case SortBudget:
-		builder.WriteString("budget_value")
+		builder.WriteString("o.budget_value")
 	default:
-		builder.WriteString("published_at")
+		builder.WriteString("o.published_at")
 	}
 
 	if filter.Order == "asc" {
@@ -384,15 +389,15 @@ func (r *postgresOpportunityRepository) ListByUserID(ctx context.Context, userID
 		builder strings.Builder
 	)
 
-	builder.WriteString(fmt.Sprintf("SELECT %s FROM opportunities WHERE created_by = $1", opportunitySelectColumns))
+	builder.WriteString(fmt.Sprintf("SELECT %s %s WHERE o.created_by = $1", opportunitySelectJoined, opportunityFromJoined))
 	args = append(args, userID)
 
 	if status != nil && *status != "" {
 		args = append(args, *status)
-		builder.WriteString(fmt.Sprintf(" AND status = $%d", len(args)))
+		builder.WriteString(fmt.Sprintf(" AND o.status = $%d", len(args)))
 	}
 
-	builder.WriteString(" ORDER BY created_at DESC")
+	builder.WriteString(" ORDER BY o.created_at DESC")
 
 	args = append(args, limit)
 	builder.WriteString(fmt.Sprintf(" LIMIT $%d", len(args)))

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -91,6 +91,8 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess, defau
   const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
     title: "",
+    organization: "",
+    position: "",
     category: "",
     urgent: false,
     budgetType: "fixed",
@@ -105,10 +107,13 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess, defau
     file: null,
   });
 
-  const organizationForApi = () => {
-    const o = (defaultOrganization || "").trim();
-    return o || "Client";
-  };
+  useEffect(() => {
+    if (!open) return;
+    setFormData((prev) => ({
+      ...prev,
+      organization: (defaultOrganization || "").trim(),
+    }));
+  }, [open, defaultOrganization]);
 
   const handleChange = (field) => (e) => {
     const value = e.target.type === "checkbox" ? e.target.checked : e.target.value;
@@ -126,6 +131,8 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess, defau
   const resetForm = () => {
     setFormData({
       title: "",
+      organization: (defaultOrganization || "").trim(),
+      position: "",
       category: "",
       urgent: false,
       budgetType: "fixed",
@@ -151,6 +158,16 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess, defau
       setError("Please select a category.");
       return;
     }
+    const org = formData.organization?.trim() || "";
+    const pos = formData.position?.trim() || "";
+    if (!org) {
+      setError("Please enter your organization or company name.");
+      return;
+    }
+    if (!pos) {
+      setError("Please enter your role or job title (shown under your name on the listing).");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -163,7 +180,8 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess, defau
       const budgetVal = formData.budgetNegotiable ? null : Math.max(0, Number(formData.budgetValue) || 0);
       const payload = {
         title: formData.title.trim(),
-        organization: organizationForApi(),
+        organization: org,
+        position: pos,
         category: formData.category,
         budgetType: formData.budgetType,
         budgetValue: budgetVal,
@@ -219,7 +237,7 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess, defau
               Post a Project Brief
             </Typography>
             <Typography variant="body2" sx={{ opacity: 0.92, maxWidth: 480, lineHeight: 1.5 }}>
-              Reach Aalto talent with a clear brief. Organization on the listing comes from your profile.
+              Reach Aalto talent with a clear brief. Add your company and role so talent knows who is posting.
             </Typography>
           </Box>
           <IconButton
@@ -265,6 +283,28 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess, defau
               size="small"
               sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#fafafa", borderRadius: 2 } }}
             />
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mt: 2 }}>
+              <TextField
+                fullWidth
+                required
+                label="Organization / company"
+                placeholder="Company or team name"
+                value={formData.organization}
+                onChange={handleChange("organization")}
+                size="small"
+                sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#fafafa", borderRadius: 2 } }}
+              />
+              <TextField
+                fullWidth
+                required
+                label="Your role / position"
+                placeholder="e.g. Marketing Lead, Founder"
+                value={formData.position}
+                onChange={handleChange("position")}
+                size="small"
+                sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#fafafa", borderRadius: 2 } }}
+              />
+            </Stack>
           </Paper>
 
           <Paper

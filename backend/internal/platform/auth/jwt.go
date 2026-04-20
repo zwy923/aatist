@@ -49,11 +49,13 @@ func (j *JWT) GenerateAccessToken(userID int64, role, email string) (string, err
 	return token.SignedString(j.secret)
 }
 
-// GenerateRefreshToken generates a new refresh token
-func (j *JWT) GenerateRefreshToken(userID int64) (string, error) {
+// GenerateRefreshToken generates a new refresh token (email binds the token to a specific account row,
+// so numeric user IDs cannot be reused after a DB reset while the JWT secret stays the same).
+func (j *JWT) GenerateRefreshToken(userID int64, email string) (string, error) {
 	now := time.Now()
 	claims := &Claims{
 		UserID: userID,
+		Email:  email,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(j.refreshTTL)),
 			IssuedAt:  jwt.NewNumericDate(now),

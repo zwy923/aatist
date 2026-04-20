@@ -114,6 +114,8 @@ func (h *OpportunityHandler) toOpportunityResponse(opp *model.Opportunity, isFav
 		ID:             opp.ID,
 		Title:          opp.Title,
 		Organization:   opp.Organization,
+		Position:       opp.Position,
+		CreatorName:    opp.CreatorName,
 		Category:       opp.Category,
 		BudgetType:     opp.BudgetType.String(),
 		BudgetValue:    opp.BudgetValue,
@@ -285,10 +287,17 @@ func (h *OpportunityHandler) CreateOpportunityHandler(c *gin.Context) {
 		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, err.Error())
 		return
 	}
+	req.Organization = strings.TrimSpace(req.Organization)
+	req.Position = strings.TrimSpace(req.Position)
+	if req.Organization == "" || req.Position == "" {
+		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "organization and position are required")
+		return
+	}
 
 	input := oppservice.CreateOpportunityInput{
 		Title:          req.Title,
 		Organization:   req.Organization,
+		Position:       req.Position,
 		Category:       req.Category,
 		BudgetType:     req.BudgetType,
 		BudgetValue:    req.BudgetValue,
@@ -343,6 +352,7 @@ func (h *OpportunityHandler) UpdateOpportunityHandler(c *gin.Context) {
 	input := oppservice.UpdateOpportunityInput{
 		Title:          req.Title,
 		Organization:   req.Organization,
+		Position:       req.Position,
 		Category:       req.Category,
 		BudgetType:     req.BudgetType,
 		BudgetValue:    req.BudgetValue,

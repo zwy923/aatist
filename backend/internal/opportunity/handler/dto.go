@@ -8,6 +8,7 @@ import (
 type CreateOpportunityRequest struct {
 	Title          string     `json:"title" binding:"required"`
 	Organization   string     `json:"organization" binding:"required"`
+	Position       string     `json:"position" binding:"required"`
 	Category       string     `json:"category" binding:"required"`
 	BudgetType     string     `json:"budgetType" binding:"required,oneof=hourly fixed"`
 	BudgetValue    *float64   `json:"budgetValue" binding:"omitempty,gte=0"`
@@ -24,6 +25,7 @@ type CreateOpportunityRequest struct {
 type UpdateOpportunityRequest struct {
 	Title          *string    `json:"title"`
 	Organization   *string    `json:"organization"`
+	Position       *string    `json:"position"`
 	Category       *string    `json:"category"`
 	BudgetType     *string    `json:"budgetType" binding:"omitempty,oneof=hourly fixed"`
 	BudgetValue    *float64   `json:"budgetValue" binding:"omitempty,gte=0"`
@@ -48,6 +50,8 @@ type OpportunityResponse struct {
 	ID             int64    `json:"id"`
 	Title          string   `json:"title"`
 	Organization   string   `json:"organization"`
+	Position       string   `json:"position"`
+	CreatorName    string   `json:"creator_name"`
 	Category       string   `json:"category"`
 	BudgetType     string   `json:"budget_type"`
 	BudgetValue    *float64 `json:"budget_value,omitempty"`

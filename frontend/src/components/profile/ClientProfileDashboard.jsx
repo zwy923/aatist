@@ -58,6 +58,7 @@ function ClientPostCard({ opportunity, applications, profilesById, onOpen }) {
   const id = o.id;
   const title = o.title || "Untitled brief";
   const org = o.organization || "—";
+  const pos = (o.position || "").trim();
   const dateSrc = o.published_at || o.created_at;
   const { label: statusLabel, live } = opportunityUiStatus(o.status);
   const apps = applications || [];
@@ -67,7 +68,12 @@ function ClientPostCard({ opportunity, applications, profilesById, onOpen }) {
   return (
     <div className="client-post-card">
       <div className="client-post-card-top">
-        <span className="client-post-card-org">{org}</span>
+        <div style={{ minWidth: 0 }}>
+          <span className="client-post-card-org">{org}</span>
+          {pos ? (
+            <div style={{ fontSize: 12, color: "#5f6368", marginTop: 2 }}>{pos}</div>
+          ) : null}
+        </div>
         <button type="button" className="client-post-card-edit" onClick={() => onOpen(id)}>
           <EditOutlinedIcon sx={{ fontSize: 16 }} />
           Edit

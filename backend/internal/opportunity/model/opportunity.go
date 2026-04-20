@@ -73,6 +73,7 @@ type Opportunity struct {
 	ID             int64             `db:"id" json:"id"`
 	Title          string            `db:"title" json:"title"`
 	Organization   string            `db:"organization" json:"organization"`
+	Position       string            `db:"position" json:"position"`
 	Category       string            `db:"category" json:"category"`
 	BudgetType     BudgetType        `db:"budget_type" json:"budget_type"`
 	BudgetValue    *float64          `db:"budget_value" json:"budget_value"`
@@ -89,6 +90,8 @@ type Opportunity struct {
 	Status         OpportunityStatus `db:"status" json:"status"`
 	CreatedAt      time.Time         `db:"created_at" json:"created_at"`
 	UpdatedAt      time.Time         `db:"updated_at" json:"updated_at"`
+	// CreatorName is set when joining users (list/detail); not a DB column on opportunities.
+	CreatorName    string            `db:"creator_name" json:"creator_name"`
 }
 
 // Note: Favorites/saved items are now handled by user-service's saved_items table

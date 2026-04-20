@@ -222,7 +222,7 @@ func (s *authService) Register(ctx context.Context, input RegisterInput) (*model
 		return nil, nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
 
-	refreshToken, err := s.jwt.GenerateRefreshToken(user.ID)
+	refreshToken, err := s.jwt.GenerateRefreshToken(user.ID, user.Email)
 	if err != nil {
 		s.logger.Error("Failed to generate refresh token", zap.Error(err))
 		return nil, nil, fmt.Errorf("failed to generate refresh token: %w", err)
@@ -356,7 +356,7 @@ func (s *authService) Login(ctx context.Context, email, password, ip, loginType 
 		return nil, nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
 
-	refreshToken, err := s.jwt.GenerateRefreshToken(user.ID)
+	refreshToken, err := s.jwt.GenerateRefreshToken(user.ID, user.Email)
 	if err != nil {
 		s.logger.Error("Failed to generate refresh token", zap.Error(err))
 		return nil, nil, fmt.Errorf("failed to generate refresh token: %w", err)
@@ -409,6 +409,14 @@ func (s *authService) RefreshToken(ctx context.Context, refreshToken string) (*T
 		return nil, errs.NewAppError(errs.ErrUserNotFound, 404, "user not found")
 	}
 
+	// Bind refresh token to email so reused numeric IDs after a DB reset cannot refresh into a new account
+	if strings.TrimSpace(claims.Email) == "" {
+		return nil, errs.NewAppError(errs.ErrInvalidToken, 401, "please sign in again")
+	}
+	if !strings.EqualFold(strings.TrimSpace(user.Email), strings.TrimSpace(claims.Email)) {
+		return nil, errs.NewAppError(errs.ErrInvalidToken, 401, "refresh token no longer valid")
+	}
+
 	// Generate new tokens
 	accessToken, err := s.jwt.GenerateAccessToken(user.ID, user.Role.String(), user.Email)
 	if err != nil {
@@ -416,7 +424,7 @@ func (s *authService) RefreshToken(ctx context.Context, refreshToken string) (*T
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
 
-	newRefreshToken, err := s.jwt.GenerateRefreshToken(user.ID)
+	newRefreshToken, err := s.jwt.GenerateRefreshToken(user.ID, user.Email)
 	if err != nil {
 		s.logger.Error("Failed to generate refresh token", zap.Error(err))
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)

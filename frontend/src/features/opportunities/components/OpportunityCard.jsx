@@ -5,22 +5,6 @@ import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
 import SavedButton from "./SavedButton";
 
-function formatTimeAgo(dateString) {
-  if (!dateString) return "";
-  const past = new Date(dateString);
-  const now = new Date();
-  const diffMs = now - past;
-  if (diffMs < 0) return "";
-  const diffM = Math.floor(diffMs / 60000);
-  const diffH = Math.floor(diffMs / 3600000);
-  const diffD = Math.floor(diffMs / 86400000);
-  if (diffM < 1) return "just now";
-  if (diffM < 60) return `${diffM}m ago`;
-  if (diffH < 48) return `${diffH}h ago`;
-  if (diffD < 30) return `${diffD}d ago`;
-  return "";
-}
-
 function formatCalendarDate(dateString) {
   if (!dateString) return "";
   const d = new Date(dateString);
@@ -45,10 +29,11 @@ export default function OpportunityCard({ opportunity: raw }) {
   const o = raw || {};
   const id = o.id;
   const title = o.title || "Untitled";
-  const organization = o.organization || "Company";
-  const category = o.category || "";
+  const posterName = o.creator_name || o.organization || "—";
+  const position = (o.position || "").trim();
   const location = o.location || "—";
   const publishedAt = o.published_at;
+  const deadline = o.start_date;
   const urgent = Boolean(o.urgent);
   const savedByMe = o.is_favorite;
 
@@ -64,13 +49,15 @@ export default function OpportunityCard({ opportunity: raw }) {
           <div className="opp-card-brand">
             <div className="opp-card-logo" aria-hidden />
             <div>
-              <div className="opp-card-org">{organization}</div>
-              {category ? <div className="opp-card-cat">{category}</div> : null}
+              <div className="opp-card-org">{posterName}</div>
+              {position ? <div className="opp-card-cat">{position}</div> : null}
             </div>
           </div>
           <div className="opp-card-meta">
-            <div className="opp-card-ago">{formatTimeAgo(publishedAt) || "—"}</div>
-            <div className="opp-card-date">{formatCalendarDate(publishedAt)}</div>
+            <div className="opp-card-pub">{formatCalendarDate(publishedAt) || "—"}</div>
+            <div className="opp-card-deadline">
+              {deadline ? formatCalendarDate(deadline) : "—"}
+            </div>
           </div>
         </div>
 
