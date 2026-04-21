@@ -177,7 +177,7 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess, defau
         desc += (desc ? "\n\n" : "") + `Reference: ${formData.referenceLink.trim()}`;
       }
 
-      const budgetVal = formData.budgetNegotiable ? null : Math.max(0, Number(formData.budgetValue) || 0);
+      const budgetVal = Math.max(0, Number(formData.budgetValue) || 0);
       const payload = {
         title: formData.title.trim(),
         organization: org,
@@ -407,13 +407,12 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess, defau
                   "& .MuiSlider-thumb": { bgcolor: accent },
                   "& .MuiSlider-track": { bgcolor: accent },
                 }}
-                disabled={formData.budgetNegotiable}
               />
               <TextField
                 type="number"
                 size="small"
                 label="Up to (€)"
-                value={formData.budgetNegotiable ? "" : formData.budgetValue}
+                value={formData.budgetValue}
                 onChange={(e) =>
                   setFormData((p) => ({
                     ...p,
@@ -421,7 +420,6 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess, defau
                   }))
                 }
                 sx={{ width: 120 }}
-                disabled={formData.budgetNegotiable}
                 InputProps={{ inputProps: { min: 0 } }}
               />
             </Box>

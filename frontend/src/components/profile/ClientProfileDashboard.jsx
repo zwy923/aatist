@@ -53,7 +53,7 @@ async function fetchPublicProfilesMap(userIds) {
   return map;
 }
 
-function ClientPostCard({ opportunity, applications, profilesById, onOpen }) {
+function ClientPostCard({ opportunity, applications, profilesById, onOpen, onEdit }) {
   const o = opportunity || {};
   const id = o.id;
   const title = o.title || "Untitled brief";
@@ -74,7 +74,7 @@ function ClientPostCard({ opportunity, applications, profilesById, onOpen }) {
             <div style={{ fontSize: 12, color: "#5f6368", marginTop: 2 }}>{pos}</div>
           ) : null}
         </div>
-        <button type="button" className="client-post-card-edit" onClick={() => onOpen(id)}>
+        <button type="button" className="client-post-card-edit" onClick={() => onEdit(id)}>
           <EditOutlinedIcon sx={{ fontSize: 16 }} />
           Edit
         </button>
@@ -159,6 +159,9 @@ export default function ClientProfileDashboard() {
   const [savedUsers, setSavedUsers] = useState([]);
 
   const openOpp = useCallback((id) => navigate(`/opportunities/${id}`), [navigate]);
+  const openOppEdit = useCallback((id) => {
+    navigate(`/opportunities/${id}`, { state: { openEdit: true } });
+  }, [navigate]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -294,6 +297,7 @@ export default function ClientProfileDashboard() {
                   applications={appsByOppId[opp.id] || []}
                   profilesById={profilesById}
                   onOpen={openOpp}
+                  onEdit={openOppEdit}
                 />
               ))}
             </div>

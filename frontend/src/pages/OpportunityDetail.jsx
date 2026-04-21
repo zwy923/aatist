@@ -1,13 +1,22 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   Avatar,
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
   Grid,
+  InputLabel,
+  MenuItem,
   Paper,
+  Select,
   Stack,
+  TextField,
   Typography,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -23,12 +32,29 @@ import useAuthStore from "../shared/stores/authStore";
 
 export default function OpportunityDetailPage() {
   const { id } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [opportunity, setOpportunity] = useState(null);
   const [applyModalOpen, setApplyModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [sidebarError, setSidebarError] = useState("");
+  const [editForm, setEditForm] = useState({
+    title: "",
+    organization: "",
+    position: "",
+    category: "",
+    budgetType: "fixed",
+    budgetValue: "",
+    location: "",
+    durationMonths: "",
+    startDate: "",
+    description: "",
+    urgent: false,
+  });
 
   const reloadOpportunity = useCallback(async () => {
     if (!id) return;
@@ -88,8 +114,100 @@ export default function OpportunityDetailPage() {
     });
   };
 
+  const toDateInputValue = (dateStr) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toISOString().slice(0, 10);
+  };
+
+  const myUserId = user?.id ?? user?.user_id;
+  const isOwner =
+    opportunity?.created_by != null &&
+    myUserId != null &&
+    String(opportunity.created_by) === String(myUserId);
+
+  const buildEditFormFromOpportunity = useCallback((opp) => ({
+    title: opp?.title || "",
+    organization: opp?.organization || "",
+    position: opp?.position || "",
+    category: opp?.category || "",
+    budgetType: opp?.budget_type || "fixed",
+    budgetValue: opp?.budget_value != null ? String(opp.budget_value) : "",
+    location: opp?.location || "",
+    durationMonths: opp?.duration_months != null ? String(opp.duration_months) : "",
+    startDate: toDateInputValue(opp?.start_date),
+    description: opp?.description || "",
+    urgent: !!opp?.urgent,
+  }), []);
+
+  useEffect(() => {
+    if (!opportunity) return;
+    setEditForm(buildEditFormFromOpportunity(opportunity));
+  }, [opportunity, buildEditFormFromOpportunity]);
+
+  useEffect(() => {
+    const shouldOpenEdit = !!location.state?.openEdit;
+    if (!shouldOpenEdit || !opportunity || !isOwner) return;
+    setSidebarError("");
+    setEditForm(buildEditFormFromOpportunity(opportunity));
+    setEditModalOpen(true);
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [location.pathname, location.state, navigate, opportunity, isOwner, buildEditFormFromOpportunity]);
+
   const handleApplySuccess = () => {
     reloadOpportunity();
+  };
+
+  const handleDeleteOpportunity = async () => {
+    if (!opportunity?.id) return;
+    setSidebarError("");
+    if (!window.confirm("Delete this opportunity? This action cannot be undone.")) return;
+    try {
+      await opportunitiesApi.deleteOpportunity(opportunity.id);
+      navigate("/opportunities");
+    } catch (e) {
+      console.error("Opportunity delete error:", e);
+      setSidebarError(e?.response?.data?.message || e?.message || "Failed to delete opportunity");
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!opportunity?.id) return;
+    setSidebarError("");
+    const title = editForm.title.trim();
+    const organization = editForm.organization.trim();
+    const position = editForm.position.trim();
+    const category = editForm.category.trim();
+    const location = editForm.location.trim();
+    if (!title || !organization || !position || !category || !location) {
+      setSidebarError("Please complete title, organization, position, category and location.");
+      return;
+    }
+    const payload = {
+      title,
+      organization,
+      position,
+      category,
+      budgetType: editForm.budgetType,
+      budgetValue: editForm.budgetValue === "" ? null : Math.max(0, Number(editForm.budgetValue) || 0),
+      location,
+      durationMonths: editForm.durationMonths === "" ? null : Math.max(0, Number(editForm.durationMonths) || 0),
+      startDate: editForm.startDate ? `${editForm.startDate}T12:00:00Z` : null,
+      description: editForm.description.trim() || "",
+      urgent: !!editForm.urgent,
+    };
+    setEditSaving(true);
+    try {
+      await opportunitiesApi.updateOpportunity(opportunity.id, payload);
+      setEditModalOpen(false);
+      await reloadOpportunity();
+    } catch (e) {
+      console.error("Opportunity update error:", e);
+      setSidebarError(e?.response?.data?.message || e?.message || "Failed to update opportunity");
+    } finally {
+      setEditSaving(false);
+    }
   };
 
   return (
@@ -192,20 +310,52 @@ export default function OpportunityDetailPage() {
                 {opportunity?.organization || "—"}
               </Typography>
 
-              <Button
-                fullWidth
-                variant="contained"
-                onClick={() => {
-                  if (!isAuthenticated) {
-                    navigate("/auth/login", { state: { from: `/opportunities/${id}` } });
-                    return;
-                  }
-                  setApplyModalOpen(true);
-                }}
-                sx={{ mb: 2, textTransform: "none" }}
-              >
-                Apply for this opportunity
-              </Button>
+              {isOwner ? (
+                <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    onClick={() => {
+                      setSidebarError("");
+                      setEditForm(buildEditFormFromOpportunity(opportunity));
+                      setEditModalOpen(true);
+                    }}
+                    sx={{ textTransform: "none" }}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    fullWidth
+                    color="error"
+                    variant="contained"
+                    onClick={handleDeleteOpportunity}
+                    sx={{ textTransform: "none" }}
+                  >
+                    Delete
+                  </Button>
+                </Stack>
+              ) : (
+                <Button
+                  fullWidth
+                  variant="contained"
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      navigate("/auth/login", { state: { from: `/opportunities/${id}` } });
+                      return;
+                    }
+                    setApplyModalOpen(true);
+                  }}
+                  sx={{ mb: 2, textTransform: "none" }}
+                >
+                  Apply for this opportunity
+                </Button>
+              )}
+
+              {sidebarError ? (
+                <Typography color="error" variant="body2" sx={{ mb: 1.5 }}>
+                  {sidebarError}
+                </Typography>
+              ) : null}
 
               <Box sx={{ borderTop: "1px solid #e5e7eb", pt: 1.5 }}>
                 <Typography color="text.secondary" variant="body2">✓ Fast response time</Typography>
@@ -222,6 +372,102 @@ export default function OpportunityDetailPage() {
           opportunityTitle={opportunity?.title}
           onSuccess={handleApplySuccess}
         />
+
+        <Dialog open={editModalOpen} onClose={() => !editSaving && setEditModalOpen(false)} fullWidth maxWidth="sm">
+          <DialogTitle>Edit opportunity</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <TextField
+                label="Title"
+                fullWidth
+                value={editForm.title}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, title: e.target.value }))}
+              />
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+                <TextField
+                  label="Organization"
+                  fullWidth
+                  value={editForm.organization}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, organization: e.target.value }))}
+                />
+                <TextField
+                  label="Position"
+                  fullWidth
+                  value={editForm.position}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, position: e.target.value }))}
+                />
+              </Stack>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+                <TextField
+                  label="Category"
+                  fullWidth
+                  value={editForm.category}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, category: e.target.value }))}
+                />
+                <TextField
+                  label="Location"
+                  fullWidth
+                  value={editForm.location}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, location: e.target.value }))}
+                />
+              </Stack>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+                <FormControl fullWidth>
+                  <InputLabel id="edit-budget-type-label">Budget type</InputLabel>
+                  <Select
+                    labelId="edit-budget-type-label"
+                    label="Budget type"
+                    value={editForm.budgetType}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, budgetType: e.target.value }))}
+                  >
+                    <MenuItem value="fixed">Fixed</MenuItem>
+                    <MenuItem value="hourly">Hourly</MenuItem>
+                  </Select>
+                </FormControl>
+                <TextField
+                  label="Budget value"
+                  type="number"
+                  fullWidth
+                  value={editForm.budgetValue}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, budgetValue: e.target.value }))}
+                />
+              </Stack>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+                <TextField
+                  label="Duration (months)"
+                  type="number"
+                  fullWidth
+                  value={editForm.durationMonths}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, durationMonths: e.target.value }))}
+                />
+                <TextField
+                  label="Deadline"
+                  type="date"
+                  fullWidth
+                  value={editForm.startDate}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, startDate: e.target.value }))}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Stack>
+              <TextField
+                label="Description"
+                fullWidth
+                multiline
+                rows={4}
+                value={editForm.description}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, description: e.target.value }))}
+              />
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setEditModalOpen(false)} disabled={editSaving} sx={{ textTransform: "none" }}>
+              Cancel
+            </Button>
+            <Button variant="contained" onClick={handleSaveEdit} disabled={editSaving} sx={{ textTransform: "none" }}>
+              {editSaving ? "Saving..." : "Save"}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </StateContainer>
     </PageLayout>
   );
