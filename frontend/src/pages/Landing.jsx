@@ -233,14 +233,20 @@ function Landing() {
           }}
           aria-hidden="true"
         >
-          {activeSide === "client" ? "C" : "A"}
+        {activeSide === "client" ? "C" : "A"}
         </div>
 
+      <div className={`hero-intro ${activeSide}-active`}>
+        <span className="hero-badge">Inside Aalto.</span>
+        <h1 className="hero-title">Real talent, real work.</h1>
+        <p className="hero-description">
+          Connect with verified Aalto creative students for your next project.<br />
+          Or showcase your skills and get hired.
+        </p>
+      </div>
+
         <article className="panel client-panel">
-          <div className="panel-top">
-            <h2>For Client</h2>
-            <p>Post, find services</p>
-          </div>
+        <div className="panel-top" />
           <button
             type="button"
             className="cta-button"
@@ -267,10 +273,7 @@ function Landing() {
         </article>
 
         <article className="panel student-panel">
-          <div className="panel-top">
-            <h2>For Student</h2>
-            <p>Create portfolio, find opportunities</p>
-          </div>
+        <div className="panel-top" />
           <button
             type="button"
             className="cta-button"
@@ -293,6 +296,92 @@ function Landing() {
             ))}
           </div>
         </article>
+      </section>
+
+      <section className="how-it-works">
+        <div className="how-it-works-container">
+          <h2 className="how-it-works-main-title">Two sides. One platform.</h2>
+          
+          <div className="how-it-works-grid">
+            {/* Client Side */}
+            <div className="how-it-works-column client">
+              <h3 className="column-title">For Clients</h3>
+              <div className="step">
+                <span className="step-num">01</span>
+                <div className="step-content">
+                  <h4>Browse talent</h4>
+                  <p>Browse verified Aalto students with portfolios that fit.</p>
+                </div>
+              </div>
+              <div className="step">
+                <span className="step-num">02</span>
+                <div className="step-content">
+                  <h4>Post an opportunity</h4>
+                  <p>Describe your needs, scope and budget in minutes.</p>
+                </div>
+              </div>
+              <div className="step">
+                <span className="step-num">03</span>
+                <div className="step-content">
+                  <h4>Connect & collaborate</h4>
+                  <p>Reach out directly to students and work out the details together.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Student Side */}
+            <div className="how-it-works-column student">
+              <h3 className="column-title">For Aalto Students</h3>
+              <div className="step">
+                <span className="step-num">01</span>
+                <div className="step-content">
+                  <h4>Verify with Aalto</h4>
+                  <p>Sign up using your Aalto email account in seconds.</p>
+                </div>
+              </div>
+              <div className="step">
+                <span className="step-num">02</span>
+                <div className="step-content">
+                  <h4>Build your profile</h4>
+                  <p>Showcase your portfolio, skills, and services.</p>
+                </div>
+              </div>
+              <div className="step">
+                <span className="step-num">03</span>
+                <div className="step-content">
+                  <h4>Get hired</h4>
+                  <p>Receive project invites and grow your real-world experience.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="trust-section">
+        <div className="trust-container">
+          <h2 className="trust-main-title">Built for trust and quality.</h2>
+          <div className="trust-grid">
+            <div className="trust-card">
+              <h4>Verified Aalto Identity</h4>
+              <p>
+                Every student is verified through Aalto University, so you know exactly who you&apos;re hiring.
+              </p>
+            </div>
+            <div className="trust-card">
+              <h4>Transparent Portfolios</h4>
+              <p>
+                Real work, real reviews. Browse complete portfolios before you reach out.
+              </p>
+            </div>
+            <div className="trust-card">
+              <h4>Project-Based Work</h4>
+              <p>
+                Built for short, scoped engagements — no long contracts or overhead.
+              </p>
+            </div>
+          </div>
+        </div>
       </section>
 
       <footer className="landing-footer" aria-label="Legal">
