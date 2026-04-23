@@ -4,15 +4,17 @@ import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
 import SavedButton from "./SavedButton";
+import { getOpportunityCategories } from "../utils/categories";
 
-function formatCalendarDate(dateString) {
+function formatCalendarDate(dateString, style = "mdy") {
   if (!dateString) return "";
   const d = new Date(dateString);
   if (Number.isNaN(d.getTime())) return "";
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  return `${mm}/${dd}/${yyyy}`;
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const year = d.getFullYear();
+  if (style === "dmy") return `${day}/${month}/${year}`;
+  return `${month}/${day}/${year}`;
 }
 
 function formatBudgetLine(o) {
@@ -25,7 +27,7 @@ function formatBudgetLine(o) {
   return `€${n}`;
 }
 
-export default function OpportunityCard({ opportunity: raw }) {
+export default function OpportunityCard({ opportunity: raw, showInterestedAction = true }) {
   const o = raw || {};
   const id = o.id;
   const title = o.title || "Untitled";
@@ -34,11 +36,13 @@ export default function OpportunityCard({ opportunity: raw }) {
   const location = o.location || "—";
   const publishedAt = o.published_at;
   const deadline = o.start_date;
+  const isFlexibleDeadline = o.duration_months == null;
   const urgent = Boolean(o.urgent);
   const savedByMe = o.is_favorite;
 
   const priceLine = formatBudgetLine(o);
   const negotiable = o.budget_value == null;
+  const categories = getOpportunityCategories(o);
 
   return (
     <div className="opp-card">
@@ -56,7 +60,9 @@ export default function OpportunityCard({ opportunity: raw }) {
           <div className="opp-card-meta">
             <div className="opp-card-pub">{formatCalendarDate(publishedAt) || "—"}</div>
             <div className="opp-card-deadline">
-              {deadline ? formatCalendarDate(deadline) : "—"}
+              {isFlexibleDeadline
+                ? "Deadline: Flexible"
+                : `Deadline: ${deadline ? formatCalendarDate(deadline, "dmy") : "—"}`}
             </div>
           </div>
         </div>
@@ -70,15 +76,22 @@ export default function OpportunityCard({ opportunity: raw }) {
           <div className="opp-card-badges">
             {priceLine ? <span className="opp-badge-price">{priceLine}</span> : null}
             {negotiable ? <span className="opp-badge-negotiable">Price Negotiable</span> : null}
+            {categories.map((category) => (
+              <span key={category} className="opp-badge-category">
+                {category}
+              </span>
+            ))}
           </div>
         </div>
       </Link>
 
-      <div className="opp-card-foot">
-        <Link to={`/opportunities/${id}`} className="opp-card-interested">
-          <StarBorderIcon sx={{ fontSize: 20 }} />
-          I am Interested
-        </Link>
+      <div className="opp-card-foot" style={{ justifyContent: showInterestedAction ? "space-between" : "flex-end" }}>
+        {showInterestedAction ? (
+          <Link to={`/opportunities/${id}`} className="opp-card-interested">
+            <StarBorderIcon sx={{ fontSize: 20 }} />
+            I am Interested
+          </Link>
+        ) : null}
         <div className="opp-card-foot-right">
           <SavedButton
             targetId={id}

@@ -7,8 +7,8 @@ import (
 // CreateOpportunityRequest represents the request body for creating an opportunity
 type CreateOpportunityRequest struct {
 	Title          string     `json:"title" binding:"required"`
-	Organization   string     `json:"organization" binding:"required"`
-	Position       string     `json:"position" binding:"required"`
+	Organization   string     `json:"organization"`
+	Position       string     `json:"position"`
 	Category       string     `json:"category" binding:"required"`
 	BudgetType     string     `json:"budgetType" binding:"required,oneof=hourly fixed"`
 	BudgetValue    *float64   `json:"budgetValue" binding:"omitempty,gte=0"`

@@ -269,6 +269,7 @@ const Talents = () => {
     const [hasSearched, setHasSearched] = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [showScrollTop, setShowScrollTop] = useState(false);
+    const [hasLoadedDefaultStudents, setHasLoadedDefaultStudents] = useState(false);
     const resultsRef = useRef(null);
     const searchWrapperRef = useRef(null);
     const { user } = useAuth();
@@ -355,6 +356,20 @@ const Talents = () => {
         }
     }, [user]);
 
+    useEffect(() => {
+        if (search.trim()) {
+            setHasLoadedDefaultStudents(false);
+        }
+    }, [search]);
+
+    useEffect(() => {
+        if (talentType !== 'student') return;
+        if (search.trim()) return;
+        if (hasLoadedDefaultStudents) return;
+        fetchTalents('', faculty, school, program, service);
+        setHasLoadedDefaultStudents(true);
+    }, [talentType, search, hasLoadedDefaultStudents, fetchTalents, faculty, school, program, service]);
+
     const handleSearch = () => {
         setHasSearched(true);
         fetchTalents(search, faculty, school, program, service);
@@ -394,7 +409,10 @@ const Talents = () => {
                             <span>|</span>
                             <span
                                 className={talentType === 'student' ? 'active' : ''}
-                                onClick={() => setTalentType('student')}
+                                onClick={() => {
+                                    setTalentType('student');
+                                    setShowSuggestions(false);
+                                }}
                             >
                                 Student
                             </span>
@@ -605,6 +623,7 @@ const Talents = () => {
                 </section>
 
                 {/* Categories - full grid, hidden when suggestions open */}
+                {talentType !== 'student' && (
                 <section className={`talents-categories ${!hasSearched ? 'talents-categories-fill' : ''} ${showSuggestions && search.trim() ? 'talents-categories-collapsed' : ''}`}>
                     <div className="talents-categories-grid">
                         {CATEGORIES.map((group) => (
@@ -636,9 +655,10 @@ const Talents = () => {
                         ))}
                     </div>
                 </section>
+                )}
 
                 {/* Results section - shown when user has searched */}
-                {hasSearched && (
+                {(hasSearched || talentType === 'student') && (
                     <Box
                         ref={resultsRef}
                         className="talents-results-area"
@@ -652,7 +672,7 @@ const Talents = () => {
                             {/* Page header: category + result count */}
                             <div className="talents-page-header">
                                 <div className="talents-page-header-tab">
-                                    {search || 'All Services'}
+                                    {search || (talentType === 'student' ? 'All Students' : 'All Services')}
                                     <span className="talents-page-header-count">{students.length}</span>
                                 </div>
                             </div>

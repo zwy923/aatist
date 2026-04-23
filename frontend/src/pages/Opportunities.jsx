@@ -27,6 +27,7 @@ export default function OpportunitiesPage() {
   const { user, isAuthenticated } = useAuth();
 
   const canPostOpportunity = isAuthenticated && isClientRole(user?.role);
+  const showInterestedAction = !isAuthenticated || !isClientRole(user?.role);
 
   const queryInput = searchParams.get("q") || "";
   const [draftQ, setDraftQ] = useState(queryInput);
@@ -287,7 +288,7 @@ export default function OpportunitiesPage() {
             >
               <div className="opp-cards-grid">
                 {opportunities.map((opp) => (
-                  <OpportunityCard key={opp.id} opportunity={opp} />
+                  <OpportunityCard key={opp.id} opportunity={opp} showInterestedAction={showInterestedAction} />
                 ))}
               </div>
             </StateContainer>

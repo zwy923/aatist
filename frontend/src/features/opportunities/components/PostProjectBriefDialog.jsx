@@ -93,7 +93,7 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess, defau
     title: "",
     organization: "",
     position: "",
-    category: "",
+    categories: [],
     urgent: false,
     budgetType: "fixed",
     budgetValue: 1500,
@@ -133,7 +133,7 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess, defau
       title: "",
       organization: (defaultOrganization || "").trim(),
       position: "",
-      category: "",
+      categories: [],
       urgent: false,
       budgetType: "fixed",
       budgetValue: 1500,
@@ -154,20 +154,12 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess, defau
       setError("Please describe what you need help with.");
       return;
     }
-    if (!formData.category) {
-      setError("Please select a category.");
+    if (!formData.categories?.length) {
+      setError("Please select at least one category.");
       return;
     }
     const org = formData.organization?.trim() || "";
     const pos = formData.position?.trim() || "";
-    if (!org) {
-      setError("Please enter your organization or company name.");
-      return;
-    }
-    if (!pos) {
-      setError("Please enter your role or job title (shown under your name on the listing).");
-      return;
-    }
 
     setLoading(true);
     try {
@@ -182,12 +174,12 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess, defau
         title: formData.title.trim(),
         organization: org,
         position: pos,
-        category: formData.category,
+        category: formData.categories[0],
         budgetType: formData.budgetType,
         budgetValue: budgetVal,
         location: formData.location,
         description: desc || undefined,
-        tags: [],
+        tags: formData.categories,
         urgent: formData.urgent,
         durationMonths: formData.timelineFlexible ? null : (timelineOpt?.months ?? 1),
         startDate: formData.timelineFlexible || !formData.startDate ? null : `${formData.startDate}T12:00:00Z`,
@@ -237,7 +229,7 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess, defau
               Post a Project Brief
             </Typography>
             <Typography variant="body2" sx={{ opacity: 0.92, maxWidth: 480, lineHeight: 1.5 }}>
-              Reach Aalto talent with a clear brief. Add your company and role so talent knows who is posting.
+              Reach Aalto talent with a clear brief. Add your company and role if helpful so talent knows who is posting.
             </Typography>
           </Box>
           <IconButton
@@ -286,7 +278,6 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess, defau
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mt: 2 }}>
               <TextField
                 fullWidth
-                required
                 label="Organization / company"
                 placeholder="Company or team name"
                 value={formData.organization}
@@ -296,7 +287,6 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess, defau
               />
               <TextField
                 fullWidth
-                required
                 label="Your role / position"
                 placeholder="e.g. Marketing Lead, Founder"
                 value={formData.position}
@@ -322,14 +312,21 @@ export default function PostProjectBriefDialog({ open, onClose, onSuccess, defau
               {CATEGORIES.map((cat) => (
                 <Button
                   key={cat}
-                  variant={formData.category === cat ? "contained" : "outlined"}
+                  variant={formData.categories.includes(cat) ? "contained" : "outlined"}
                   size="small"
-                  onClick={() => setFormData((p) => ({ ...p, category: cat }))}
+                  onClick={() =>
+                    setFormData((p) => ({
+                      ...p,
+                      categories: p.categories.includes(cat)
+                        ? p.categories.filter((c) => c !== cat)
+                        : [...p.categories, cat],
+                    }))
+                  }
                   sx={{
                     textTransform: "none",
                     fontWeight: 600,
                     borderRadius: 2,
-                    ...(formData.category === cat
+                    ...(formData.categories.includes(cat)
                       ? { bgcolor: accent, "&:hover": { bgcolor: accentDark } }
                       : { borderColor: "rgba(0,0,0,0.12)" }),
                   }}

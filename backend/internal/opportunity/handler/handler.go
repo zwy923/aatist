@@ -289,10 +289,6 @@ func (h *OpportunityHandler) CreateOpportunityHandler(c *gin.Context) {
 	}
 	req.Organization = strings.TrimSpace(req.Organization)
 	req.Position = strings.TrimSpace(req.Position)
-	if req.Organization == "" || req.Position == "" {
-		h.respondError(c, http.StatusBadRequest, errs.ErrInvalidInput, "organization and position are required")
-		return
-	}
 
 	input := oppservice.CreateOpportunityInput{
 		Title:          req.Title,

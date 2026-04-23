@@ -28,6 +28,7 @@ import { StateContainer } from "../shared/components/ui/StateContainer";
 import { opportunitiesApi } from "../features/opportunities/api/opportunities";
 import ApplyModal from "../features/opportunities/components/ApplyModal";
 import SavedButton from "../features/opportunities/components/SavedButton";
+import { getOpportunityCategories } from "../features/opportunities/utils/categories";
 import useAuthStore from "../shared/stores/authStore";
 
 export default function OpportunityDetailPage() {
@@ -122,6 +123,8 @@ export default function OpportunityDetailPage() {
   };
 
   const myUserId = user?.id ?? user?.user_id;
+  const categories = getOpportunityCategories(opportunity);
+  const isClientViewer = (user?.role || "").toLowerCase() === "org_person" || (user?.role || "").toLowerCase() === "org_team";
   const isOwner =
     opportunity?.created_by != null &&
     myUserId != null &&
@@ -280,10 +283,10 @@ export default function OpportunityDetailPage() {
                 {opportunity?.description || "No description provided."}
               </Typography>
 
-              {(opportunity?.tags || []).length > 0 && (
+              {categories.length > 0 && (
                 <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 2 }}>
-                  {opportunity.tags.map((tag) => (
-                    <Chip key={tag} label={tag} size="small" />
+                  {categories.map((category) => (
+                    <Chip key={category} label={category} size="small" />
                   ))}
                 </Stack>
               )}
@@ -334,7 +337,7 @@ export default function OpportunityDetailPage() {
                     Delete
                   </Button>
                 </Stack>
-              ) : (
+              ) : !isClientViewer ? (
                 <Button
                   fullWidth
                   variant="contained"
@@ -349,7 +352,7 @@ export default function OpportunityDetailPage() {
                 >
                   Apply for this opportunity
                 </Button>
-              )}
+              ) : null}
 
               {sidebarError ? (
                 <Typography color="error" variant="body2" sx={{ mb: 1.5 }}>
