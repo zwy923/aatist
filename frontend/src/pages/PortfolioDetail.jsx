@@ -221,12 +221,13 @@ export default function PortfolioDetailPage() {
   const descriptionText =
     project?.description?.trim() || project?.short_caption?.trim() || "No description provided for this project yet.";
 
-  const myUserId = user?.id ?? user?.user_id;
+  const myUserId = user?.id ?? user?.user_id ?? user?.userId ?? user?.ID;
+  const projUserId = project?.user_id ?? project?.userId ?? project?.user?.id;
   const isProjectOwner =
     isAuthenticated &&
-    project?.user_id != null &&
+    projUserId != null &&
     myUserId != null &&
-    String(project.user_id) === String(myUserId);
+    String(projUserId) === String(myUserId);
 
   const goEditProject = () => {
     navigate("/profile", { state: { editPortfolioId: projectId } });
