@@ -1,0 +1,239 @@
+# ============================================================
+# aatist backend — 生产 compose(单 EC2 自建全栈)
+# 用法: docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+#
+# 与 dev 版的关键区别:
+#  1. 内部服务(backend/file/chat/postgres/redis/mq)不再向公网暴露端口
+#     —— 只有 gateway 和 minio 绑定到 127.0.0.1,由宿主机 nginx 反代 + TLS
+#  2. 全部 APP_ENV=production,密钥/密码走 .env,无明文默认值
+#  3. MinIO 加了持久化卷(dev 版没有,重启即丢文件)
+#  4. RabbitMQ 用独立账号(guest 默认禁止跨容器连接)
+# ============================================================
+
+x-postgres-dsn: &postgres-dsn
+  POSTGRES_DSN: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+
+services:
+  postgres:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend-mq:
+    image: rabbitmq:3-management
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${MQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${MQ_PASS}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+    # 仅绑定本机,由宿主机 nginx 把 /avatars/ /files/ 反代过来
+    ports:
+      - "127.0.0.1:9000:9000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  migrate:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *postgres-dsn
+      CONFIG_PATH: /app/configs/config.yaml
+      MIGRATIONS_DIR: /app/migrations
+      APP_ENV: production
+    volumes:
+      - ./configs:/app/configs
+      - ./migrations:/app/migrations
+
+  backend:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.backend
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      backend-mq: { condition: service_healthy }
+      minio: { condition: service_started }
+      migrate: { condition: service_completed_successfully }
+    environment:
+      <<: *postgres-dsn
+      SERVICE_NAME: backend
+      CONFIG_PATH: /app/configs/config.yaml
+      APP_ENV: production
+      HTTP_PORT: "8081"
+      DISABLE_EMAIL_VERIFICATION: ${DISABLE_EMAIL_VERIFICATION:-false}
+      REDIS_ADDR: redis:6379
+      MQ_BROKER: amqp://${MQ_USER}:${MQ_PASS}@backend-mq:5672/
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN}
+      GATEWAY_URL: http://gateway:8080
+      # backend 用 avatars 桶 —— public URL 也要指到 /avatars
+      S3_ENDPOINT: minio:9000
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      S3_BUCKET: avatars
+      S3_USE_SSL: "false"
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL_AVATARS}
+      # 邮件 + OAuth
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY}
+      SENDGRID_FROM_EMAIL: ${SENDGRID_FROM_EMAIL}
+      FRONTEND_URL: ${FRONTEND_URL}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET}
+      GOOGLE_OAUTH_REDIRECT_URI: ${GOOGLE_OAUTH_REDIRECT_URI}
+    volumes:
+      - ./configs:/app/configs
+
+  file-service:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.file-service
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+      minio: { condition: service_started }
+      migrate: { condition: service_completed_successfully }
+    environment:
+      <<: *postgres-dsn
+      SERVICE_NAME: file-service
+      CONFIG_PATH: /app/configs/config.yaml
+      APP_ENV: production
+      HTTP_PORT: "8086"
+      S3_ENDPOINT: minio:9000
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      S3_BUCKET: files
+      S3_USE_SSL: "false"
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL_FILES}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN}
+    volumes:
+      - ./configs:/app/configs
+
+  chat-service:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.chat-service
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    environment:
+      <<: *postgres-dsn
+      SERVICE_NAME: chat-service
+      CONFIG_PATH: /app/configs/config.yaml
+      APP_ENV: production
+      HTTP_PORT: "8088"
+      # 必须和 gateway/backend 一致,否则直连 chat 时 Bearer 校验不过
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN}
+    volumes:
+      - ./configs:/app/configs
+
+  email-worker:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.email-worker
+    restart: unless-stopped
+    depends_on:
+      backend-mq: { condition: service_healthy }
+    environment:
+      SERVICE_NAME: email-worker
+      CONFIG_PATH: /app/configs/config.yaml
+      APP_ENV: production
+      MQ_BROKER: amqp://${MQ_USER}:${MQ_PASS}@backend-mq:5672/
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY}
+      SENDGRID_FROM_EMAIL: ${SENDGRID_FROM_EMAIL}
+      FRONTEND_URL: ${FRONTEND_URL}
+    volumes:
+      - ./configs:/app/configs
+
+  ai-worker:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.ai-worker
+    restart: unless-stopped
+    depends_on:
+      backend-mq: { condition: service_healthy }
+    environment:
+      SERVICE_NAME: ai-worker
+      CONFIG_PATH: /app/configs/config.yaml
+      APP_ENV: production
+      MQ_BROKER: amqp://${MQ_USER}:${MQ_PASS}@backend-mq:5672/
+    volumes:
+      - ./configs:/app/configs
+
+  gateway:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.gateway
+    restart: unless-stopped
+    depends_on:
+      redis: { condition: service_healthy }
+      backend: { condition: service_started }
+      file-service: { condition: service_started }
+      chat-service: { condition: service_started }
+    environment:
+      SERVICE_NAME: gateway
+      CONFIG_PATH: /app/configs/config.yaml
+      APP_ENV: production
+      HTTP_PORT: "8080"
+      REDIS_ADDR: redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      CHAT_SERVICE_URL: http://chat-service:8088
+    # 仅暴露给本机 nginx
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./configs:/app/configs
+
+volumes:
+  postgres_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+  minio_data:
+    driver: local
