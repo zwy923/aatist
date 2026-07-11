@@ -21,6 +21,7 @@ import (
 	authhandler "github.com/aatist/backend/internal/user/handler"
 	userrepository "github.com/aatist/backend/internal/user/repository"
 	"github.com/aatist/backend/internal/user/service"
+	waitlisthandler "github.com/aatist/backend/internal/waitlist/handler"
 	"go.uber.org/zap"
 )
 
@@ -130,6 +131,9 @@ func main() {
 
 	// ========== Notification module ==========
 	notificationHandler := notifhandler.NewNotificationHandler(notificationService, logger)
+
+	// ========== Waitlist module (temporary user-research landing page) ==========
+	waitlistHandler := waitlisthandler.NewWaitlistHandler(postgres.GetDB())
 
 	// ========== Setup router ==========
 	router := app.NewDefaultRouter(logger, "backend")
@@ -261,6 +265,14 @@ func main() {
 		userNotifications.PATCH("/read-all", notificationHandler.MarkAllNotificationsAsReadHandler)
 		userNotifications.DELETE("/:id", notificationHandler.DeleteNotificationHandler)
 		userNotifications.DELETE("", notificationHandler.DeleteMultipleNotificationsHandler)
+	}
+
+	// ----- Waitlist routes (public; temporary user-research landing page) -----
+	waitlistGroup := api.Group("/waitlist")
+	{
+		waitlistGroup.POST("", waitlistHandler.CreateHandler)
+		waitlistGroup.PATCH("/:id/consent", waitlistHandler.ConsentHandler)
+		waitlistGroup.POST("/pageview", waitlistHandler.PageViewHandler)
 	}
 
 	// Start HTTP server
