@@ -2,32 +2,28 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
-import ResearchLanding from "./pages/ResearchLanding.jsx";
-
-// --- Hidden while the waitlist research landing page is live (not deleted). ---
-// To restore the full app, uncomment these imports and swap back the <Routes> below.
-// import Landing from "./pages/Landing.jsx";
-// import Login from "./pages/Login.jsx";
-// import ClientLogin from "./pages/ClientLogin.jsx";
-// import StudentLogin from "./pages/StudentLogin.jsx";
-// import AuthCallback from "./pages/AuthCallback.jsx";
-// import GoogleOAuthComplete from "./pages/GoogleOAuthComplete.jsx";
-// import Register from "./pages/Register.jsx";
-// import Profile from "./pages/Profile.jsx";
-// import Verify from "./pages/Verify.jsx";
-// import MessagesPage from "./pages/Messages.jsx";
-// import OpportunitiesPage from "./pages/Opportunities.jsx";
-// import OpportunityDetailPage from "./pages/OpportunityDetail.jsx";
-// import TalentsPage from "./pages/Talents.jsx";
-// import PublicProfilePage from "./pages/PublicProfile.jsx";
-// import ServiceDetailPage from "./pages/ServiceDetail.jsx";
-// import PortfolioDetailPage from "./pages/PortfolioDetail.jsx";
-// import AboutPage from "./pages/About.jsx";
-// import TermsPage from "./pages/Terms.jsx";
-// import PrivacyPage from "./pages/Privacy.jsx";
-// import AuthSessionGate from "./shared/components/auth/AuthSessionGate.jsx";
-// import SessionActivityTracker from "./shared/components/auth/SessionActivityTracker.jsx";
-// import { ChatProvider } from "./features/messages/ChatProvider.jsx";
+import Landing from "./pages/Landing.jsx";
+import Login from "./pages/Login.jsx";
+import ClientLogin from "./pages/ClientLogin.jsx";
+import StudentLogin from "./pages/StudentLogin.jsx";
+import AuthCallback from "./pages/AuthCallback.jsx";
+import GoogleOAuthComplete from "./pages/GoogleOAuthComplete.jsx";
+import Register from "./pages/Register.jsx";
+import Profile from "./pages/Profile.jsx";
+import Verify from "./pages/Verify.jsx";
+import MessagesPage from "./pages/Messages.jsx";
+import OpportunitiesPage from "./pages/Opportunities.jsx";
+import OpportunityDetailPage from "./pages/OpportunityDetail.jsx";
+import TalentsPage from "./pages/Talents.jsx";
+import PublicProfilePage from "./pages/PublicProfile.jsx";
+import ServiceDetailPage from "./pages/ServiceDetail.jsx";
+import PortfolioDetailPage from "./pages/PortfolioDetail.jsx";
+import AboutPage from "./pages/About.jsx";
+import TermsPage from "./pages/Terms.jsx";
+import PrivacyPage from "./pages/Privacy.jsx";
+import AuthSessionGate from "./shared/components/auth/AuthSessionGate.jsx";
+import SessionActivityTracker from "./shared/components/auth/SessionActivityTracker.jsx";
+import { ChatProvider } from "./features/messages/ChatProvider.jsx";
 
 import "./styles/global.css";
 
@@ -72,16 +68,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           v7_relativeSplatPath: true,
         }}
       >
-        {/*
-          Hidden while the waitlist research landing page is live (not deleted).
-          Restore by re-wrapping with <AuthSessionGate>/<ChatProvider> and swapping
-          back the commented <Routes> below.
-        */}
-        <Routes>
-          <Route path="/" element={<ResearchLanding />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-        {/*
         <AuthSessionGate>
           <SessionActivityTracker />
           <ChatProvider>
@@ -109,7 +95,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           </Routes>
           </ChatProvider>
         </AuthSessionGate>
-        */}
       </BrowserRouter>
     </ThemeProvider>
   </React.StrictMode>

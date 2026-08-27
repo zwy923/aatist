@@ -184,9 +184,6 @@ func registerPublicRoutes(group *gin.RouterGroup, getTimeout func(string) time.D
 				{"GET", "/portfolio"},
 				{"GET", "/portfolio/:id"},
 				{"GET", "/users/:id/portfolio"},
-				{"POST", "/waitlist"},
-				{"PATCH", "/waitlist/:id/consent"},
-				{"POST", "/waitlist/pageview"},
 			},
 		},
 	}
